@@ -180,11 +180,13 @@ export default function SalesPage() {
         individualProducts.push({
           ...item,
           ticketIndex: i + 1,
+          saleId: Date.now() + Math.random(), // ID único para cada ticket
         })
       }
     })
 
     const totalProducts = individualProducts.length
+    const saleDate = new Date().toLocaleString("es-ES")
 
     console.log(`🎫 Imprimiendo ${totalProducts} tickets individuales...`)
 
@@ -196,47 +198,51 @@ export default function SalesPage() {
       console.log(`📄 Creando ticket ${currentNumber} de ${totalProducts} para: ${item.name}`)
 
       const ticketContent = `
-    <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: center; padding: 5mm;">
-      <div style="margin-bottom: 6mm;">
-        <div style="font-size: 18px; font-weight: bold; margin-bottom: 2mm;">SANCHEZ PARK</div>
-        <div style="font-size: 10px; margin-bottom: 1mm;">Sistema de Punto de Venta</div>
-        <div style="font-size: 10px;">RUC: 20123456789</div>
+    <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: center; padding: 5mm; border: 2px dashed #000; margin: 10px;">
+      
+      <!-- Header del ticket -->
+      <div style="margin-bottom: 8mm; border-bottom: 1px dashed #000; padding-bottom: 4mm;">
+        <div style="font-size: 16px; font-weight: bold; margin-bottom: 2mm;">Ticket de Venta</div>
+        <div style="font-size: 14px; font-weight: bold;">#${String(currentNumber).padStart(3, "0")}</div>
       </div>
       
-      <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4mm 0; margin: 4mm 0; text-align: left;">
-        <div style="text-align: center; font-weight: bold; margin-bottom: 3mm; font-size: 14px;">TICKET INDIVIDUAL</div>
+      <!-- Información del producto -->
+      <div style="text-align: left; margin-bottom: 6mm;">
+        <div style="margin-bottom: 3mm;">
+          <strong style="font-size: 13px;">Producto:</strong> 
+          <span style="font-size: 13px;">${item.name}</span>
+        </div>
         
-        <div style="margin-bottom: 1mm; font-size: 11px;">Fecha: ${new Date().toLocaleString("es-ES")}</div>
-        <div style="margin-bottom: 1mm; font-size: 11px;">Vendedor: ${user?.displayName || user?.email}</div>
-        <div style="margin-bottom: 1mm; font-size: 11px;">Ticket: ${ticketNumber}</div>
-        <div style="margin-bottom: 3mm; font-size: 11px; font-weight: bold;">Unidad: ${currentNumber} de ${totalProducts}</div>
+        <div style="margin-bottom: 3mm;">
+          <strong style="font-size: 13px;">Cantidad:</strong> 
+          <span style="font-size: 13px;">1</span>
+        </div>
         
-        <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
-          <div style="margin-bottom: 2mm;">
-            <div style="font-weight: bold; margin-bottom: 1mm;">${item.name}</div>
-            <div style="display: flex; justify-content: space-between;">
-              <span>Precio: 1 unidad</span>
-              <span style="font-weight: bold;">S/. ${item.price.toFixed(2)}</span>
-            </div>
-          </div>
+        <div style="margin-bottom: 3mm;">
+          <strong style="font-size: 13px;">Precio:</strong> 
+          <span style="font-size: 13px;">S/. ${item.price.toFixed(2)}</span>
         </div>
         
         <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
-          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-bottom: 2mm;">
-            <span>TOTAL A PAGAR:</span>
-            <span>S/. ${item.price.toFixed(2)}</span>
-          </div>
-          <div style="margin-bottom: 1mm; font-size: 11px;">
-            <span>Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</span>
-          </div>
+          <strong style="font-size: 14px;">Total: S/. ${item.price.toFixed(2)}</strong>
         </div>
       </div>
       
-      <div style="margin-top: 6mm; font-size: 10px;">
-        <div style="margin-bottom: 1mm;">¡Gracias por su compra!</div>
-        <div style="margin-bottom: 1mm;">Conserve este ticket</div>
-        <div style="margin-top: 3mm;">www.sanchezpark.com</div>
+      <!-- Información adicional -->
+      <div style="border-top: 1px dashed #000; padding-top: 4mm; margin-top: 4mm; font-size: 10px; text-align: center;">
+        <div style="margin-bottom: 2mm;">Fecha: ${saleDate}</div>
+        <div style="margin-bottom: 2mm;">Vendedor: ${user?.displayName || user?.email}</div>
+        <div style="margin-bottom: 2mm;">Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</div>
+        <div style="margin-bottom: 2mm;">Ticket: ${currentNumber} de ${totalProducts}</div>
       </div>
+      
+      <!-- Footer -->
+      <div style="margin-top: 6mm; font-size: 10px; text-align: center; border-top: 1px dashed #000; padding-top: 4mm;">
+        <div style="margin-bottom: 2mm; font-weight: bold;">¡Gracias por su compra!</div>
+        <div style="margin-bottom: 1mm;">Sanchez Park</div>
+        <div style="font-size: 9px; color: #666;">Conserve este ticket</div>
+      </div>
+      
     </div>
     `
 
@@ -244,12 +250,12 @@ export default function SalesPage() {
       setTimeout(() => {
         console.log(`🖨️ Abriendo ventana de impresión para ticket ${currentNumber}`)
 
-        const printWindow = window.open("", `ticket-${currentNumber}`, "width=300,height=600")
+        const printWindow = window.open("", `ticket-${currentNumber}`, "width=350,height=600")
         if (printWindow) {
           printWindow.document.write(`
         <html>
           <head>
-            <title>Ticket ${currentNumber} de ${totalProducts} - ${item.name}</title>
+            <title>Ticket ${currentNumber} - ${item.name}</title>
             <style>
               @media print {
                 body { 
@@ -266,6 +272,10 @@ export default function SalesPage() {
                 font-family: 'Courier New', monospace;
                 margin: 0;
                 padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
               }
             </style>
           </head>
@@ -293,7 +303,7 @@ export default function SalesPage() {
       }, globalIndex * 1500) // Delay de 1.5 segundos entre cada ticket
     })
 
-    console.log(`✅ Programados ${totalProducts} tickets para impresión`)
+    console.log(`✅ Programados ${totalProducts} tickets individuales para impresión`)
   }
 
   return (
