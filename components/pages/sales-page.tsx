@@ -177,16 +177,23 @@ export default function SalesPage() {
     const individualProducts = []
     cart.forEach((item) => {
       for (let i = 0; i < item.quantity; i++) {
-        individualProducts.push(item)
+        individualProducts.push({
+          ...item,
+          ticketIndex: i + 1,
+        })
       }
     })
 
     const totalProducts = individualProducts.length
 
+    console.log(`🎫 Imprimiendo ${totalProducts} tickets individuales...`)
+
     // Imprimir cada producto individual con numeración
-    individualProducts.forEach((item, index) => {
-      const currentNumber = index + 1
+    individualProducts.forEach((item, globalIndex) => {
+      const currentNumber = globalIndex + 1
       const ticketNumber = `${Date.now()}-${currentNumber}`
+
+      console.log(`📄 Creando ticket ${currentNumber} de ${totalProducts} para: ${item.name}`)
 
       const ticketContent = `
     <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: center; padding: 5mm;">
@@ -235,7 +242,9 @@ export default function SalesPage() {
 
       // Crear ventana de impresión con delay entre tickets
       setTimeout(() => {
-        const printWindow = window.open("", "_blank")
+        console.log(`🖨️ Abriendo ventana de impresión para ticket ${currentNumber}`)
+
+        const printWindow = window.open("", `ticket-${currentNumber}`, "width=300,height=600")
         if (printWindow) {
           printWindow.document.write(`
         <html>
@@ -263,22 +272,28 @@ export default function SalesPage() {
           <body>
             ${ticketContent}
             <script>
+              console.log('Ticket ${currentNumber} cargado, iniciando impresión...');
               window.onload = function() {
                 setTimeout(function() {
                   window.print();
                   setTimeout(function() {
+                    console.log('Cerrando ventana del ticket ${currentNumber}');
                     window.close();
-                  }, 1500);
-                }, 300);
+                  }, 2000);
+                }, 500);
               }
             </script>
           </body>
         </html>
         `)
           printWindow.document.close()
+        } else {
+          console.error(`❌ No se pudo abrir ventana para ticket ${currentNumber}`)
         }
-      }, index * 1000) // Delay de 1 segundo entre cada ticket
+      }, globalIndex * 1500) // Delay de 1.5 segundos entre cada ticket
     })
+
+    console.log(`✅ Programados ${totalProducts} tickets para impresión`)
   }
 
   return (
