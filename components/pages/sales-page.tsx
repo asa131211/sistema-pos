@@ -161,7 +161,9 @@ export default function SalesPage() {
 
       setCart([])
       setShowCheckout(false)
-      toast.success("Venta procesada exitosamente")
+      toast.success("Venta procesada exitosamente", {
+        duration: 2000, // 2 segundos
+      })
     } catch (error) {
       console.error("Error processing sale:", error)
       toast.error("Error al procesar la venta")
@@ -172,89 +174,93 @@ export default function SalesPage() {
 
   const printTickets = () => {
     cart.forEach((item) => {
+      // Imprimir un ticket por cada producto individual
       for (let i = 0; i < item.quantity; i++) {
+        const ticketNumber = `${Date.now()}-${i + 1}`
         const ticketContent = `
-          <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.2; text-align: center; padding: 5mm;">
-            <div style="margin-bottom: 8mm;">
-              <div style="font-size: 16px; font-weight: bold; margin-bottom: 2mm;">SANCHEZ PARK</div>
-              <div style="font-size: 10px; margin-bottom: 1mm;">Sistema de Punto de Venta</div>
-              <div style="font-size: 10px;">RUC: 20123456789</div>
-            </div>
+        <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.2; text-align: center; padding: 5mm;">
+          <div style="margin-bottom: 8mm;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 2mm;">SANCHEZ PARK</div>
+            <div style="font-size: 10px; margin-bottom: 1mm;">Sistema de Punto de Venta</div>
+            <div style="font-size: 10px;">RUC: 20123456789</div>
+          </div>
+          
+          <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 3mm 0; margin: 3mm 0; text-align: left;">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 2mm;">TICKET INDIVIDUAL</div>
+            <div style="margin-bottom: 1mm;">Fecha: ${new Date().toLocaleString("es-ES")}</div>
+            <div style="margin-bottom: 1mm;">Vendedor: ${user?.displayName || user?.email}</div>
+            <div style="margin-bottom: 2mm;">Ticket: ${ticketNumber}</div>
             
-            <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 3mm 0; margin: 3mm 0; text-align: left;">
-              <div style="text-align: center; font-weight: bold; margin-bottom: 2mm;">TICKET DE VENTA</div>
-              <div style="margin-bottom: 1mm;">Fecha: ${new Date().toLocaleString("es-ES")}</div>
-              <div style="margin-bottom: 1mm;">Vendedor: ${user?.displayName || user?.email}</div>
-              <div style="margin-bottom: 2mm;">Ticket: ${Date.now()}</div>
-              
-              <div style="border-top: 1px dashed #000; padding-top: 2mm; margin-top: 2mm;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
-                  <span style="width: 60%; text-align: left;">${item.name}</span>
-                  <span style="width: 40%; text-align: right;">S/. ${item.price.toFixed(2)}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
-                  <span>Cantidad: 1</span>
-                  <span>Subtotal: S/. ${item.price.toFixed(2)}</span>
-                </div>
+            <div style="border-top: 1px dashed #000; padding-top: 2mm; margin-top: 2mm;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
+                <span style="width: 60%; text-align: left;">${item.name}</span>
+                <span style="width: 40%; text-align: right;">S/. ${item.price.toFixed(2)}</span>
               </div>
-              
-              <div style="border-top: 1px dashed #000; padding-top: 2mm; margin-top: 2mm;">
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
-                  <span>TOTAL:</span>
-                  <span>S/. ${item.price.toFixed(2)}</span>
-                </div>
-                <div style="margin-top: 1mm;">
-                  <span>Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</span>
-                </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
+                <span>Cantidad: 1 unidad</span>
+                <span>Total: S/. ${item.price.toFixed(2)}</span>
               </div>
             </div>
             
-            <div style="margin-top: 5mm; font-size: 10px;">
-              <div>¡Gracias por su compra!</div>
-              <div>Conserve este ticket</div>
-              <div style="margin-top: 2mm;">www.sanchezpark.com</div>
+            <div style="border-top: 1px dashed #000; padding-top: 2mm; margin-top: 2mm;">
+              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+                <span>TOTAL A PAGAR:</span>
+                <span>S/. ${item.price.toFixed(2)}</span>
+              </div>
+              <div style="margin-top: 1mm;">
+                <span>Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</span>
+              </div>
             </div>
           </div>
-        `
+          
+          <div style="margin-top: 5mm; font-size: 10px;">
+            <div>¡Gracias por su compra!</div>
+            <div>Conserve este ticket</div>
+            <div style="margin-top: 2mm;">www.sanchezpark.com</div>
+          </div>
+        </div>
+      `
 
         const printWindow = window.open("", "_blank")
         if (printWindow) {
           printWindow.document.write(`
-            <html>
-              <head>
-                <title>Ticket - ${item.name}</title>
-                <style>
-                  @media print {
-                    body { 
-                      margin: 0; 
-                      padding: 0;
-                      font-family: 'Courier New', monospace;
-                    }
-                    @page { 
-                      size: 80mm auto; 
-                      margin: 0; 
-                    }
-                  }
-                  body {
-                    font-family: 'Courier New', monospace;
-                    margin: 0;
+          <html>
+            <head>
+              <title>Ticket Individual - ${item.name}</title>
+              <style>
+                @media print {
+                  body { 
+                    margin: 0; 
                     padding: 0;
+                    font-family: 'Courier New', monospace;
                   }
-                </style>
-              </head>
-              <body>
-                ${ticketContent}
-                <script>
-                  window.onload = function() {
+                  @page { 
+                    size: 80mm auto; 
+                    margin: 0; 
+                  }
+                }
+                body {
+                  font-family: 'Courier New', monospace;
+                  margin: 0;
+                  padding: 0;
+                }
+              </style>
+            </head>
+            <body>
+              ${ticketContent}
+              <script>
+                window.onload = function() {
+                  setTimeout(function() {
+                    window.print();
                     setTimeout(function() {
-                      window.print();
                       window.close();
-                    }, 500);
-                  }
-                </script>
-              </body>
-            </html>
-          `)
+                    }, 2000);
+                  }, 500);
+                }
+              </script>
+            </body>
+          </html>
+        `)
           printWindow.document.close()
         }
       }
@@ -338,8 +344,8 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Carrito */}
-        <div className="w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+        {/* Carrito - Hacer más pequeño */}
+        <div className="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold flex items-center">
