@@ -173,97 +173,111 @@ export default function SalesPage() {
   }
 
   const printTickets = () => {
+    // Crear array con todos los productos individuales
+    const individualProducts = []
     cart.forEach((item) => {
-      // Imprimir un ticket por cada producto individual
       for (let i = 0; i < item.quantity; i++) {
-        const ticketNumber = `${Date.now()}-${i + 1}`
-        const ticketContent = `
-        <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.2; text-align: center; padding: 5mm;">
-          <div style="margin-bottom: 8mm;">
-            <div style="font-size: 16px; font-weight: bold; margin-bottom: 2mm;">SANCHEZ PARK</div>
-            <div style="font-size: 10px; margin-bottom: 1mm;">Sistema de Punto de Venta</div>
-            <div style="font-size: 10px;">RUC: 20123456789</div>
-          </div>
-          
-          <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 3mm 0; margin: 3mm 0; text-align: left;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 2mm;">TICKET INDIVIDUAL</div>
-            <div style="margin-bottom: 1mm;">Fecha: ${new Date().toLocaleString("es-ES")}</div>
-            <div style="margin-bottom: 1mm;">Vendedor: ${user?.displayName || user?.email}</div>
-            <div style="margin-bottom: 2mm;">Ticket: ${ticketNumber}</div>
-            
-            <div style="border-top: 1px dashed #000; padding-top: 2mm; margin-top: 2mm;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
-                <span style="width: 60%; text-align: left;">${item.name}</span>
-                <span style="width: 40%; text-align: right;">S/. ${item.price.toFixed(2)}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
-                <span>Cantidad: 1 unidad</span>
-                <span>Total: S/. ${item.price.toFixed(2)}</span>
-              </div>
+        individualProducts.push(item)
+      }
+    })
+
+    const totalProducts = individualProducts.length
+
+    // Imprimir cada producto individual con numeración
+    individualProducts.forEach((item, index) => {
+      const currentNumber = index + 1
+      const ticketNumber = `${Date.now()}-${currentNumber}`
+
+      const ticketContent = `
+    <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: center; padding: 5mm;">
+      <div style="margin-bottom: 6mm;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 2mm;">SANCHEZ PARK</div>
+        <div style="font-size: 10px; margin-bottom: 1mm;">Sistema de Punto de Venta</div>
+        <div style="font-size: 10px;">RUC: 20123456789</div>
+      </div>
+      
+      <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4mm 0; margin: 4mm 0; text-align: left;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 3mm; font-size: 14px;">TICKET INDIVIDUAL</div>
+        
+        <div style="margin-bottom: 1mm; font-size: 11px;">Fecha: ${new Date().toLocaleString("es-ES")}</div>
+        <div style="margin-bottom: 1mm; font-size: 11px;">Vendedor: ${user?.displayName || user?.email}</div>
+        <div style="margin-bottom: 1mm; font-size: 11px;">Ticket: ${ticketNumber}</div>
+        <div style="margin-bottom: 3mm; font-size: 11px; font-weight: bold;">Unidad: ${currentNumber} de ${totalProducts}</div>
+        
+        <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
+          <div style="margin-bottom: 2mm;">
+            <div style="font-weight: bold; margin-bottom: 1mm;">${item.name}</div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Precio: 1 unidad</span>
+              <span style="font-weight: bold;">S/. ${item.price.toFixed(2)}</span>
             </div>
-            
-            <div style="border-top: 1px dashed #000; padding-top: 2mm; margin-top: 2mm;">
-              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
-                <span>TOTAL A PAGAR:</span>
-                <span>S/. ${item.price.toFixed(2)}</span>
-              </div>
-              <div style="margin-top: 1mm;">
-                <span>Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div style="margin-top: 5mm; font-size: 10px;">
-            <div>¡Gracias por su compra!</div>
-            <div>Conserve este ticket</div>
-            <div style="margin-top: 2mm;">www.sanchezpark.com</div>
           </div>
         </div>
-      `
+        
+        <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-bottom: 2mm;">
+            <span>TOTAL A PAGAR:</span>
+            <span>S/. ${item.price.toFixed(2)}</span>
+          </div>
+          <div style="margin-bottom: 1mm; font-size: 11px;">
+            <span>Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 6mm; font-size: 10px;">
+        <div style="margin-bottom: 1mm;">¡Gracias por su compra!</div>
+        <div style="margin-bottom: 1mm;">Conserve este ticket</div>
+        <div style="margin-top: 3mm;">www.sanchezpark.com</div>
+      </div>
+    </div>
+    `
 
+      // Crear ventana de impresión con delay entre tickets
+      setTimeout(() => {
         const printWindow = window.open("", "_blank")
         if (printWindow) {
           printWindow.document.write(`
-          <html>
-            <head>
-              <title>Ticket Individual - ${item.name}</title>
-              <style>
-                @media print {
-                  body { 
-                    margin: 0; 
-                    padding: 0;
-                    font-family: 'Courier New', monospace;
-                  }
-                  @page { 
-                    size: 80mm auto; 
-                    margin: 0; 
-                  }
-                }
-                body {
-                  font-family: 'Courier New', monospace;
-                  margin: 0;
+        <html>
+          <head>
+            <title>Ticket ${currentNumber} de ${totalProducts} - ${item.name}</title>
+            <style>
+              @media print {
+                body { 
+                  margin: 0; 
                   padding: 0;
+                  font-family: 'Courier New', monospace;
                 }
-              </style>
-            </head>
-            <body>
-              ${ticketContent}
-              <script>
-                window.onload = function() {
+                @page { 
+                  size: 80mm auto; 
+                  margin: 0; 
+                }
+              }
+              body {
+                font-family: 'Courier New', monospace;
+                margin: 0;
+                padding: 0;
+              }
+            </style>
+          </head>
+          <body>
+            ${ticketContent}
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
                   setTimeout(function() {
-                    window.print();
-                    setTimeout(function() {
-                      window.close();
-                    }, 2000);
-                  }, 500);
-                }
-              </script>
-            </body>
-          </html>
+                    window.close();
+                  }, 1500);
+                }, 300);
+              }
+            </script>
+          </body>
+        </html>
         `)
           printWindow.document.close()
         }
-      }
+      }, index * 1000) // Delay de 1 segundo entre cada ticket
     })
   }
 
