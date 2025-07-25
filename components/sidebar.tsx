@@ -1,113 +1,125 @@
 "use client"
-
-import { useState } from "react"
-import { cn } from "@/lib/utils"
+import { useAuthState } from "react-firebase-hooks/auth"
+import { signOut } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
-import { Home, ShoppingCart, Package, Users, BarChart3, Settings, DollarSign, Menu, X } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Home, ShoppingCart, Package, Users, BarChart3, Settings, LogOut, X } from "lucide-react"
 
 interface SidebarProps {
   currentPage: string
-  setCurrentPage: (page: string) => void
-  userRole: "admin" | "vendedor" | null
+  onPageChange: (page: string) => void
+  isOpen: boolean
+  onClose: () => void
 }
 
-export default function Sidebar({ currentPage, setCurrentPage, userRole }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+const menuItems = [
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "sales", label: "Punto de Venta", icon: ShoppingCart },
+  { id: "products", label: "Productos", icon: Package },
+  { id: "users", label: "Usuarios", icon: Users },
+  { id: "reports", label: "Reportes", icon: BarChart3 },
+  { id: "settings", label: "Configuración", icon: Settings },
+]
 
-  const adminMenuItems = [
-    { id: "inicio", label: "Dashboard", icon: Home },
-    { id: "ventas", label: "Punto de Venta", icon: ShoppingCart },
-    { id: "productos", label: "Productos", icon: Package },
-    { id: "usuarios", label: "Usuarios", icon: Users },
-    { id: "reportes", label: "Reportes", icon: BarChart3 },
-    { id: "configuracion", label: "Configuración", icon: Settings },
-  ]
+export default function Sidebar({ currentPage, onPageChange, isOpen, onClose }: SidebarProps) {
+  const [user] = useAuthState(auth)
 
-  const vendedorMenuItems = [
-    { id: "ventas", label: "Punto de Venta", icon: ShoppingCart },
-    { id: "configuracion", label: "Configuración", icon: Settings },
-  ]
-
-  const menuItems = userRole === "admin" ? adminMenuItems : vendedorMenuItems
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
 
   return (
-    <div
-      className={cn(
-        "bg-gradient-to-b from-blue-900 to-blue-800 text-white flex flex-col shadow-xl transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64",
-      )}
-    >
-      {/* Header con botón de colapso */}
+    <>
+      {/* Overlay para móvil */}
+      {isOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={onClose} />}
+
+      {/* Sidebar fijo */}
       <div
-        className={cn(
-          "p-4 border-b border-blue-700 flex items-center",
-          isCollapsed ? "justify-center" : "justify-between",
-        )}
+        className={`
+        fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-600 to-blue-800 text-white z-50
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        lg:relative lg:transform-none
+        flex flex-col
+      `}
       >
-        {!isCollapsed && (
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-              <DollarSign className="h-6 w-6 text-blue-600" />
+        {/* Header */}
+        <div className="p-6 border-b border-blue-500/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                <span className="text-blue-600 font-bold text-lg">$</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Sanchez Park</h1>
+                <p className="text-blue-200 text-sm">Administrador</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold">Sanchez Park</h1>
-              <p className="text-xs text-blue-200 capitalize">{userRole === "admin" ? "Administrador" : "Vendedor"}</p>
-            </div>
-          </div>
-        )}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-white hover:bg-blue-700 p-2"
-        >
-          {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
-        </Button>
-      </div>
-
-      {/* Navegación */}
-      <nav className="flex-1 p-2 space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon
-          return (
-            <Button
-              key={item.id}
-              variant="ghost"
-              className={cn(
-                "w-full text-white hover:bg-blue-700 transition-all duration-200 justify-start",
-                currentPage === item.id && "bg-blue-600 shadow-lg hover:bg-blue-600",
-                isCollapsed ? "px-2 justify-center" : "px-3",
-              )}
-              onClick={() => setCurrentPage(item.id)}
-              title={isCollapsed ? item.label : undefined}
-            >
-              <Icon className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
-              {!isCollapsed && <span className="truncate">{item.label}</span>}
+            <Button variant="ghost" size="sm" onClick={onClose} className="lg:hidden text-white hover:bg-blue-700">
+              <X className="h-5 w-5" />
             </Button>
-          )
-        })}
-      </nav>
-
-      {/* Footer con atajos - Solo cuando no está colapsado */}
-      {!isCollapsed && (
-        <div className="p-3 border-t border-blue-700 bg-blue-950">
-          <div className="text-xs text-blue-200 space-y-2">
-            <div className="font-semibold text-blue-100 mb-2">Atajos:</div>
-            <div className="space-y-1">
-              <p>
-                <kbd className="px-2 py-1 bg-blue-800 rounded text-xs">Enter</kbd> Procesar
-              </p>
-              <p>
-                <kbd className="px-2 py-1 bg-blue-800 rounded text-xs">X</kbd> Limpiar
-              </p>
-              <p>
-                <kbd className="px-2 py-1 bg-blue-800 rounded text-xs">P</kbd> Caja
-              </p>
-            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 py-6">
+          <ul className="space-y-2 px-4">
+            {menuItems.map((item) => {
+              const Icon = item.icon
+              const isActive = currentPage === item.id
+
+              return (
+                <li key={item.id}>
+                  <button
+                    onClick={() => {
+                      onPageChange(item.id)
+                      onClose() // Cerrar sidebar en móvil después de seleccionar
+                    }}
+                    className={`
+                      w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left
+                      transition-all duration-200 hover:bg-blue-700/50
+                      ${isActive ? "bg-blue-700 shadow-lg border-l-4 border-white" : "hover:translate-x-1"}
+                    `}
+                  >
+                    <Icon className={`h-5 w-5 ${isActive ? "text-white" : "text-blue-200"}`} />
+                    <span className={`font-medium ${isActive ? "text-white" : "text-blue-100"}`}>{item.label}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        {/* User Profile & Logout */}
+        <div className="p-4 border-t border-blue-500/30">
+          <div className="flex items-center space-x-3 mb-4">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={user?.photoURL || ""} />
+              <AvatarFallback className="bg-blue-500 text-white">
+                {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user?.displayName || "Usuario"}</p>
+              <p className="text-xs text-blue-200 truncate">{user?.email}</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSignOut}
+            variant="ghost"
+            className="w-full justify-start text-blue-200 hover:text-white hover:bg-blue-700/50"
+          >
+            <LogOut className="h-4 w-4 mr-3" />
+            Cerrar Sesión
+          </Button>
+        </div>
+      </div>
+    </>
   )
 }

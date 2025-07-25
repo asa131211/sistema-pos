@@ -52,7 +52,6 @@ export default function SalesPage() {
   }, [])
 
   useEffect(() => {
-    // Cargar atajos del usuario
     const loadShortcuts = async () => {
       if (user) {
         try {
@@ -136,7 +135,6 @@ export default function SalesPage() {
 
       await addDoc(collection(db, "sales"), saleData)
 
-      // Actualizar caja registradora
       const today = new Date().toISOString().split("T")[0]
       const cashRegId = `${user?.uid}-${today}`
       const cashRegRef = doc(db, "cash-registers", cashRegId)
@@ -156,7 +154,6 @@ export default function SalesPage() {
         })
       }
 
-      // Imprimir tickets individuales en una sola ventana
       printTickets()
 
       setCart([])
@@ -173,12 +170,10 @@ export default function SalesPage() {
   }
 
   const printTickets = () => {
-    // Crear array con todos los tickets individuales
     const individualTickets = []
     let ticketCounter = 1
 
     cart.forEach((item) => {
-      // Para cada producto en el carrito, crear tantos tickets como cantidad tenga
       for (let i = 0; i < item.quantity; i++) {
         individualTickets.push({
           ticketNumber: String(ticketCounter).padStart(3, "0"),
@@ -195,18 +190,15 @@ export default function SalesPage() {
     const totalTickets = individualTickets.length
     console.log(`🎫 Generando ${totalTickets} tickets individuales en una sola impresión...`)
 
-    // Generar HTML para todos los tickets en una sola ventana
     const allTicketsHTML = individualTickets
       .map(
         (ticket, index) => `
       <div class="ticket" style="page-break-after: ${index === individualTickets.length - 1 ? "auto" : "always"};">
-        <!-- Header -->
         <div class="header">
           <div class="title">Ticket de Venta</div>
           <div class="ticket-number">#${ticket.ticketNumber}</div>
         </div>
         
-        <!-- Content -->
         <div class="content">
           <div class="row">
             <span class="label">Producto:</span>
@@ -228,7 +220,6 @@ export default function SalesPage() {
           </div>
         </div>
         
-        <!-- Footer -->
         <div class="footer">
           <div style="margin-bottom: 4px;">Fecha: ${ticket.saleDate}</div>
           <div style="margin-bottom: 4px;">Vendedor: ${ticket.seller}</div>
@@ -327,7 +318,6 @@ export default function SalesPage() {
               margin-bottom: 4px;
             }
             
-            /* Estilos para vista previa en pantalla */
             @media screen {
               body {
                 background: #f5f5f5;
@@ -360,7 +350,6 @@ export default function SalesPage() {
       </html>
     `
 
-    // Abrir una sola ventana con todos los tickets
     const printWindow = window.open("", "all_tickets", "width=400,height=800,scrollbars=yes")
 
     if (printWindow) {
@@ -375,19 +364,21 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Sistema de caja */}
-      <CashRegister onStatusChange={setCashRegisterOpen} />
+      {/* Sistema de caja - Fijo en la parte superior */}
+      <div className="sticky top-0 z-30 bg-white dark:bg-gray-900 pb-4">
+        <CashRegister onStatusChange={setCashRegisterOpen} />
 
-      {!cashRegisterOpen && (
-        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2 text-orange-700 dark:text-orange-300">
-              <AlertTriangle className="h-5 w-5" />
-              <span className="font-medium">Caja cerrada - Abre la caja para realizar ventas</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {!cashRegisterOpen && (
+          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 mt-4">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2 text-orange-700 dark:text-orange-300">
+                <AlertTriangle className="h-5 w-5" />
+                <span className="font-medium">Caja cerrada - Abre la caja para realizar ventas</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <div className="flex gap-6 h-full">
         {/* Productos */}
@@ -450,8 +441,8 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Carrito */}
-        <div className="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+        {/* Carrito - Fijo en el lado derecho */}
+        <div className="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg sticky top-24 h-fit">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold flex items-center">
@@ -559,18 +550,16 @@ export default function SalesPage() {
                   onClick={() => setShowCheckout(true)}
                   disabled={cart.length === 0 || !cashRegisterOpen}
                   className="w-full h-12 text-lg font-semibold"
-                  data-shortcut="process-sale"
                 >
-                  Procesar Venta (Enter)
+                  Procesar Venta
                 </Button>
                 <Button
                   onClick={clearCart}
                   variant="outline"
                   disabled={cart.length === 0}
                   className="w-full bg-transparent"
-                  data-shortcut="clear-cart"
                 >
-                  Limpiar Carrito (X)
+                  Limpiar Carrito
                 </Button>
               </div>
             </div>
@@ -608,7 +597,7 @@ export default function SalesPage() {
               </div>
               <div className="flex space-x-2">
                 <Button onClick={processSale} disabled={processing} className="flex-1 h-12">
-                  {processing ? "Procesando..." : "✅ Confirmar Venta"}
+                  {processing ? "Procesando..." : "Confirmar Venta"}
                 </Button>
                 <Button onClick={() => setShowCheckout(false)} variant="outline" className="flex-1 h-12">
                   Cancelar

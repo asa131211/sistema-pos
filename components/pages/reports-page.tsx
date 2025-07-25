@@ -1,15 +1,30 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore"
+import {
+  collection,
+  query,
+  onSnapshot,
+  orderBy,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { DollarSign } from "lucide-react"
+import { DollarSign, FileText, Download, Trash2, AlertTriangle } from "lucide-react"
+import { toast } from "sonner"
+import * as XLSX from "xlsx"
+import jsPDF from "jspdf"
+import "jspdf-autotable"
 
 interface Sale {
   id: string
@@ -33,9 +48,10 @@ export default function ReportsPage() {
   const [users, setUsers] = useState<Seller[]>([])
   const [selectedSeller, setSelectedSeller] = useState<string>("all")
   const [dateFilter, setDateFilter] = useState<string>("today")
+  const [showClearDialog, setShowClearDialog] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
   useEffect(() => {
-    // Escuchar ventas
     const unsubscribeSales = onSnapshot(query(collection(db, "sales"), orderBy("timestamp", "desc")), (snapshot) => {
       const salesData = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -44,7 +60,6 @@ export default function ReportsPage() {
       setSales(salesData)
     })
 
-    // Escuchar usuarios
     const unsubscribeUsers = onSnapshot(query(collection(db, "users")), (snapshot) => {
       const usersData = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -62,7 +77,6 @@ export default function ReportsPage() {
   const getFilteredSales = () => {
     let filtered = sales
 
-    // Filtrar por fecha
     const now = new Date()
     if (dateFilter === "today") {
       const today = now.toDateString()
@@ -75,7 +89,6 @@ export default function ReportsPage() {
       filtered = filtered.filter((sale) => new Date(sale.timestamp.toDate()) >= monthAgo)
     }
 
-    // Filtrar por vendedor
     if (selectedSeller !== "all") {
       filtered = filtered.filter((sale) => sale.sellerId === selectedSeller)
     }
@@ -145,7 +158,147 @@ export default function ReportsPage() {
         date,
         amount,
       }))
-      .slice(-7) // Últimos 7 días
+      .slice(-7)
+  }
+
+  const clearSales = async () => {
+    setClearing(true)
+    try {
+      // Obtener todas las ventas actuales
+      const salesSnapshot = await getDocs(collection(db, "sales"))
+      const batch = writeBatch(db)
+
+      // Mover ventas a archivo histórico
+      const archiveData = {
+        date: new Date().toISOString(),
+        salesCount: salesSnapshot.docs.length,
+        totalAmount: sales.reduce((sum, sale) => sum + sale.total, 0),
+        sales: salesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+        archivedAt: serverTimestamp(),
+      }
+
+      await addDoc(collection(db, "sales-archive"), archiveData)
+
+      // Eliminar ventas actuales
+      salesSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref)
+      })
+
+      await batch.commit()
+
+      setShowClearDialog(false)
+      toast.success(`${salesSnapshot.docs.length} ventas archivadas y limpiadas exitosamente`)
+    } catch (error) {
+      console.error("Error clearing sales:", error)
+      toast.error("Error al limpiar las ventas")
+    } finally {
+      setClearing(false)
+    }
+  }
+
+  const exportToPDF = () => {
+    const filteredSales = getFilteredSales()
+    const doc = new jsPDF()
+
+    // Título
+    doc.setFontSize(20)
+    doc.text("Reporte de Ventas - Sanchez Park", 20, 20)
+
+    // Información del reporte
+    doc.setFontSize(12)
+    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, 20, 35)
+    doc.text(
+      `Filtro: ${dateFilter === "today" ? "Hoy" : dateFilter === "week" ? "Esta Semana" : dateFilter === "month" ? "Este Mes" : "Todo el Tiempo"}`,
+      20,
+      45,
+    )
+    doc.text(`Total de ventas: ${filteredSales.length}`, 20, 55)
+
+    // Resumen
+    const paymentStats = getPaymentMethodStats()
+    const totalAmount = filteredSales.reduce((sum, sale) => sum + sale.total, 0)
+
+    doc.text(`Total vendido: S/. ${totalAmount.toFixed(2)}`, 20, 70)
+    doc.text(`Efectivo: S/. ${paymentStats.cash.toFixed(2)}`, 20, 80)
+    doc.text(`Transferencias: S/. ${paymentStats.transfer.toFixed(2)}`, 20, 90)
+
+    // Tabla de ventas
+    const tableData = filteredSales.map((sale) => [
+      new Date(sale.timestamp.toDate()).toLocaleString("es-ES"),
+      users.find((u) => u.id === sale.sellerId)?.name || sale.sellerEmail,
+      sale.items.map((item) => `${item.name} x${item.quantity}`).join(", "),
+      sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+      `S/. ${sale.total.toFixed(2)}`,
+    ])
+
+    doc.autoTable({
+      head: [["Fecha", "Vendedor", "Productos", "Pago", "Total"]],
+      body: tableData,
+      startY: 105,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    })
+
+    doc.save(`reporte-ventas-${new Date().toISOString().split("T")[0]}.pdf`)
+    toast.success("Reporte PDF generado exitosamente")
+  }
+
+  const exportToExcel = () => {
+    const filteredSales = getFilteredSales()
+
+    // Datos para la hoja de resumen
+    const paymentStats = getPaymentMethodStats()
+    const totalAmount = filteredSales.reduce((sum, sale) => sum + sale.total, 0)
+
+    const summaryData = [
+      ["Reporte de Ventas - Sanchez Park"],
+      [""],
+      ["Fecha del reporte:", new Date().toLocaleDateString("es-ES")],
+      [
+        "Filtro aplicado:",
+        dateFilter === "today"
+          ? "Hoy"
+          : dateFilter === "week"
+            ? "Esta Semana"
+            : dateFilter === "month"
+              ? "Este Mes"
+              : "Todo el Tiempo",
+      ],
+      [""],
+      ["RESUMEN"],
+      ["Total de ventas:", filteredSales.length],
+      ["Total vendido:", `S/. ${totalAmount.toFixed(2)}`],
+      ["Efectivo:", `S/. ${paymentStats.cash.toFixed(2)}`],
+      ["Transferencias:", `S/. ${paymentStats.transfer.toFixed(2)}`],
+      [""],
+    ]
+
+    // Datos detallados de ventas
+    const salesData = [
+      ["Fecha", "Vendedor", "Productos", "Método de Pago", "Total"],
+      ...filteredSales.map((sale) => [
+        new Date(sale.timestamp.toDate()).toLocaleString("es-ES"),
+        users.find((u) => u.id === sale.sellerId)?.name || sale.sellerEmail,
+        sale.items.map((item) => `${item.name} x${item.quantity}`).join(", "),
+        sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+        sale.total,
+      ]),
+    ]
+
+    // Crear libro de trabajo
+    const wb = XLSX.utils.book_new()
+
+    // Hoja de resumen
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData)
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Resumen")
+
+    // Hoja de ventas detalladas
+    const salesWs = XLSX.utils.aoa_to_sheet(salesData)
+    XLSX.utils.book_append_sheet(wb, salesWs, "Ventas Detalladas")
+
+    // Guardar archivo
+    XLSX.writeFile(wb, `reporte-ventas-${new Date().toISOString().split("T")[0]}.xlsx`)
+    toast.success("Reporte Excel generado exitosamente")
   }
 
   const filteredSales = getFilteredSales()
@@ -155,9 +308,58 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reportes</h1>
-        <p className="text-gray-600 dark:text-gray-400">Análisis de ventas y rendimiento</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reportes</h1>
+          <p className="text-gray-600 dark:text-gray-400">Análisis de ventas y rendimiento</p>
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex space-x-2">
+          <Button onClick={exportToPDF} variant="outline" className="flex items-center bg-transparent">
+            <FileText className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+          <Button onClick={exportToExcel} variant="outline" className="flex items-center bg-transparent">
+            <Download className="mr-2 h-4 w-4" />
+            Exportar Excel
+          </Button>
+          <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="flex items-center">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Limpiar Ventas
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center">
+                  <AlertTriangle className="mr-2 h-5 w-5 text-orange-500" />
+                  ¿Limpiar todas las ventas?
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Esta acción moverá todas las ventas actuales al archivo histórico y limpiará el sistema para un nuevo
+                  día de ventas.
+                </p>
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Nota:</strong> Las ventas no se perderán, se archivarán para consulta futura.
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button onClick={clearSales} disabled={clearing} variant="destructive" className="flex-1">
+                    {clearing ? "Limpiando..." : "Confirmar Limpieza"}
+                  </Button>
+                  <Button onClick={() => setShowClearDialog(false)} variant="outline" className="flex-1">
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -215,7 +417,6 @@ export default function ReportsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Efectivo</CardTitle>
-                {/* Banknote icon removed as per updates */}
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">S/. {paymentStats.cash.toFixed(2)}</div>
@@ -228,7 +429,6 @@ export default function ReportsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Transferencias</CardTitle>
-                {/* CreditCard icon removed as per updates */}
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-blue-600">S/. {paymentStats.transfer.toFixed(2)}</div>
@@ -263,10 +463,7 @@ export default function ReportsPage() {
             {sellerStats.map((seller, index) => (
               <Card key={index}>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    {/* User icon removed as per updates */}
-                    {seller.name}
-                  </CardTitle>
+                  <CardTitle className="flex items-center">{seller.name}</CardTitle>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{seller.email}</p>
                 </CardHeader>
                 <CardContent>
@@ -326,17 +523,7 @@ export default function ReportsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={sale.paymentMethod === "efectivo" ? "default" : "secondary"}>
-                          {sale.paymentMethod === "efectivo" ? (
-                            <>
-                              {/* Banknote icon removed as per updates */}
-                              Efectivo
-                            </>
-                          ) : (
-                            <>
-                              {/* CreditCard icon removed as per updates */}
-                              Transferencia
-                            </>
-                          )}
+                          {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">S/. {sale.total.toFixed(2)}</TableCell>

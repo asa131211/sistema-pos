@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { doc, getDoc, setDoc, updateDoc, collection, addDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Lock, Unlock, Calculator, DollarSign } from "lucide-react"
+import { Lock, Unlock, Calculator } from "lucide-react"
 import { toast } from "sonner"
 
 interface CashRegister {
@@ -68,7 +68,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
     setLoading(true)
     try {
       const today = new Date().toISOString().split("T")[0]
-      const initialAmount = 0 // Sin monto inicial requerido
+      const initialAmount = 0
 
       const cashRegData: CashRegister = {
         id: `${user.uid}-${today}`,
@@ -86,7 +86,6 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
 
       await setDoc(doc(db, "cash-registers", cashRegData.id), cashRegData)
 
-      // Registrar movimiento
       await addDoc(collection(db, "cash-movements"), {
         cashRegisterId: cashRegData.id,
         type: "opening",
@@ -117,7 +116,6 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
         closedAt: serverTimestamp(),
       })
 
-      // Registrar movimiento
       await addDoc(collection(db, "cash-movements"), {
         cashRegisterId: cashRegister.id,
         type: "closing",
@@ -141,7 +139,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
 
   return (
     <div className="space-y-4">
-      {/* Estado de la caja - Compacto */}
+      {/* Estado de la caja - Simplificado */}
       <Card className="border-2">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-lg">
@@ -175,33 +173,9 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
             </div>
           </CardTitle>
         </CardHeader>
-
-        {cashRegister?.isOpen && (
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-4 gap-3 text-center">
-              <div className="bg-green-50 dark:bg-green-950 p-2 rounded">
-                <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-600" />
-                <p className="text-xs text-gray-600">Total</p>
-                <p className="text-sm font-bold text-green-600">S/. {cashRegister.totalSales.toFixed(2)}</p>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded">
-                <p className="text-xs text-gray-600">Efectivo</p>
-                <p className="text-sm font-semibold text-green-600">S/. {cashRegister.cashSales.toFixed(2)}</p>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-950 p-2 rounded">
-                <p className="text-xs text-gray-600">Transfer.</p>
-                <p className="text-sm font-semibold text-blue-600">S/. {cashRegister.transferSales.toFixed(2)}</p>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                <p className="text-xs text-gray-600">En Caja</p>
-                <p className="text-sm font-bold">S/. {cashRegister.currentAmount.toFixed(2)}</p>
-              </div>
-            </div>
-          </CardContent>
-        )}
       </Card>
 
-      {/* Dialog para cerrar caja - Sin confirmación de monto */}
+      {/* Dialog para cerrar caja */}
       <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -227,7 +201,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
             </div>
             <div className="flex space-x-2">
               <Button onClick={closeCashRegister} disabled={loading} variant="destructive" className="flex-1">
-                {loading ? "Cerrando..." : "✅ Cerrar Caja"}
+                {loading ? "Cerrando..." : "Cerrar Caja"}
               </Button>
               <Button onClick={() => setShowCloseDialog(false)} variant="outline" className="flex-1">
                 Cancelar
