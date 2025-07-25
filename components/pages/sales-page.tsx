@@ -156,13 +156,13 @@ export default function SalesPage() {
         })
       }
 
-      // Imprimir tickets individuales
+      // Imprimir tickets individuales en una sola ventana
       printTickets()
 
       setCart([])
       setShowCheckout(false)
       toast.success("Venta procesada exitosamente", {
-        duration: 2000, // 2 segundos
+        duration: 2000,
       })
     } catch (error) {
       console.error("Error processing sale:", error)
@@ -173,7 +173,7 @@ export default function SalesPage() {
   }
 
   const printTickets = () => {
-    // Crear array con todos los productos individuales
+    // Crear array con todos los tickets individuales
     const individualTickets = []
     let ticketCounter = 1
 
@@ -193,168 +193,184 @@ export default function SalesPage() {
     })
 
     const totalTickets = individualTickets.length
-    console.log(`🎫 Generando ${totalTickets} tickets individuales...`)
+    console.log(`🎫 Generando ${totalTickets} tickets individuales en una sola impresión...`)
 
-    // Imprimir cada ticket individual
-    individualTickets.forEach((ticket, index) => {
-      setTimeout(() => {
-        console.log(`📄 Imprimiendo ticket ${ticket.ticketNumber} - ${ticket.productName}`)
+    // Generar HTML para todos los tickets en una sola ventana
+    const allTicketsHTML = individualTickets
+      .map(
+        (ticket, index) => `
+      <div class="ticket" style="page-break-after: ${index === individualTickets.length - 1 ? "auto" : "always"};">
+        <!-- Header -->
+        <div class="header">
+          <div class="title">Ticket de Venta</div>
+          <div class="ticket-number">#${ticket.ticketNumber}</div>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+          <div class="row">
+            <span class="label">Producto:</span>
+            <span>${ticket.productName}</span>
+          </div>
+          
+          <div class="row">
+            <span class="label">Cantidad:</span>
+            <span>1</span>
+          </div>
+          
+          <div class="row">
+            <span class="label">Precio:</span>
+            <span>S/. ${ticket.productPrice.toFixed(2)}</span>
+          </div>
+          
+          <div class="total-section">
+            <div class="total">Total: S/. ${ticket.productPrice.toFixed(2)}</div>
+          </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+          <div style="margin-bottom: 4px;">Fecha: ${ticket.saleDate}</div>
+          <div style="margin-bottom: 4px;">Vendedor: ${ticket.seller}</div>
+          <div style="margin-bottom: 4px;">Pago: ${ticket.paymentMethod}</div>
+          <div style="margin-bottom: 8px;">Ticket: ${index + 1} de ${totalTickets}</div>
+          
+          <div class="thanks">¡Gracias por su compra!</div>
+          <div>Sanchez Park</div>
+          <div style="font-size: 9px; color: #666; margin-top: 4px;">Conserve este ticket</div>
+        </div>
+      </div>
+    `,
+      )
+      .join("")
 
-        const ticketHTML = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Ticket ${ticket.ticketNumber} - ${ticket.productName}</title>
-            <style>
-              @media print {
-                body { 
-                  margin: 0; 
-                  padding: 0;
-                  font-family: 'Courier New', monospace;
-                }
-                @page { 
-                  size: 80mm auto; 
-                  margin: 0; 
-                }
-              }
-              body {
+    const fullHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Tickets de Venta - ${totalTickets} tickets</title>
+          <style>
+            @media print {
+              body { 
+                margin: 0; 
+                padding: 0;
                 font-family: 'Courier New', monospace;
-                margin: 0;
-                padding: 10px;
-                font-size: 12px;
-                line-height: 1.4;
+              }
+              @page { 
+                size: 80mm auto; 
+                margin: 5mm; 
               }
               .ticket {
-                width: 70mm;
-                border: 2px dashed #000;
-                padding: 8px;
-                text-align: center;
-                margin: 0 auto;
+                page-break-inside: avoid;
               }
-              .header {
-                border-bottom: 1px dashed #000;
-                padding-bottom: 8px;
-                margin-bottom: 8px;
-              }
-              .title {
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 4px;
-              }
-              .ticket-number {
-                font-size: 14px;
-                font-weight: bold;
-              }
-              .content {
-                text-align: left;
-                margin-bottom: 8px;
-              }
-              .row {
-                margin-bottom: 4px;
-                display: flex;
-                justify-content: space-between;
-              }
-              .label {
-                font-weight: bold;
-              }
-              .total-section {
-                border-top: 1px dashed #000;
-                padding-top: 6px;
-                margin-top: 6px;
-                text-align: center;
-              }
-              .total {
-                font-size: 14px;
-                font-weight: bold;
-              }
-              .footer {
-                border-top: 1px dashed #000;
-                padding-top: 8px;
-                margin-top: 8px;
-                font-size: 10px;
-                text-align: center;
-              }
-              .thanks {
-                font-weight: bold;
-                margin-bottom: 4px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="ticket">
-              <!-- Header -->
-              <div class="header">
-                <div class="title">Ticket de Venta</div>
-                <div class="ticket-number">#${ticket.ticketNumber}</div>
-              </div>
-              
-              <!-- Content -->
-              <div class="content">
-                <div class="row">
-                  <span class="label">Producto:</span>
-                  <span>${ticket.productName}</span>
-                </div>
-                
-                <div class="row">
-                  <span class="label">Cantidad:</span>
-                  <span>1</span>
-                </div>
-                
-                <div class="row">
-                  <span class="label">Precio:</span>
-                  <span>S/. ${ticket.productPrice.toFixed(2)}</span>
-                </div>
-                
-                <div class="total-section">
-                  <div class="total">Total: S/. ${ticket.productPrice.toFixed(2)}</div>
-                </div>
-              </div>
-              
-              <!-- Footer -->
-              <div class="footer">
-                <div style="margin-bottom: 4px;">Fecha: ${ticket.saleDate}</div>
-                <div style="margin-bottom: 4px;">Vendedor: ${ticket.seller}</div>
-                <div style="margin-bottom: 4px;">Pago: ${ticket.paymentMethod}</div>
-                <div style="margin-bottom: 8px;">Ticket: ${index + 1} de ${totalTickets}</div>
-                
-                <div class="thanks">¡Gracias por su compra!</div>
-                <div>Sanchez Park</div>
-                <div style="font-size: 9px; color: #666; margin-top: 4px;">Conserve este ticket</div>
-              </div>
-            </div>
+            }
+            body {
+              font-family: 'Courier New', monospace;
+              margin: 0;
+              padding: 10px;
+              font-size: 12px;
+              line-height: 1.4;
+            }
+            .ticket {
+              width: 70mm;
+              border: 2px dashed #000;
+              padding: 8px;
+              text-align: center;
+              margin: 0 auto 20px auto;
+              background: white;
+            }
+            .header {
+              border-bottom: 1px dashed #000;
+              padding-bottom: 8px;
+              margin-bottom: 8px;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
+            .ticket-number {
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .content {
+              text-align: left;
+              margin-bottom: 8px;
+            }
+            .row {
+              margin-bottom: 4px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .label {
+              font-weight: bold;
+            }
+            .total-section {
+              border-top: 1px dashed #000;
+              padding-top: 6px;
+              margin-top: 6px;
+              text-align: center;
+            }
+            .total {
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .footer {
+              border-top: 1px dashed #000;
+              padding-top: 8px;
+              margin-top: 8px;
+              font-size: 10px;
+              text-align: center;
+            }
+            .thanks {
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
             
-            <script>
-              console.log('Cargando ticket ${ticket.ticketNumber}...');
-              window.onload = function() {
-                console.log('Ticket ${ticket.ticketNumber} cargado, iniciando impresión automática...');
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() {
-                    console.log('Cerrando ventana del ticket ${ticket.ticketNumber}');
-                    window.close();
-                  }, 1500);
-                }, 300);
+            /* Estilos para vista previa en pantalla */
+            @media screen {
+              body {
+                background: #f5f5f5;
+                padding: 20px;
               }
-            </script>
-          </body>
-        </html>
-      `
+              .ticket {
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                background: white;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${allTicketsHTML}
+          
+          <script>
+            console.log('Cargando ${totalTickets} tickets para impresión...');
+            window.onload = function() {
+              console.log('Todos los tickets cargados, iniciando impresión automática...');
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() {
+                  console.log('Cerrando ventana de impresión');
+                  window.close();
+                }, 2000);
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `
 
-        // Abrir nueva ventana para cada ticket
-        const printWindow = window.open("", `ticket_${ticket.ticketNumber}`, "width=400,height=600,scrollbars=yes")
+    // Abrir una sola ventana con todos los tickets
+    const printWindow = window.open("", "all_tickets", "width=400,height=800,scrollbars=yes")
 
-        if (printWindow) {
-          printWindow.document.write(ticketHTML)
-          printWindow.document.close()
-          console.log(`✅ Ticket ${ticket.ticketNumber} enviado a impresión`)
-        } else {
-          console.error(`❌ Error: No se pudo abrir ventana para ticket ${ticket.ticketNumber}`)
-          alert(`Error al abrir ventana de impresión para ticket ${ticket.ticketNumber}`)
-        }
-      }, index * 2000) // 2 segundos de delay entre cada ticket
-    })
-
-    console.log(`🖨️ Programados ${totalTickets} tickets para impresión secuencial`)
+    if (printWindow) {
+      printWindow.document.write(fullHTML)
+      printWindow.document.close()
+      console.log(`✅ ${totalTickets} tickets enviados a impresión en una sola ventana`)
+    } else {
+      console.error("❌ Error: No se pudo abrir ventana de impresión")
+      alert("Error al abrir ventana de impresión. Verifica que los pop-ups estén habilitados.")
+    }
   }
 
   return (
@@ -434,7 +450,7 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Carrito - Hacer más pequeño */}
+        {/* Carrito */}
         <div className="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
             <div className="flex items-center justify-between">
