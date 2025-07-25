@@ -111,4 +111,3 @@ export function usePOSAnalytics() {
     trackUserLogin,
   }
 }
-</merged_code>
