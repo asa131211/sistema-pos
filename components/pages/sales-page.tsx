@@ -174,88 +174,37 @@ export default function SalesPage() {
 
   const printTickets = () => {
     // Crear array con todos los productos individuales
-    const individualProducts = []
+    const individualTickets = []
+    let ticketCounter = 1
+
     cart.forEach((item) => {
+      // Para cada producto en el carrito, crear tantos tickets como cantidad tenga
       for (let i = 0; i < item.quantity; i++) {
-        individualProducts.push({
-          ...item,
-          ticketIndex: i + 1,
-          saleId: Date.now() + Math.random(), // ID único para cada ticket
+        individualTickets.push({
+          ticketNumber: String(ticketCounter).padStart(3, "0"),
+          productName: item.name,
+          productPrice: item.price,
+          saleDate: new Date().toLocaleString("es-ES"),
+          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+          seller: user?.displayName || user?.email || "Vendedor",
         })
+        ticketCounter++
       }
     })
 
-    const totalProducts = individualProducts.length
-    const saleDate = new Date().toLocaleString("es-ES")
+    const totalTickets = individualTickets.length
+    console.log(`🎫 Generando ${totalTickets} tickets individuales...`)
 
-    console.log(`🎫 Imprimiendo ${totalProducts} tickets individuales...`)
-
-    // Imprimir cada producto individual con numeración
-    individualProducts.forEach((item, globalIndex) => {
-      const currentNumber = globalIndex + 1
-      const ticketNumber = `${Date.now()}-${currentNumber}`
-
-      console.log(`📄 Creando ticket ${currentNumber} de ${totalProducts} para: ${item.name}`)
-
-      const ticketContent = `
-    <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: center; padding: 5mm; border: 2px dashed #000; margin: 10px;">
-      
-      <!-- Header del ticket -->
-      <div style="margin-bottom: 8mm; border-bottom: 1px dashed #000; padding-bottom: 4mm;">
-        <div style="font-size: 16px; font-weight: bold; margin-bottom: 2mm;">Ticket de Venta</div>
-        <div style="font-size: 14px; font-weight: bold;">#${String(currentNumber).padStart(3, "0")}</div>
-      </div>
-      
-      <!-- Información del producto -->
-      <div style="text-align: left; margin-bottom: 6mm;">
-        <div style="margin-bottom: 3mm;">
-          <strong style="font-size: 13px;">Producto:</strong> 
-          <span style="font-size: 13px;">${item.name}</span>
-        </div>
-        
-        <div style="margin-bottom: 3mm;">
-          <strong style="font-size: 13px;">Cantidad:</strong> 
-          <span style="font-size: 13px;">1</span>
-        </div>
-        
-        <div style="margin-bottom: 3mm;">
-          <strong style="font-size: 13px;">Precio:</strong> 
-          <span style="font-size: 13px;">S/. ${item.price.toFixed(2)}</span>
-        </div>
-        
-        <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
-          <strong style="font-size: 14px;">Total: S/. ${item.price.toFixed(2)}</strong>
-        </div>
-      </div>
-      
-      <!-- Información adicional -->
-      <div style="border-top: 1px dashed #000; padding-top: 4mm; margin-top: 4mm; font-size: 10px; text-align: center;">
-        <div style="margin-bottom: 2mm;">Fecha: ${saleDate}</div>
-        <div style="margin-bottom: 2mm;">Vendedor: ${user?.displayName || user?.email}</div>
-        <div style="margin-bottom: 2mm;">Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</div>
-        <div style="margin-bottom: 2mm;">Ticket: ${currentNumber} de ${totalProducts}</div>
-      </div>
-      
-      <!-- Footer -->
-      <div style="margin-top: 6mm; font-size: 10px; text-align: center; border-top: 1px dashed #000; padding-top: 4mm;">
-        <div style="margin-bottom: 2mm; font-weight: bold;">¡Gracias por su compra!</div>
-        <div style="margin-bottom: 1mm;">Sanchez Park</div>
-        <div style="font-size: 9px; color: #666;">Conserve este ticket</div>
-      </div>
-      
-    </div>
-    `
-
-      // Crear ventana de impresión con delay entre tickets
+    // Imprimir cada ticket individual
+    individualTickets.forEach((ticket, index) => {
       setTimeout(() => {
-        console.log(`🖨️ Abriendo ventana de impresión para ticket ${currentNumber}`)
+        console.log(`📄 Imprimiendo ticket ${ticket.ticketNumber} - ${ticket.productName}`)
 
-        const printWindow = window.open("", `ticket-${currentNumber}`, "width=350,height=600")
-        if (printWindow) {
-          printWindow.document.write(`
+        const ticketHTML = `
+        <!DOCTYPE html>
         <html>
           <head>
-            <title>Ticket ${currentNumber} - ${item.name}</title>
+            <title>Ticket ${ticket.ticketNumber} - ${ticket.productName}</title>
             <style>
               @media print {
                 body { 
@@ -271,39 +220,141 @@ export default function SalesPage() {
               body {
                 font-family: 'Courier New', monospace;
                 margin: 0;
-                padding: 0;
+                padding: 10px;
+                font-size: 12px;
+                line-height: 1.4;
+              }
+              .ticket {
+                width: 70mm;
+                border: 2px dashed #000;
+                padding: 8px;
+                text-align: center;
+                margin: 0 auto;
+              }
+              .header {
+                border-bottom: 1px dashed #000;
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+              }
+              .title {
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 4px;
+              }
+              .ticket-number {
+                font-size: 14px;
+                font-weight: bold;
+              }
+              .content {
+                text-align: left;
+                margin-bottom: 8px;
+              }
+              .row {
+                margin-bottom: 4px;
                 display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
+                justify-content: space-between;
+              }
+              .label {
+                font-weight: bold;
+              }
+              .total-section {
+                border-top: 1px dashed #000;
+                padding-top: 6px;
+                margin-top: 6px;
+                text-align: center;
+              }
+              .total {
+                font-size: 14px;
+                font-weight: bold;
+              }
+              .footer {
+                border-top: 1px dashed #000;
+                padding-top: 8px;
+                margin-top: 8px;
+                font-size: 10px;
+                text-align: center;
+              }
+              .thanks {
+                font-weight: bold;
+                margin-bottom: 4px;
               }
             </style>
           </head>
           <body>
-            ${ticketContent}
+            <div class="ticket">
+              <!-- Header -->
+              <div class="header">
+                <div class="title">Ticket de Venta</div>
+                <div class="ticket-number">#${ticket.ticketNumber}</div>
+              </div>
+              
+              <!-- Content -->
+              <div class="content">
+                <div class="row">
+                  <span class="label">Producto:</span>
+                  <span>${ticket.productName}</span>
+                </div>
+                
+                <div class="row">
+                  <span class="label">Cantidad:</span>
+                  <span>1</span>
+                </div>
+                
+                <div class="row">
+                  <span class="label">Precio:</span>
+                  <span>S/. ${ticket.productPrice.toFixed(2)}</span>
+                </div>
+                
+                <div class="total-section">
+                  <div class="total">Total: S/. ${ticket.productPrice.toFixed(2)}</div>
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div class="footer">
+                <div style="margin-bottom: 4px;">Fecha: ${ticket.saleDate}</div>
+                <div style="margin-bottom: 4px;">Vendedor: ${ticket.seller}</div>
+                <div style="margin-bottom: 4px;">Pago: ${ticket.paymentMethod}</div>
+                <div style="margin-bottom: 8px;">Ticket: ${index + 1} de ${totalTickets}</div>
+                
+                <div class="thanks">¡Gracias por su compra!</div>
+                <div>Sanchez Park</div>
+                <div style="font-size: 9px; color: #666; margin-top: 4px;">Conserve este ticket</div>
+              </div>
+            </div>
+            
             <script>
-              console.log('Ticket ${currentNumber} cargado, iniciando impresión...');
+              console.log('Cargando ticket ${ticket.ticketNumber}...');
               window.onload = function() {
+                console.log('Ticket ${ticket.ticketNumber} cargado, iniciando impresión automática...');
                 setTimeout(function() {
                   window.print();
                   setTimeout(function() {
-                    console.log('Cerrando ventana del ticket ${currentNumber}');
+                    console.log('Cerrando ventana del ticket ${ticket.ticketNumber}');
                     window.close();
-                  }, 2000);
-                }, 500);
+                  }, 1500);
+                }, 300);
               }
             </script>
           </body>
         </html>
-        `)
+      `
+
+        // Abrir nueva ventana para cada ticket
+        const printWindow = window.open("", `ticket_${ticket.ticketNumber}`, "width=400,height=600,scrollbars=yes")
+
+        if (printWindow) {
+          printWindow.document.write(ticketHTML)
           printWindow.document.close()
+          console.log(`✅ Ticket ${ticket.ticketNumber} enviado a impresión`)
         } else {
-          console.error(`❌ No se pudo abrir ventana para ticket ${currentNumber}`)
+          console.error(`❌ Error: No se pudo abrir ventana para ticket ${ticket.ticketNumber}`)
+          alert(`Error al abrir ventana de impresión para ticket ${ticket.ticketNumber}`)
         }
-      }, globalIndex * 1500) // Delay de 1.5 segundos entre cada ticket
+      }, index * 2000) // 2 segundos de delay entre cada ticket
     })
 
-    console.log(`✅ Programados ${totalProducts} tickets individuales para impresión`)
+    console.log(`🖨️ Programados ${totalTickets} tickets para impresión secuencial`)
   }
 
   return (
