@@ -1,6 +1,3 @@
--- Reglas de Firestore actualizadas para solucionar permisos
--- Copia estas reglas en Firebase Console > Firestore Database > Rules
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,7 +20,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // NUEVO: Cajas registradoras - usuarios pueden gestionar sus propias cajas
+    // Cajas registradoras - usuarios pueden gestionar sus propias cajas
     match /cash-registers/{registerId} {
       allow read, write: if request.auth != null && 
         resource.data.openedBy == request.auth.uid;
@@ -31,7 +28,7 @@ service cloud.firestore {
         request.resource.data.openedBy == request.auth.uid;
     }
     
-    // NUEVO: Movimientos de caja - usuarios pueden crear sus propios movimientos
+    // Movimientos de caja - usuarios pueden crear sus propios movimientos
     match /cash-movements/{movementId} {
       allow read, write: if request.auth != null && 
         resource.data.userId == request.auth.uid;
