@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Edit, Trash2, Upload, Package } from "lucide-react"
+import { Plus, Edit, Trash2, Package } from 'lucide-react'
 import { toast } from "sonner"
+import ImageUpload from "@/components/image-upload"
 
 interface Product {
   id: string
@@ -47,7 +48,7 @@ export default function ProductsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name || !formData.price) {
-      toast.error("Por favor completa todos los campos")
+      toast.error("Por favor completa todos los campos obligatorios")
       return
     }
 
@@ -56,7 +57,7 @@ export default function ProductsPage() {
       const productData = {
         name: formData.name,
         price: Number.parseFloat(formData.price),
-        image: formData.image,
+        image: formData.image || "/placeholder.svg?height=200&width=200&text=Sin+Imagen",
       }
 
       if (editingProduct) {
@@ -104,6 +105,10 @@ export default function ProductsPage() {
     setShowAddDialog(true)
   }
 
+  const handleImageSelect = (imageUrl: string) => {
+    setFormData({ ...formData, image: imageUrl })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -118,13 +123,13 @@ export default function ProductsPage() {
               Agregar Producto
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingProduct ? "Editar Producto" : "Agregar Producto"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre del Juego</Label>
+                <Label htmlFor="name">Nombre del Producto *</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -133,43 +138,27 @@ export default function ProductsPage() {
                   required
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="price">Precio (S/.)</Label>
+                <Label htmlFor="price">Precio (S/.) *</Label>
                 <Input
                   id="price"
                   type="number"
                   step="0.01"
+                  min="0"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   placeholder="0.00"
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="image">URL de la Imagen</Label>
-                <Input
-                  id="image"
-                  type="url"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  placeholder="https://ejemplo.com/imagen.jpg"
-                />
-                <p className="text-xs text-gray-500">
-                  Pega la URL de una imagen externa o déjalo vacío para usar placeholder
-                </p>
-              </div>
-              <div className="flex space-x-2">
+
+              {/* Componente de upload de imagen */}
+              <ImageUpload onImageSelect={handleImageSelect} currentImage={formData.image} className="space-y-2" />
+
+              <div className="flex space-x-2 pt-4">
                 <Button type="submit" disabled={uploading} className="flex-1">
-                  {uploading ? (
-                    <>
-                      <Upload className="mr-2 h-4 w-4 animate-spin" />
-                      Guardando...
-                    </>
-                  ) : editingProduct ? (
-                    "Actualizar"
-                  ) : (
-                    "Agregar"
-                  )}
+                  {uploading ? "Guardando..." : editingProduct ? "Actualizar" : "Agregar"}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancelar
@@ -201,11 +190,17 @@ export default function ProductsPage() {
               {products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>
-                    <img
-                      src={product.image || "/placeholder.svg?height=50&width=50"}
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-lg"
-                    />
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                      <img
+                        src={product.image || "/placeholder.svg?height=64&width=64&text=Sin+Imagen"}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.src = "/placeholder.svg?height=64&width=64&text=Error"
+                        }}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>S/. {product.price.toFixed(2)}</TableCell>
