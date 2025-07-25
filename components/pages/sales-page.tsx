@@ -52,6 +52,7 @@ export default function SalesPage() {
   }, [])
 
   useEffect(() => {
+    // Cargar atajos del usuario
     const loadShortcuts = async () => {
       if (user) {
         try {
@@ -135,6 +136,7 @@ export default function SalesPage() {
 
       await addDoc(collection(db, "sales"), saleData)
 
+      // Actualizar caja registradora
       const today = new Date().toISOString().split("T")[0]
       const cashRegId = `${user?.uid}-${today}`
       const cashRegRef = doc(db, "cash-registers", cashRegId)
@@ -154,12 +156,13 @@ export default function SalesPage() {
         })
       }
 
+      // Imprimir tickets individuales
       printTickets()
 
       setCart([])
       setShowCheckout(false)
       toast.success("Venta procesada exitosamente", {
-        duration: 2000,
+        duration: 2000, // 2 segundos
       })
     } catch (error) {
       console.error("Error processing sale:", error)
@@ -170,215 +173,144 @@ export default function SalesPage() {
   }
 
   const printTickets = () => {
-    const individualTickets = []
-    let ticketCounter = 1
-
+    // Crear array con todos los productos individuales
+    const individualProducts = []
     cart.forEach((item) => {
       for (let i = 0; i < item.quantity; i++) {
-        individualTickets.push({
-          ticketNumber: String(ticketCounter).padStart(3, "0"),
-          productName: item.name,
-          productPrice: item.price,
-          saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
-          seller: user?.displayName || user?.email || "Vendedor",
+        individualProducts.push({
+          ...item,
+          ticketIndex: i + 1,
         })
-        ticketCounter++
       }
     })
 
-    const totalTickets = individualTickets.length
-    console.log(`🎫 Generando ${totalTickets} tickets individuales en una sola impresión...`)
+    const totalProducts = individualProducts.length
 
-    const allTicketsHTML = individualTickets
-      .map(
-        (ticket, index) => `
-      <div class="ticket" style="page-break-after: ${index === individualTickets.length - 1 ? "auto" : "always"};">
-        <div class="header">
-          <div class="title">Ticket de Venta</div>
-          <div class="ticket-number">#${ticket.ticketNumber}</div>
+    console.log(`🎫 Imprimiendo ${totalProducts} tickets individuales...`)
+
+    // Imprimir cada producto individual con numeración
+    individualProducts.forEach((item, globalIndex) => {
+      const currentNumber = globalIndex + 1
+      const ticketNumber = `${Date.now()}-${currentNumber}`
+
+      console.log(`📄 Creando ticket ${currentNumber} de ${totalProducts} para: ${item.name}`)
+
+      const ticketContent = `
+    <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: center; padding: 5mm;">
+      <div style="margin-bottom: 6mm;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 2mm;">SANCHEZ PARK</div>
+        <div style="font-size: 10px; margin-bottom: 1mm;">Sistema de Punto de Venta</div>
+        <div style="font-size: 10px;">RUC: 20123456789</div>
+      </div>
+      
+      <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4mm 0; margin: 4mm 0; text-align: left;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 3mm; font-size: 14px;">TICKET INDIVIDUAL</div>
+        
+        <div style="margin-bottom: 1mm; font-size: 11px;">Fecha: ${new Date().toLocaleString("es-ES")}</div>
+        <div style="margin-bottom: 1mm; font-size: 11px;">Vendedor: ${user?.displayName || user?.email}</div>
+        <div style="margin-bottom: 1mm; font-size: 11px;">Ticket: ${ticketNumber}</div>
+        <div style="margin-bottom: 3mm; font-size: 11px; font-weight: bold;">Unidad: ${currentNumber} de ${totalProducts}</div>
+        
+        <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
+          <div style="margin-bottom: 2mm;">
+            <div style="font-weight: bold; margin-bottom: 1mm;">${item.name}</div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Precio: 1 unidad</span>
+              <span style="font-weight: bold;">S/. ${item.price.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
         
-        <div class="content">
-          <div class="row">
-            <span class="label">Producto:</span>
-            <span>${ticket.productName}</span>
+        <div style="border-top: 1px dashed #000; padding-top: 3mm; margin-top: 3mm;">
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-bottom: 2mm;">
+            <span>TOTAL A PAGAR:</span>
+            <span>S/. ${item.price.toFixed(2)}</span>
           </div>
-          
-          <div class="row">
-            <span class="label">Cantidad:</span>
-            <span>1</span>
+          <div style="margin-bottom: 1mm; font-size: 11px;">
+            <span>Pago: ${paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}</span>
           </div>
-          
-          <div class="row">
-            <span class="label">Precio:</span>
-            <span>S/. ${ticket.productPrice.toFixed(2)}</span>
-          </div>
-          
-          <div class="total-section">
-            <div class="total">Total: S/. ${ticket.productPrice.toFixed(2)}</div>
-          </div>
-        </div>
-        
-        <div class="footer">
-          <div style="margin-bottom: 4px;">Fecha: ${ticket.saleDate}</div>
-          <div style="margin-bottom: 4px;">Vendedor: ${ticket.seller}</div>
-          <div style="margin-bottom: 4px;">Pago: ${ticket.paymentMethod}</div>
-          <div style="margin-bottom: 8px;">Ticket: ${index + 1} de ${totalTickets}</div>
-          
-          <div class="thanks">¡Gracias por su compra!</div>
-          <div>Sanchez Park</div>
-          <div style="font-size: 9px; color: #666; margin-top: 4px;">Conserve este ticket</div>
         </div>
       </div>
-    `,
-      )
-      .join("")
-
-    const fullHTML = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Tickets de Venta - ${totalTickets} tickets</title>
-          <style>
-            @media print {
-              body { 
-                margin: 0; 
-                padding: 0;
-                font-family: 'Courier New', monospace;
-              }
-              @page { 
-                size: 80mm auto; 
-                margin: 5mm; 
-              }
-              .ticket {
-                page-break-inside: avoid;
-              }
-            }
-            body {
-              font-family: 'Courier New', monospace;
-              margin: 0;
-              padding: 10px;
-              font-size: 12px;
-              line-height: 1.4;
-            }
-            .ticket {
-              width: 70mm;
-              border: 2px dashed #000;
-              padding: 8px;
-              text-align: center;
-              margin: 0 auto 20px auto;
-              background: white;
-            }
-            .header {
-              border-bottom: 1px dashed #000;
-              padding-bottom: 8px;
-              margin-bottom: 8px;
-            }
-            .title {
-              font-size: 16px;
-              font-weight: bold;
-              margin-bottom: 4px;
-            }
-            .ticket-number {
-              font-size: 14px;
-              font-weight: bold;
-            }
-            .content {
-              text-align: left;
-              margin-bottom: 8px;
-            }
-            .row {
-              margin-bottom: 4px;
-              display: flex;
-              justify-content: space-between;
-            }
-            .label {
-              font-weight: bold;
-            }
-            .total-section {
-              border-top: 1px dashed #000;
-              padding-top: 6px;
-              margin-top: 6px;
-              text-align: center;
-            }
-            .total {
-              font-size: 14px;
-              font-weight: bold;
-            }
-            .footer {
-              border-top: 1px dashed #000;
-              padding-top: 8px;
-              margin-top: 8px;
-              font-size: 10px;
-              text-align: center;
-            }
-            .thanks {
-              font-weight: bold;
-              margin-bottom: 4px;
-            }
-            
-            @media screen {
-              body {
-                background: #f5f5f5;
-                padding: 20px;
-              }
-              .ticket {
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                background: white;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          ${allTicketsHTML}
-          
-          <script>
-            console.log('Cargando ${totalTickets} tickets para impresión...');
-            window.onload = function() {
-              console.log('Todos los tickets cargados, iniciando impresión automática...');
-              setTimeout(function() {
-                window.print();
-                setTimeout(function() {
-                  console.log('Cerrando ventana de impresión');
-                  window.close();
-                }, 2000);
-              }, 500);
-            }
-          </script>
-        </body>
-      </html>
+      
+      <div style="margin-top: 6mm; font-size: 10px;">
+        <div style="margin-bottom: 1mm;">¡Gracias por su compra!</div>
+        <div style="margin-bottom: 1mm;">Conserve este ticket</div>
+        <div style="margin-top: 3mm;">www.sanchezpark.com</div>
+      </div>
+    </div>
     `
 
-    const printWindow = window.open("", "all_tickets", "width=400,height=800,scrollbars=yes")
+      // Crear ventana de impresión con delay entre tickets
+      setTimeout(() => {
+        console.log(`🖨️ Abriendo ventana de impresión para ticket ${currentNumber}`)
 
-    if (printWindow) {
-      printWindow.document.write(fullHTML)
-      printWindow.document.close()
-      console.log(`✅ ${totalTickets} tickets enviados a impresión en una sola ventana`)
-    } else {
-      console.error("❌ Error: No se pudo abrir ventana de impresión")
-      alert("Error al abrir ventana de impresión. Verifica que los pop-ups estén habilitados.")
-    }
+        const printWindow = window.open("", `ticket-${currentNumber}`, "width=300,height=600")
+        if (printWindow) {
+          printWindow.document.write(`
+        <html>
+          <head>
+            <title>Ticket ${currentNumber} de ${totalProducts} - ${item.name}</title>
+            <style>
+              @media print {
+                body { 
+                  margin: 0; 
+                  padding: 0;
+                  font-family: 'Courier New', monospace;
+                }
+                @page { 
+                  size: 80mm auto; 
+                  margin: 0; 
+                }
+              }
+              body {
+                font-family: 'Courier New', monospace;
+                margin: 0;
+                padding: 0;
+              }
+            </style>
+          </head>
+          <body>
+            ${ticketContent}
+            <script>
+              console.log('Ticket ${currentNumber} cargado, iniciando impresión...');
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  setTimeout(function() {
+                    console.log('Cerrando ventana del ticket ${currentNumber}');
+                    window.close();
+                  }, 2000);
+                }, 500);
+              }
+            </script>
+          </body>
+        </html>
+        `)
+          printWindow.document.close()
+        } else {
+          console.error(`❌ No se pudo abrir ventana para ticket ${currentNumber}`)
+        }
+      }, globalIndex * 1500) // Delay de 1.5 segundos entre cada ticket
+    })
+
+    console.log(`✅ Programados ${totalProducts} tickets para impresión`)
   }
 
   return (
     <div className="space-y-6">
-      {/* Sistema de caja - Fijo en la parte superior */}
-      <div className="sticky top-0 z-30 bg-white dark:bg-gray-900 pb-4">
-        <CashRegister onStatusChange={setCashRegisterOpen} />
+      {/* Sistema de caja */}
+      <CashRegister onStatusChange={setCashRegisterOpen} />
 
-        {!cashRegisterOpen && (
-          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 mt-4">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2 text-orange-700 dark:text-orange-300">
-                <AlertTriangle className="h-5 w-5" />
-                <span className="font-medium">Caja cerrada - Abre la caja para realizar ventas</span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {!cashRegisterOpen && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2 text-orange-700 dark:text-orange-300">
+              <AlertTriangle className="h-5 w-5" />
+              <span className="font-medium">Caja cerrada - Abre la caja para realizar ventas</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-6 h-full">
         {/* Productos */}
@@ -441,8 +373,8 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Carrito - Fijo en el lado derecho */}
-        <div className="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg sticky top-24 h-fit">
+        {/* Carrito - Hacer más pequeño */}
+        <div className="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold flex items-center">
@@ -550,16 +482,18 @@ export default function SalesPage() {
                   onClick={() => setShowCheckout(true)}
                   disabled={cart.length === 0 || !cashRegisterOpen}
                   className="w-full h-12 text-lg font-semibold"
+                  data-shortcut="process-sale"
                 >
-                  Procesar Venta
+                  Procesar Venta (Enter)
                 </Button>
                 <Button
                   onClick={clearCart}
                   variant="outline"
                   disabled={cart.length === 0}
                   className="w-full bg-transparent"
+                  data-shortcut="clear-cart"
                 >
-                  Limpiar Carrito
+                  Limpiar Carrito (X)
                 </Button>
               </div>
             </div>
@@ -597,7 +531,7 @@ export default function SalesPage() {
               </div>
               <div className="flex space-x-2">
                 <Button onClick={processSale} disabled={processing} className="flex-1 h-12">
-                  {processing ? "Procesando..." : "Confirmar Venta"}
+                  {processing ? "Procesando..." : "✅ Confirmar Venta"}
                 </Button>
                 <Button onClick={() => setShowCheckout(false)} variant="outline" className="flex-1 h-12">
                   Cancelar
