@@ -10,8 +10,14 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyPress = async (event: KeyboardEvent) => {
-      // Evitar atajos cuando se está escribiendo en un input
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      // Evitar atajos cuando se está escribiendo en un input o textarea
+      const target = event.target as HTMLElement
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.contentEditable === "true" ||
+        target.closest('[contenteditable="true"]')
+      ) {
         return
       }
 
@@ -27,7 +33,7 @@ export function useKeyboardShortcuts() {
       } else if (key === "x") {
         event.preventDefault()
         const clearButton = document.querySelector('[data-shortcut="clear-cart"]') as HTMLButtonElement
-        if (clearButton) {
+        if (clearButton && !clearButton.disabled) {
           clearButton.click()
         }
       } else if (key === "p") {
@@ -37,7 +43,7 @@ export function useKeyboardShortcuts() {
           cashButton.click()
         }
       } else {
-        // Atajos personalizados
+        // Atajos personalizados para productos
         if (user) {
           try {
             const userDoc = await getDoc(doc(db, "users", user.uid))
@@ -47,7 +53,7 @@ export function useKeyboardShortcuts() {
               if (shortcut) {
                 event.preventDefault()
                 const productButton = document.querySelector(
-                  `[data-product-id="${shortcut.productId}"]`,
+                  `[data-product-shortcut="${shortcut.key}"]`,
                 ) as HTMLButtonElement
                 if (productButton) {
                   productButton.click()

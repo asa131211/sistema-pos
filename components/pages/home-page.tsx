@@ -95,7 +95,7 @@ export default function HomePage({ userRole }: HomePageProps) {
   if (userRole !== "admin") {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Bienvenido al Sistema POS</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Bienvenido a Sanchez Park</h2>
         <p className="text-gray-600 dark:text-gray-400">Dirígete a la sección de Ventas para comenzar a trabajar.</p>
       </div>
     )

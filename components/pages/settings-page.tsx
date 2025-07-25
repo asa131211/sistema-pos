@@ -15,8 +15,10 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, Keyboard, Moon, Sun, Plus, Edit, Trash2 } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { User, Keyboard, Moon, Sun, Plus, Edit, Trash2, Camera, Shield } from "lucide-react"
 import { toast } from "sonner"
+import ImageUpload from "@/components/image-upload"
 
 interface SettingsPageProps {
   darkMode: boolean
@@ -30,16 +32,25 @@ interface Shortcut {
   productName: string
 }
 
+interface UserProfile {
+  name: string
+  email: string
+  role: string
+  avatar?: string
+}
+
 export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProps) {
   const [user] = useAuthState(auth)
-  const [userProfile, setUserProfile] = useState({
+  const [userProfile, setUserProfile] = useState<UserProfile>({
     name: "",
     email: "",
     role: "",
+    avatar: "",
   })
   const [shortcuts, setShortcuts] = useState<Shortcut[]>([])
   const [products, setProducts] = useState([])
   const [showShortcutDialog, setShowShortcutDialog] = useState(false)
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false)
   const [editingShortcut, setEditingShortcut] = useState<Shortcut | null>(null)
   const [shortcutForm, setShortcutForm] = useState({
     key: "",
@@ -58,6 +69,7 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
               name: userData.name || "",
               email: userData.email || user.email || "",
               role: userData.role || "",
+              avatar: userData.avatar || "",
             })
             setShortcuts(userData.shortcuts || [])
           }
@@ -84,20 +96,20 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
     fetchProducts()
   }, [user])
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleAvatarUpdate = async (avatarUrl: string) => {
     if (!user) return
 
     setLoading(true)
     try {
       await updateDoc(doc(db, "users", user.uid), {
-        name: userProfile.name,
-        email: userProfile.email,
+        avatar: avatarUrl,
       })
-      toast.success("Perfil actualizado exitosamente")
+      setUserProfile((prev) => ({ ...prev, avatar: avatarUrl }))
+      setShowAvatarDialog(false)
+      toast.success("Foto de perfil actualizada exitosamente")
     } catch (error) {
-      console.error("Error updating profile:", error)
-      toast.error("Error al actualizar el perfil")
+      console.error("Error updating avatar:", error)
+      toast.error("Error al actualizar la foto de perfil")
     } finally {
       setLoading(false)
     }
@@ -191,46 +203,83 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
 
       <div className="grid gap-6">
         {/* Perfil de Usuario */}
-        <Card>
-          <CardHeader>
+        <Card className="border-2 border-blue-100 dark:border-blue-900">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
             <CardTitle className="flex items-center">
               <User className="mr-2 h-5 w-5" />
               Perfil de Usuario
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleProfileUpdate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre</Label>
-                  <Input
-                    id="name"
-                    value={userProfile.name}
-                    onChange={(e) => setUserProfile({ ...userProfile, name: e.target.value })}
-                    placeholder="Tu nombre completo"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={userProfile.email}
-                    onChange={(e) => setUserProfile({ ...userProfile, email: e.target.value })}
-                    placeholder="tu@email.com"
-                  />
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-6 mb-6">
+              <div className="relative">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={userProfile.avatar || "/placeholder.svg"} alt={userProfile.name} />
+                  <AvatarFallback className="text-lg">
+                    {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <Dialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0">
+                      <Camera className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cambiar Foto de Perfil</DialogTitle>
+                    </DialogHeader>
+                    <ImageUpload
+                      onImageSelect={handleAvatarUpdate}
+                      currentImage={userProfile.avatar}
+                      className="space-y-2"
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{userProfile.name || "Usuario"}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{userProfile.email}</p>
+                <div className="mt-2">
+                  <Badge variant={userProfile.role === "admin" ? "default" : "secondary"} className="text-sm">
+                    {userProfile.role === "admin" ? (
+                      <>
+                        <Shield className="mr-1 h-3 w-3" />
+                        Administrador
+                      </>
+                    ) : (
+                      <>
+                        <User className="mr-1 h-3 w-3" />
+                        Vendedor
+                      </>
+                    )}
+                  </Badge>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Label>Rol:</Label>
-                <Badge variant={userProfile.role === "admin" ? "default" : "secondary"}>
-                  {userProfile.role === "admin" ? "Administrador" : "Vendedor"}
-                </Badge>
+            </div>
+
+            {userProfile.role === "admin" && (
+              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Privilegios de Administrador</h4>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <li>• Gestión completa de productos</li>
+                  <li>• Administración de usuarios</li>
+                  <li>• Acceso a reportes y estadísticas</li>
+                  <li>• Configuración del sistema</li>
+                </ul>
               </div>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Guardando..." : "Actualizar Perfil"}
-              </Button>
-            </form>
+            )}
+
+            {userProfile.role === "vendedor" && (
+              <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+                <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">Perfil de Vendedor</h4>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Como vendedor, puedes procesar ventas, gestionar el carrito y personalizar tus atajos de teclado. Para
+                  cambios en tu información personal, contacta al administrador.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -243,9 +292,11 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div>
-                <Label htmlFor="dark-mode">Modo Oscuro</Label>
+                <Label htmlFor="dark-mode" className="font-medium">
+                  Modo Oscuro
+                </Label>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Cambia entre tema claro y oscuro</p>
               </div>
               <Switch id="dark-mode" checked={darkMode} onCheckedChange={setDarkMode} />
@@ -259,7 +310,7 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center">
                 <Keyboard className="mr-2 h-5 w-5" />
-                Atajos de Teclado Personalizados
+                Atajos de Teclado
               </CardTitle>
               <Dialog open={showShortcutDialog} onOpenChange={setShowShortcutDialog}>
                 <DialogTrigger asChild>
@@ -319,20 +370,26 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
           <CardContent>
             <div className="space-y-4">
               {/* Atajos del sistema */}
-              <div>
-                <h4 className="font-medium mb-2">Atajos del Sistema</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  <div className="flex justify-between">
+              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                <h4 className="font-medium mb-3 text-blue-900 dark:text-blue-100">Atajos del Sistema</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div className="flex justify-between items-center p-2 bg-white dark:bg-blue-900 rounded">
                     <span>Procesar Venta:</span>
-                    <Badge variant="outline">Enter</Badge>
+                    <Badge variant="outline" className="font-mono">
+                      Enter
+                    </Badge>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center p-2 bg-white dark:bg-blue-900 rounded">
                     <span>Limpiar Carrito:</span>
-                    <Badge variant="outline">X</Badge>
+                    <Badge variant="outline" className="font-mono">
+                      X
+                    </Badge>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center p-2 bg-white dark:bg-blue-900 rounded">
                     <span>Abrir/Cerrar Caja:</span>
-                    <Badge variant="outline">P</Badge>
+                    <Badge variant="outline" className="font-mono">
+                      P
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -341,23 +398,28 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
 
               {/* Atajos personalizados */}
               <div>
-                <h4 className="font-medium mb-2">Atajos Personalizados ({shortcuts.length})</h4>
+                <h4 className="font-medium mb-3">Atajos Personalizados ({shortcuts.length})</h4>
                 {shortcuts.length === 0 ? (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    No tienes atajos personalizados configurados
-                  </p>
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <Keyboard className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                    <p>No tienes atajos personalizados configurados</p>
+                    <p className="text-sm">Crea atajos para acceder rápidamente a tus productos favoritos</p>
+                  </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid gap-3">
                     {shortcuts.map((shortcut) => (
                       <div
                         key={shortcut.id}
-                        className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border"
                       >
                         <div className="flex items-center space-x-3">
-                          <Badge variant="outline" className="font-mono">
+                          <Badge variant="outline" className="font-mono text-lg px-3 py-1">
                             {shortcut.key?.toUpperCase() || "N/A"}
                           </Badge>
-                          <span className="text-sm">{shortcut.productName}</span>
+                          <div>
+                            <span className="font-medium">{shortcut.productName}</span>
+                            <p className="text-xs text-gray-500">Presiona la tecla para agregar al carrito</p>
+                          </div>
                         </div>
                         <div className="flex space-x-1">
                           <Button size="sm" variant="ghost" onClick={() => startEditShortcut(shortcut)}>

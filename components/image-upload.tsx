@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, Camera, ImageIcon, X, Loader2 } from 'lucide-react'
+import { Upload, Camera, ImageIcon, X, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface ImageUploadProps {

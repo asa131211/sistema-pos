@@ -41,8 +41,8 @@ export default function LoginForm() {
           <div className="mx-auto mb-4 w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
             <ShoppingCart className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold">Sistema POS</CardTitle>
-          <CardDescription>Ingresa tus credenciales para acceder</CardDescription>
+          <CardTitle className="text-2xl font-bold">Sanchez Park</CardTitle>
+          <CardDescription>Ingresa tus credenciales para acceder al sistema</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
