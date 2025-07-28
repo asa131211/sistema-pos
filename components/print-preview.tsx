@@ -1,119 +1,326 @@
 "use client"
-
-import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Eye, Printer } from "lucide-react"
-
-interface TicketData {
-  ticketNumber: string
-  productName: string
-  productPrice: number
-  saleDate: string
-  paymentMethod: string
-  seller: string
-  isFree: boolean
-  type: string
-}
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Eye, Printer, Settings, Leaf } from "lucide-react"
+import { usePrintOptimizer } from "@/hooks/use-print-optimizer"
 
 interface PrintPreviewProps {
-  tickets: TicketData[]
-  onPrint: () => void
+  ticketData: any
+  onPrint?: () => void
+  showSettings?: boolean
 }
 
-export function PrintPreview({ tickets, onPrint }: PrintPreviewProps) {
-  const [showPreview, setShowPreview] = useState(false)
+export function PrintPreview({ ticketData, onPrint, showSettings = false }: PrintPreviewProps) {
+  const { optimizedPrint } = usePrintOptimizer()
 
-  if (!tickets || tickets.length === 0) {
-    return null
+  const handlePrint = () => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Ticket - ${ticketData.id}</title>
+          <style>
+            @page {
+              size: 100mm auto;
+              margin: 0;
+            }
+            @media print {
+              body { margin: 0; padding: 0; }
+              * { -webkit-print-color-adjust: exact; }
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: 'Courier New', monospace;
+            }
+            .ticket-container {
+              width: 100mm;
+              padding: 8mm;
+              background: white;
+              color: black;
+              font-size: 12px;
+              line-height: 1.3;
+            }
+            .ticket-header {
+              text-align: center;
+              margin-bottom: 4mm;
+              border-bottom: 2px dashed #000;
+              padding-bottom: 4mm;
+            }
+            .ticket-title {
+              font-weight: bold;
+              font-size: 18px;
+              margin-bottom: 2mm;
+            }
+            .ticket-info {
+              font-size: 12px;
+              margin-bottom: 1mm;
+            }
+            .ticket-items {
+              margin-bottom: 4mm;
+            }
+            .ticket-item {
+              margin-bottom: 2mm;
+            }
+            .item-line {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 1mm;
+            }
+            .item-name {
+              flex: 1;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              max-width: 70mm;
+            }
+            .item-price {
+              margin-left: 4mm;
+              white-space: nowrap;
+              font-weight: bold;
+            }
+            .item-details {
+              font-size: 10px;
+              color: #666;
+            }
+            .ticket-totals {
+              border-top: 2px dashed #000;
+              padding-top: 4mm;
+              margin-bottom: 4mm;
+            }
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 1mm;
+            }
+            .total-main {
+              font-weight: bold;
+              font-size: 14px;
+              padding: 4mm;
+              background: #f0f0f0;
+              text-align: center;
+            }
+            .ticket-footer {
+              text-align: center;
+              font-size: 10px;
+              border-top: 2px dashed #000;
+              padding-top: 4mm;
+            }
+            .footer-info {
+              margin-bottom: 1mm;
+            }
+            .footer-thanks {
+              font-size: 12px;
+              font-weight: bold;
+              margin: 4mm 0 2mm 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="ticket-container">
+            <!-- Header -->
+            <div class="ticket-header">
+              <div style="font-size: 24px; margin-bottom: 2mm;">🐅</div>
+              <div class="ticket-title">SANCHEZ PARK</div>
+              <div class="ticket-info">Ticket: ${ticketData.id.slice(-6)}</div>
+              <div class="ticket-info">
+                ${ticketData.timestamp.toLocaleString("es-PE", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </div>
+
+            <!-- Items -->
+            <div class="ticket-items">
+              ${ticketData.items
+                .map(
+                  (item) => `
+                <div class="ticket-item">
+                  <div class="item-line">
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-price">S/ ${item.total.toFixed(2)}</span>
+                  </div>
+                  <div class="item-details">
+                    Cantidad: ${item.quantity} x S/ ${item.price.toFixed(2)}
+                  </div>
+                </div>
+              `,
+                )
+                .join("")}
+            </div>
+
+            <!-- Totals -->
+            <div class="ticket-totals">
+              <div class="total-main">
+                TOTAL: S/ ${ticketData.total.toFixed(2)}
+              </div>
+              ${
+                ticketData.received
+                  ? `
+                <div class="total-line">
+                  <span>Recibido:</span>
+                  <span>S/ ${ticketData.received.toFixed(2)}</span>
+                </div>
+              `
+                  : ""
+              }
+              ${
+                ticketData.change
+                  ? `
+                <div class="total-line">
+                  <span>Cambio:</span>
+                  <span>S/ ${ticketData.change.toFixed(2)}</span>
+                </div>
+              `
+                  : ""
+              }
+            </div>
+
+            <!-- Footer -->
+            <div class="ticket-footer">
+              <div class="footer-info">Pago: ${ticketData.paymentMethod}</div>
+              <div class="footer-info">Cajero: ${ticketData.cashier}</div>
+              <div class="footer-thanks">¡Gracias por su compra!</div>
+              <div class="footer-info">Sanchez Park</div>
+              <div style="font-size: 8px; font-style: italic; margin-top: 2mm;">Conserve este ticket</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `
+
+    const printWindow = window.open("", "_blank", "width=400,height=700")
+    if (printWindow) {
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+
+      setTimeout(() => {
+        printWindow.print()
+        printWindow.close()
+      }, 300)
+    }
+
+    onPrint?.()
   }
 
   return (
-    <Dialog open={showPreview} onOpenChange={setShowPreview}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="mr-2 bg-transparent">
-          <Eye className="h-4 w-4 mr-1" />
-          Vista Previa
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Vista Previa de Tickets</DialogTitle>
-        </DialogHeader>
+    <div className="space-y-4">
+      {/* Savings Badge */}
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="gap-1">
+          <Leaf className="h-3 w-3" />
+          Tamaño optimizado
+        </Badge>
+        <Badge variant="outline">100mm ancho</Badge>
+      </div>
 
-        <div className="space-y-4">
-          {tickets.map((ticket, index) => (
-            <div key={index} className="border border-gray-300 p-3 bg-white text-black font-mono text-xs">
-              {/* Header */}
-              <div className="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
-                <div className="text-lg mb-1">🐅</div>
-                <div className="font-bold text-sm">SANCHEZ PARK</div>
-                <div className="text-xs">{ticket.type}</div>
-                <div className="font-bold text-sm">#{ticket.ticketNumber}</div>
-                {ticket.isFree && (
-                  <div className="bg-black text-white px-2 py-1 text-xs font-bold inline-block mt-1">
-                    🎁 PROMOCIÓN 10+1
-                  </div>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="space-y-1 mb-2">
-                <div className="flex justify-between">
-                  <span className="font-bold">Producto:</span>
-                  <span className="text-right">
-                    {ticket.productName.length > 20 ? ticket.productName.substring(0, 20) + "..." : ticket.productName}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold">Cant:</span>
-                  <span>1 ud</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold">Precio:</span>
-                  <span>{ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
-                </div>
-
-                <div className="border-t border-dashed border-gray-400 pt-1 mt-2">
-                  <div className="text-center font-bold border border-gray-400 p-1">
-                    {ticket.isFree ? "🎁 GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="border-t border-dashed border-gray-400 pt-2 text-center text-xs space-y-0.5">
-                <div>{ticket.saleDate}</div>
-                <div>{ticket.seller.length > 15 ? ticket.seller.substring(0, 15) + "..." : ticket.seller}</div>
-                <div>{ticket.paymentMethod}</div>
-                <div>
-                  {index + 1}/{tickets.length}
-                </div>
-                {ticket.isFree && <div className="font-bold">¡Promoción 10+1!</div>}
-                <div className="font-bold mt-1">¡Gracias por su compra!</div>
-                <div className="font-bold">Sanchez Park</div>
-                <div className="text-xs italic">Conserve este ticket</div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            Vista Previa - Ticket Grande
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Optimized Preview */}
+          <div
+            className="bg-white rounded-lg p-4 mx-auto shadow-sm"
+            style={{ width: "100mm", fontSize: "12px", fontFamily: "monospace" }}
+          >
+            {/* Header */}
+            <div className="text-center mb-4 border-b-2 border-dashed border-gray-400 pb-4">
+              <div className="text-2xl mb-2">🐅</div>
+              <div className="font-bold text-lg">SANCHEZ PARK</div>
+              <div className="text-sm opacity-70">Ticket: {ticketData.id.slice(-6)}</div>
+              <div className="text-sm opacity-70">
+                {ticketData.timestamp.toLocaleString("es-PE", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
             </div>
-          ))}
-        </div>
 
-        <div className="flex justify-between pt-4">
-          <Button variant="outline" onClick={() => setShowPreview(false)}>
-            Cerrar
-          </Button>
-          <Button
-            onClick={() => {
-              onPrint()
-              setShowPreview(false)
-            }}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Printer className="h-4 w-4 mr-2" />
-            Imprimir
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            {/* Items */}
+            <div className="space-y-2 mb-4">
+              {ticketData.items.map((item, index) => (
+                <div key={index}>
+                  <div className="flex justify-between items-start">
+                    <span className="flex-1 text-sm font-medium">{item.name}</span>
+                    <span className="ml-4 text-sm font-bold">S/ {item.total.toFixed(2)}</span>
+                  </div>
+                  <div className="text-xs opacity-60">
+                    Cantidad: {item.quantity} x S/ {item.price.toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Separator className="my-4" />
+
+            {/* Totals */}
+            <div className="space-y-2 mb-4">
+              <div className="text-center font-bold text-lg p-4 bg-gray-100 rounded">
+                TOTAL: S/ {ticketData.total.toFixed(2)}
+              </div>
+              {ticketData.received && (
+                <div className="flex justify-between text-sm">
+                  <span>Recibido:</span>
+                  <span>S/ {ticketData.received.toFixed(2)}</span>
+                </div>
+              )}
+              {ticketData.change && (
+                <div className="flex justify-between text-sm">
+                  <span>Cambio:</span>
+                  <span>S/ {ticketData.change.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            <Separator className="my-4" />
+
+            {/* Footer */}
+            <div className="text-center text-sm space-y-1">
+              <div>Pago: {ticketData.paymentMethod}</div>
+              <div>Cajero: {ticketData.cashier}</div>
+              <div className="font-bold text-base mt-4 mb-2">¡Gracias por su compra!</div>
+              <div className="font-bold">Sanchez Park</div>
+              <div className="text-xs italic mt-2">Conserve este ticket</div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button onClick={handlePrint} className="flex-1 gap-2">
+              <Printer className="h-4 w-4" />
+              Imprimir Ticket Grande
+            </Button>
+            {showSettings && (
+              <Button variant="outline" size="icon">
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Optimization Info */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div>• Tamaño: 100mm de ancho (más grande)</div>
+            <div>• Sin marcos ni bordes</div>
+            <div>• Fuente: 12px (más legible)</div>
+            <div>• Espaciado amplio</div>
+            <div>• Optimizado para papel térmico</div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

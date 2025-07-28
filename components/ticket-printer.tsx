@@ -33,7 +33,7 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
     onPrintStart?.()
 
     try {
-      // Generar HTML de tickets ultra-compacto
+      // Generar HTML de tickets sin marcos y más grandes
       const ticketsHTML = tickets
         .filter((ticket) => ticket && ticket.productName)
         .map(
@@ -50,11 +50,11 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
             <div class="content">
               <div class="row">
                 <span class="label">Producto:</span>
-                <span class="value">${ticket.productName.length > 20 ? ticket.productName.substring(0, 20) + "..." : ticket.productName}</span>
+                <span class="value">${ticket.productName.length > 25 ? ticket.productName.substring(0, 25) + "..." : ticket.productName}</span>
               </div>
               <div class="row">
-                <span class="label">Cant:</span>
-                <span class="value">1 ud</span>
+                <span class="label">Cantidad:</span>
+                <span class="value">1 unidad</span>
               </div>
               <div class="row">
                 <span class="label">Precio:</span>
@@ -63,16 +63,16 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
               
               <div class="total-section">
                 <div class="total">
-                  ${ticket.isFree ? "🎁 GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}
+                  ${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}
                 </div>
               </div>
             </div>
             
             <div class="footer">
               <div class="info">${ticket.saleDate}</div>
-              <div class="info">${ticket.seller.length > 15 ? ticket.seller.substring(0, 15) + "..." : ticket.seller}</div>
+              <div class="info">${ticket.seller.length > 20 ? ticket.seller.substring(0, 20) + "..." : ticket.seller}</div>
               <div class="info">${ticket.paymentMethod}</div>
-              <div class="info">${index + 1}/${tickets.length}</div>
+              <div class="info">Ticket ${index + 1} de ${tickets.length}</div>
               ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
               <div class="thanks">¡Gracias por su compra!</div>
               <div class="brand">Sanchez Park</div>
@@ -83,20 +83,21 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
         )
         .join("")
 
-      // CSS específico para tickets compactos
+      // CSS específico para tickets más grandes sin marcos
       const ticketCSS = `
         <style>
           @media print {
             .ticket {
-              width: 80mm !important;
-              margin: 0 !important;
-              padding: 2mm !important;
-              border: 1px solid #000 !important;
+              width: 100mm !important;
+              margin: 0 auto !important;
+              padding: 8mm !important;
               background: white !important;
               page-break-after: always !important;
               page-break-inside: avoid !important;
               min-height: auto !important;
               display: block !important;
+              font-size: 12px !important;
+              line-height: 1.3 !important;
             }
             
             .ticket:last-child {
@@ -105,57 +106,57 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
             
             .header {
               text-align: center !important;
-              border-bottom: 1px dashed #000 !important;
-              padding-bottom: 1mm !important;
-              margin-bottom: 1mm !important;
+              border-bottom: 2px dashed #000 !important;
+              padding-bottom: 4mm !important;
+              margin-bottom: 4mm !important;
             }
             
             .logo {
-              font-size: 16px !important;
-              margin-bottom: 0.5mm !important;
+              font-size: 24px !important;
+              margin-bottom: 2mm !important;
               line-height: 1 !important;
             }
             
             .title {
-              font-size: 11px !important;
+              font-size: 18px !important;
               font-weight: bold !important;
-              margin-bottom: 0.5mm !important;
+              margin-bottom: 2mm !important;
               line-height: 1 !important;
             }
             
             .subtitle {
-              font-size: 8px !important;
-              margin-bottom: 0.5mm !important;
+              font-size: 12px !important;
+              margin-bottom: 2mm !important;
               line-height: 1 !important;
             }
             
             .number {
-              font-size: 10px !important;
+              font-size: 16px !important;
               font-weight: bold !important;
-              margin-bottom: 0.5mm !important;
+              margin-bottom: 2mm !important;
               line-height: 1 !important;
             }
             
             .promo {
               background: #000 !important;
               color: white !important;
-              padding: 0.5mm 1mm !important;
-              font-size: 7px !important;
+              padding: 2mm 4mm !important;
+              font-size: 10px !important;
               font-weight: bold !important;
               display: inline-block !important;
-              margin-top: 0.5mm !important;
+              margin-top: 2mm !important;
             }
             
             .content {
-              margin: 1mm 0 !important;
+              margin: 4mm 0 !important;
             }
             
             .row {
               display: flex !important;
               justify-content: space-between !important;
-              margin-bottom: 0.5mm !important;
-              font-size: 8px !important;
-              line-height: 1.1 !important;
+              margin-bottom: 2mm !important;
+              font-size: 12px !important;
+              line-height: 1.3 !important;
             }
             
             .label {
@@ -169,61 +170,61 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
             }
             
             .total-section {
-              border-top: 1px dashed #000 !important;
-              padding-top: 1mm !important;
-              margin-top: 1mm !important;
+              border-top: 2px dashed #000 !important;
+              padding-top: 4mm !important;
+              margin-top: 4mm !important;
             }
             
             .total {
               text-align: center !important;
-              font-size: 9px !important;
+              font-size: 14px !important;
               font-weight: bold !important;
-              padding: 1mm !important;
-              border: 1px solid #000 !important;
-              line-height: 1.1 !important;
+              padding: 4mm !important;
+              background: #f0f0f0 !important;
+              line-height: 1.3 !important;
             }
             
             .footer {
-              border-top: 1px dashed #000 !important;
-              padding-top: 1mm !important;
-              margin-top: 1mm !important;
+              border-top: 2px dashed #000 !important;
+              padding-top: 4mm !important;
+              margin-top: 4mm !important;
               text-align: center !important;
             }
             
             .info {
-              font-size: 7px !important;
-              margin-bottom: 0.3mm !important;
-              line-height: 1 !important;
+              font-size: 10px !important;
+              margin-bottom: 1mm !important;
+              line-height: 1.2 !important;
             }
             
             .thanks {
-              font-size: 8px !important;
+              font-size: 12px !important;
               font-weight: bold !important;
-              margin: 1mm 0 0.5mm 0 !important;
-              line-height: 1 !important;
+              margin: 4mm 0 2mm 0 !important;
+              line-height: 1.2 !important;
             }
             
             .brand {
-              font-size: 7px !important;
+              font-size: 10px !important;
               font-weight: bold !important;
-              margin-bottom: 0.3mm !important;
-              line-height: 1 !important;
+              margin-bottom: 1mm !important;
+              line-height: 1.2 !important;
             }
             
             .note {
-              font-size: 6px !important;
+              font-size: 8px !important;
               font-style: italic !important;
-              line-height: 1 !important;
-              margin-top: 0.5mm !important;
+              line-height: 1.2 !important;
+              margin-top: 2mm !important;
             }
             
             .promo-note {
-              font-size: 6px !important;
+              font-size: 8px !important;
               font-weight: bold !important;
-              margin: 0.5mm 0 !important;
+              margin: 2mm 0 !important;
               background: #f0f0f0 !important;
-              padding: 0.5mm !important;
-              line-height: 1 !important;
+              padding: 1mm !important;
+              line-height: 1.2 !important;
             }
           }
         </style>
@@ -231,12 +232,12 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
 
       const fullContent = ticketCSS + ticketsHTML
 
-      // Usar el optimizador de impresión
+      // Usar el optimizador de impresión con tamaño más grande
       optimizedPrint(fullContent, {
-        pageSize: "80mm auto",
+        pageSize: "100mm auto",
         margins: "0",
         colorAdjust: true,
-        fontSize: "9px",
+        fontSize: "12px",
       })
 
       onPrintComplete?.()
