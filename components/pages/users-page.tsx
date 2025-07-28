@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"
+import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -49,6 +49,12 @@ export default function UsersPage() {
     return () => unsubscribe()
   }, [])
 
+  const validateUsername = (username: string) => {
+    // Solo letras, números y guiones bajos
+    const validPattern = /^[a-zA-Z0-9_]+$/
+    return validPattern.test(username) && username.length >= 3
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name || !formData.username || (!editingUser && !formData.password)) {
@@ -69,25 +75,41 @@ export default function UsersPage() {
       } else {
         // Crear nuevo usuario - convertir username a email para Firebase Auth
         const emailFormat = `${formData.username}@sistema-pos.local`
-        const userCredential = await createUserWithEmailAndPassword(auth, emailFormat, formData.password)
 
-        // Guardar datos adicionales en Firestore
-        await addDoc(collection(db, "users"), {
-          uid: userCredential.user.uid,
-          name: formData.name,
-          username: formData.username,
-          email: emailFormat,
-          role: formData.role,
-          createdAt: new Date(),
-        })
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, emailFormat, formData.password)
 
-        toast.success("Usuario creado exitosamente")
+          // CORREGIDO: Usar setDoc en lugar de addDoc para usar el UID como ID del documento
+          await setDoc(doc(db, "users", userCredential.user.uid), {
+            uid: userCredential.user.uid,
+            name: formData.name,
+            username: formData.username,
+            email: emailFormat,
+            role: formData.role,
+            createdAt: new Date(),
+            shortcuts: [], // Inicializar array de shortcuts vacío
+            avatar: "", // Inicializar avatar vacío
+          })
+
+          toast.success("Usuario creado exitosamente")
+        } catch (authError: any) {
+          if (authError.code === "auth/email-already-in-use") {
+            toast.error(`El usuario "${formData.username}" ya existe. Elige otro nombre de usuario.`)
+          } else if (authError.code === "auth/weak-password") {
+            toast.error("La contraseña debe tener al menos 6 caracteres")
+          } else if (authError.code === "auth/invalid-email") {
+            toast.error("Nombre de usuario inválido")
+          } else {
+            toast.error("Error al crear el usuario: " + authError.message)
+          }
+          return
+        }
       }
 
       resetForm()
     } catch (error: any) {
       console.error("Error saving user:", error)
-      toast.error(error.message || "Error al guardar el usuario")
+      toast.error("Error inesperado al guardar el usuario")
     } finally {
       setLoading(false)
     }
@@ -156,10 +178,16 @@ export default function UsersPage() {
                 <Input
                   id="username"
                   value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, "")
+                    setFormData({ ...formData, username: value })
+                  }}
                   placeholder="nombre_usuario"
                   required
+                  minLength={3}
+                  maxLength={20}
                 />
+                <p className="text-xs text-gray-500 mt-1">Solo letras, números y guiones bajos. Mínimo 3 caracteres.</p>
               </div>
               {!editingUser && (
                 <div className="space-y-2">

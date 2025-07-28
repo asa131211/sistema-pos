@@ -58,24 +58,238 @@
   }
 }
 
-/* Estilos para impresión de tickets */
+/* Scrollbar personalizado mejorado */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2563eb, #1e40af);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #475569, #334155);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #64748b, #475569);
+}
+
+/* Animaciones mejoradas */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+/* Efectos de hover mejorados */
+.hover-lift {
+  transition: all 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Gradientes personalizados */
+.gradient-blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient-green {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+/* Estilos para impresión de tickets - Mejorados con promoción */
+.print-only {
+  display: none;
+}
+
 @media print {
+  /* Ocultar todo excepto los tickets */
   body * {
     visibility: hidden;
   }
-  .print-ticket,
-  .print-ticket * {
+
+  /* Mostrar solo el contenedor de impresión */
+  #print-container,
+  #print-container * {
     visibility: visible;
   }
-  .print-ticket {
+
+  #print-container {
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 100%;
+    display: block !important;
   }
+
+  /* Configuración de página para tickets */
   @page {
     size: 80mm auto;
-    margin: 0;
+    margin: 5mm;
+  }
+
+  /* Estilos de tickets */
+  .print-ticket {
+    width: 70mm;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+    padding: 8px;
+    border: 2px dashed #000;
+    margin: 0 auto 10px auto;
+    background: white;
+    page-break-inside: avoid;
+  }
+
+  .ticket-header {
+    border-bottom: 1px dashed #000;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+
+  .ticket-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
+
+  .ticket-subtitle {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+
+  .ticket-number {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* NUEVO: Estilos para promoción */
+  .ticket-promo {
+    font-size: 12px;
+    font-weight: bold;
+    background: #000;
+    color: white;
+    padding: 2px 4px;
+    margin: 4px 0;
+    border-radius: 3px;
+  }
+
+  .ticket-content {
+    text-align: left;
+    margin-bottom: 8px;
+  }
+
+  .ticket-row {
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ticket-label {
+    font-weight: bold;
+  }
+
+  .ticket-value {
+    text-align: right;
+  }
+
+  .ticket-total-section {
+    border-top: 1px dashed #000;
+    padding-top: 6px;
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  .ticket-total {
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  .ticket-footer {
+    border-top: 1px dashed #000;
+    padding-top: 8px;
+    margin-top: 8px;
+    font-size: 10px;
+    text-align: center;
+  }
+
+  .ticket-info {
+    margin-bottom: 2px;
+  }
+
+  /* NUEVO: Nota de promoción */
+  .ticket-promo-note {
+    font-weight: bold;
+    margin: 6px 0 4px 0;
+    font-size: 11px;
+    color: #006600;
+  }
+
+  .ticket-thanks {
+    font-weight: bold;
+    margin: 6px 0 4px 0;
+    font-size: 11px;
+  }
+
+  .ticket-brand {
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+
+  .ticket-note {
+    font-size: 9px;
+    color: #666;
+    margin-top: 4px;
   }
 }
 
@@ -92,28 +306,34 @@
   transition: all 0.2s ease-in-out;
 }
 
-/* Scrollbar personalizado */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+/* Efectos de glassmorphism */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+.dark .glass-effect {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+/* Efectos de neón */
+.neon-glow {
+  box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+/* Animación de pulso personalizada */
+@keyframes custom-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #475569;
-}
-
-.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+.animate-custom-pulse {
+  animation: custom-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

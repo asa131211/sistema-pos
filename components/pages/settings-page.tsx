@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useAuthState } from "react-firebase-hooks/auth"
-import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore"
+import { doc, getDoc, updateDoc, setDoc, collection, getDocs } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -58,10 +58,58 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
   })
   const [loading, setLoading] = useState(false)
 
+  // Función para crear documento de usuario si no existe
+  const ensureUserDocument = async () => {
+    if (!user) return false
+
+    try {
+      const userDocRef = doc(db, "users", user.uid)
+      const userDoc = await getDoc(userDocRef)
+
+      if (!userDoc.exists()) {
+        console.log("📝 Creando documento de usuario faltante...")
+        // Crear documento básico del usuario
+        const userData = {
+          uid: user.uid,
+          name: user.displayName || "Usuario",
+          email: user.email || "",
+          role: "vendedor", // Rol por defecto
+          createdAt: new Date(),
+          shortcuts: [],
+          avatar: "",
+        }
+
+        await setDoc(userDocRef, userData)
+        console.log("✅ Documento de usuario creado exitosamente")
+
+        // Actualizar estado local
+        setUserProfile({
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          avatar: userData.avatar,
+        })
+        setShortcuts([])
+
+        toast.success("Perfil de usuario inicializado correctamente")
+        return true
+      }
+      return true
+    } catch (error) {
+      console.error("❌ Error creando documento de usuario:", error)
+      toast.error("Error al inicializar el perfil de usuario")
+      return false
+    }
+  }
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
         try {
+          // Primero asegurar que el documento existe
+          const documentExists = await ensureUserDocument()
+          if (!documentExists) return
+
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
             const userData = userDoc.data()
@@ -75,6 +123,7 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
           }
         } catch (error) {
           console.error("Error fetching user profile:", error)
+          toast.error("Error al cargar el perfil de usuario")
         }
       }
     }
@@ -89,6 +138,7 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
         setProducts(productsData)
       } catch (error) {
         console.error("Error fetching products:", error)
+        toast.error("Error al cargar productos")
       }
     }
 
@@ -101,6 +151,9 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
 
     setLoading(true)
     try {
+      // Asegurar que el documento existe antes de actualizar
+      await ensureUserDocument()
+
       await updateDoc(doc(db, "users", user.uid), {
         avatar: avatarUrl,
       })
@@ -132,50 +185,89 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
     }
 
     const selectedProduct = products.find((p) => p.id === shortcutForm.productId)
-    if (!selectedProduct) return
-
-    const newShortcut = {
-      id: editingShortcut?.id || Date.now().toString(),
-      key: shortcutForm.key.toLowerCase(),
-      productId: shortcutForm.productId,
-      productName: selectedProduct.name,
+    if (!selectedProduct) {
+      toast.error("Producto no encontrado")
+      return
     }
 
-    let updatedShortcuts
-    if (editingShortcut) {
-      updatedShortcuts = shortcuts.map((s) => (s.id === editingShortcut.id ? newShortcut : s))
-    } else {
-      updatedShortcuts = [...shortcuts, newShortcut]
-    }
-
+    setLoading(true)
     try {
-      await updateDoc(doc(db, "users", user.uid), {
+      // CRÍTICO: Asegurar que el documento existe antes de actualizar
+      const documentExists = await ensureUserDocument()
+      if (!documentExists) {
+        toast.error("Error al inicializar el perfil de usuario")
+        return
+      }
+
+      const newShortcut = {
+        id: editingShortcut?.id || Date.now().toString(),
+        key: shortcutForm.key.toLowerCase(),
+        productId: shortcutForm.productId,
+        productName: selectedProduct.name,
+      }
+
+      let updatedShortcuts
+      if (editingShortcut) {
+        updatedShortcuts = shortcuts.map((s) => (s.id === editingShortcut.id ? newShortcut : s))
+      } else {
+        updatedShortcuts = [...shortcuts, newShortcut]
+      }
+
+      const userDocRef = doc(db, "users", user.uid)
+      await updateDoc(userDocRef, {
         shortcuts: updatedShortcuts,
       })
+
       setShortcuts(updatedShortcuts)
       setShortcutForm({ key: "", productId: "" })
       setEditingShortcut(null)
       setShowShortcutDialog(false)
-      toast.success(editingShortcut ? "Atajo actualizado" : "Atajo creado exitosamente")
-    } catch (error) {
+      toast.success(editingShortcut ? "Atajo actualizado exitosamente" : "Atajo creado exitosamente")
+    } catch (error: any) {
       console.error("Error saving shortcut:", error)
-      toast.error("Error al guardar el atajo")
+
+      // Mensajes de error más específicos
+      if (error.code === "permission-denied") {
+        toast.error("No tienes permisos para actualizar los atajos. Contacta al administrador.")
+      } else if (error.code === "not-found") {
+        toast.error("Usuario no encontrado en la base de datos. Reinicia la sesión.")
+      } else if (error.message?.includes("No document to update")) {
+        toast.error("Error de sincronización. Recarga la página e intenta nuevamente.")
+      } else {
+        toast.error("Error al guardar el atajo: " + (error.message || "Error desconocido"))
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleDeleteShortcut = async (shortcutId: string) => {
     if (!user) return
 
-    const updatedShortcuts = shortcuts.filter((s) => s.id !== shortcutId)
+    setLoading(true)
     try {
-      await updateDoc(doc(db, "users", user.uid), {
+      // Asegurar que el documento existe
+      await ensureUserDocument()
+
+      const updatedShortcuts = shortcuts.filter((s) => s.id !== shortcutId)
+
+      const userDocRef = doc(db, "users", user.uid)
+      await updateDoc(userDocRef, {
         shortcuts: updatedShortcuts,
       })
+
       setShortcuts(updatedShortcuts)
       toast.success("Atajo eliminado exitosamente")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting shortcut:", error)
-      toast.error("Error al eliminar el atajo")
+
+      if (error.code === "permission-denied") {
+        toast.error("No tienes permisos para eliminar atajos")
+      } else {
+        toast.error("Error al eliminar el atajo")
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -355,8 +447,8 @@ export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProp
                       </Select>
                     </div>
                     <div className="flex space-x-2">
-                      <Button type="submit" className="flex-1">
-                        {editingShortcut ? "Actualizar" : "Crear Atajo"}
+                      <Button type="submit" disabled={loading} className="flex-1">
+                        {loading ? "Guardando..." : editingShortcut ? "Actualizar" : "Crear Atajo"}
                       </Button>
                       <Button type="button" variant="outline" onClick={resetShortcutForm}>
                         Cancelar

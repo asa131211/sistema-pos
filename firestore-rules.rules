@@ -1,10 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Usuarios pueden leer/escribir sus propios datos
+    // CORREGIDO: Usuarios pueden leer/escribir sus propios datos Y admins pueden leer todos
     match /users/{userId} {
+      // Usuarios pueden leer y escribir sus propios datos
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Admins pueden leer todos los usuarios
       allow read: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Admins pueden escribir todos los usuarios
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
@@ -12,6 +19,7 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
@@ -20,20 +28,18 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // Cajas registradoras - usuarios pueden gestionar sus propias cajas
+    // Cajas registradoras - permitir lectura y escritura más flexible
     match /cash-registers/{registerId} {
-      allow read, write: if request.auth != null && 
-        resource.data.openedBy == request.auth.uid;
-      allow create: if request.auth != null && 
-        request.resource.data.openedBy == request.auth.uid;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow create: if request.auth != null;
     }
     
-    // Movimientos de caja - usuarios pueden crear sus propios movimientos
+    // Movimientos de caja - permitir lectura y escritura más flexible
     match /cash-movements/{movementId} {
-      allow read, write: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow create: if request.auth != null;
     }
   }
 }
