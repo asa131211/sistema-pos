@@ -149,155 +149,172 @@ export default function UsersPage({ sidebarCollapsed = false }: UsersPageProps) 
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
-          <p className="text-gray-600 dark:text-gray-400">Gestiona los usuarios del sistema</p>
-        </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingUser(null)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Agregar Usuario
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingUser ? "Editar Usuario" : "Agregar Usuario"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nombre</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Nombre completo"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="username">Nombre de Usuario</Label>
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => {
-                    const value = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, "")
-                    setFormData({ ...formData, username: value })
-                  }}
-                  placeholder="nombre_usuario"
-                  required
-                  minLength={3}
-                  maxLength={20}
-                />
-                <p className="text-xs text-gray-500 mt-1">Solo letras, números y guiones bajos. Mínimo 3 caracteres.</p>
-              </div>
-              {!editingUser && (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
+            <p className="text-gray-600 dark:text-gray-400">Gestiona los usuarios del sistema</p>
+          </div>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingUser(null)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Agregar Usuario
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-white dark:bg-gray-900">
+              <DialogHeader>
+                <DialogTitle className="text-gray-900 dark:text-white">
+                  {editingUser ? "Editar Usuario" : "Agregar Usuario"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
+                  <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">
+                    Nombre
+                  </Label>
                   <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="••••••••"
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Nombre completo"
                     required
+                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
                   />
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="role">Rol</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value: "admin" | "vendedor") => setFormData({ ...formData, role: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="vendedor">Vendedor</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex space-x-2">
-                <Button type="submit" disabled={loading} className="flex-1">
-                  {loading ? "Guardando..." : editingUser ? "Actualizar" : "Crear Usuario"}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-gray-700 dark:text-gray-300">
+                    Nombre de Usuario
+                  </Label>
+                  <Input
+                    id="username"
+                    value={formData.username}
+                    onChange={(e) => {
+                      const value = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, "")
+                      setFormData({ ...formData, username: value })
+                    }}
+                    placeholder="nombre_usuario"
+                    required
+                    minLength={3}
+                    maxLength={20}
+                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Solo letras, números y guiones bajos. Mínimo 3 caracteres.
+                  </p>
+                </div>
+                {!editingUser && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
+                      Contraseña
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="••••••••"
+                      required
+                      className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="role" className="text-gray-700 dark:text-gray-300">
+                    Rol
+                  </Label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value: "admin" | "vendedor") => setFormData({ ...formData, role: value })}
+                  >
+                    <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vendedor">Vendedor</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex space-x-2">
+                  <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? "Guardando..." : editingUser ? "Actualizar" : "Crear Usuario"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Users className="mr-2 h-5 w-5" />
-            Lista de Usuarios ({users.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Usuario</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead>Fecha de Creación</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.username}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                      {user.role === "admin" ? (
-                        <>
-                          <Shield className="mr-1 h-3 w-3" />
-                          Administrador
-                        </>
-                      ) : (
-                        <>
-                          <User className="mr-1 h-3 w-3" />
-                          Vendedor
-                        </>
-                      )}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString("es-ES") : "N/A"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => startEdit(user)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {users.length === 0 && (
+        <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <CardHeader>
+            <CardTitle className="flex items-center text-gray-900 dark:text-white">
+              <Users className="mr-2 h-5 w-5" />
+              Lista de Usuarios ({users.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                    No hay usuarios registrados
-                  </TableCell>
+                  <TableHead className="text-gray-900 dark:text-white">Nombre</TableHead>
+                  <TableHead className="text-gray-900 dark:text-white">Usuario</TableHead>
+                  <TableHead className="text-gray-900 dark:text-white">Rol</TableHead>
+                  <TableHead className="text-gray-900 dark:text-white">Fecha de Creación</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">Acciones</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium text-gray-900 dark:text-white">{user.name}</TableCell>
+                    <TableCell className="text-gray-900 dark:text-white">{user.username}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                        {user.role === "admin" ? (
+                          <>
+                            <Shield className="mr-1 h-3 w-3" />
+                            Administrador
+                          </>
+                        ) : (
+                          <>
+                            <User className="mr-1 h-3 w-3" />
+                            Vendedor
+                          </>
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-gray-900 dark:text-white">
+                      {user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString("es-ES") : "N/A"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => startEdit(user)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {users.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      No hay usuarios registrados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

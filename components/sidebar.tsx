@@ -30,7 +30,7 @@ export default function Sidebar({ currentPage, setCurrentPage, userRole, isColla
   const menuItems = userRole === "admin" ? adminMenuItems : vendedorMenuItems
 
   return (
-    <div className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="sticky top-16 h-[calc(100vh-64px)] w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       {/* Navegación */}
       <nav className="flex-1 p-2 space-y-2">
         {menuItems.map((item) => {

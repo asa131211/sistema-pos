@@ -22,6 +22,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [cashRegisterStatus, setCashRegisterStatus] = useState<{ isOpen: boolean; data: any }>({
+    isOpen: false,
+    data: null,
+  })
 
   useKeyboardShortcuts()
 
@@ -55,6 +59,33 @@ export default function Dashboard() {
       document.documentElement.classList.remove("dark")
     }
   }, [darkMode])
+
+  // Check cash register status
+  useEffect(() => {
+    const checkCashRegisterStatus = async () => {
+      if (!user) return
+
+      try {
+        const today = new Date().toISOString().split("T")[0]
+        const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${today}`))
+
+        if (cashRegDoc.exists()) {
+          const data = cashRegDoc.data()
+          setCashRegisterStatus({ isOpen: data.isOpen, data })
+        } else {
+          setCashRegisterStatus({ isOpen: false, data: null })
+        }
+      } catch (error) {
+        console.error("Error checking cash register:", error)
+        setCashRegisterStatus({ isOpen: false, data: null })
+      }
+    }
+
+    checkCashRegisterStatus()
+    const interval = setInterval(checkCashRegisterStatus, 30000)
+
+    return () => clearInterval(interval)
+  }, [user])
 
   // Auto-reset de ventas a las 7 AM
   useEffect(() => {
@@ -98,7 +129,13 @@ export default function Dashboard() {
       case "inicio":
         return <HomePage userRole={userRole} sidebarCollapsed={sidebarCollapsed} />
       case "ventas":
-        return <SalesPage sidebarCollapsed={sidebarCollapsed} />
+        return (
+          <SalesPage
+            sidebarCollapsed={sidebarCollapsed}
+            cashRegisterStatus={cashRegisterStatus}
+            onCashRegisterChange={setCashRegisterStatus}
+          />
+        )
       case "productos":
         return <ProductsPage sidebarCollapsed={sidebarCollapsed} />
       case "usuarios":
@@ -108,13 +145,24 @@ export default function Dashboard() {
       case "configuracion":
         return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} sidebarCollapsed={sidebarCollapsed} />
       default:
-        return <SalesPage sidebarCollapsed={sidebarCollapsed} />
+        return (
+          <SalesPage
+            sidebarCollapsed={sidebarCollapsed}
+            cashRegisterStatus={cashRegisterStatus}
+            onCashRegisterChange={setCashRegisterStatus}
+          />
+        )
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      <TopBar darkMode={darkMode} setDarkMode={setDarkMode} />
+      <TopBar
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        cashRegisterStatus={cashRegisterStatus}
+        onCashRegisterChange={setCashRegisterStatus}
+      />
       <div className="flex flex-1">
         <Sidebar
           currentPage={currentPage}

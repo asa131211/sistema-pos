@@ -13,20 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  ShoppingCart,
-  Plus,
-  Minus,
-  Trash2,
-  Search,
-  Gift,
-  Package,
-  Keyboard,
-  Tag,
-  Calculator,
-  Unlock,
-  Lock,
-} from "lucide-react"
+import { ShoppingCart, Plus, Minus, Trash2, Search, Gift, Package, Tag, Calculator, Unlock, Lock } from "lucide-react"
 import { toast } from "sonner"
 
 interface Product {
@@ -43,9 +30,15 @@ interface CartItem extends Product {
 
 interface SalesPageProps {
   sidebarCollapsed?: boolean
+  cashRegisterStatus?: { isOpen: boolean; data: any }
+  onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
 }
 
-export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) {
+export default function SalesPage({
+  sidebarCollapsed = false,
+  cashRegisterStatus,
+  onCashRegisterChange,
+}: SalesPageProps) {
   const [user] = useAuthState(auth)
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -54,7 +47,6 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
   const [paymentMethod, setPaymentMethod] = useState("efectivo")
   const [showCheckout, setShowCheckout] = useState(false)
   const [processing, setProcessing] = useState(false)
-  const [cashRegister, setCashRegister] = useState<any>(null)
   const [shortcuts, setShortcuts] = useState<any[]>([])
   const [isOnline, setIsOnline] = useState(true)
 
@@ -101,31 +93,6 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
     loadShortcuts()
   }, [user])
 
-  useEffect(() => {
-    const checkCashRegisterStatus = async () => {
-      if (!user) return
-
-      try {
-        const today = new Date().toISOString().split("T")[0]
-        const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${today}`))
-
-        if (cashRegDoc.exists()) {
-          setCashRegister(cashRegDoc.data())
-        } else {
-          setCashRegister(null)
-        }
-      } catch (error) {
-        console.error("Error checking cash register:", error)
-        setCashRegister(null)
-      }
-    }
-
-    checkCashRegisterStatus()
-    const interval = setInterval(checkCashRegisterStatus, 30000)
-
-    return () => clearInterval(interval)
-  }, [user])
-
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
@@ -147,7 +114,7 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
   }
 
   const addToCart = (product: Product) => {
-    if (!cashRegister?.isOpen) {
+    if (!cashRegisterStatus?.isOpen) {
       toast.error("Debes abrir la caja antes de realizar ventas")
       return
     }
@@ -316,7 +283,7 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
       return
     }
 
-    if (!cashRegister?.isOpen) {
+    if (!cashRegisterStatus?.isOpen) {
       toast.error("Debes abrir la caja antes de procesar ventas")
       return
     }
@@ -354,14 +321,24 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
           const currentData = cashRegDoc.data()
           const saleAmount = getTotalAmount()
 
-          await updateDoc(cashRegRef, {
+          const updatedData = {
             totalSales: currentData.totalSales + saleAmount,
             cashSales: paymentMethod === "efectivo" ? currentData.cashSales + saleAmount : currentData.cashSales,
             transferSales:
               paymentMethod === "transferencia" ? currentData.transferSales + saleAmount : currentData.transferSales,
             currentAmount:
               paymentMethod === "efectivo" ? currentData.currentAmount + saleAmount : currentData.currentAmount,
-          })
+          }
+
+          await updateDoc(cashRegRef, updatedData)
+
+          // Actualizar estado local inmediatamente
+          if (onCashRegisterChange) {
+            onCashRegisterChange({
+              isOpen: true,
+              data: { ...currentData, ...updatedData },
+            })
+          }
         }
       } else {
         // Modo offline
@@ -394,140 +371,120 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
   const promotion = calculatePromotion()
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="flex">
-        <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6">
-          {/* Estado de caja - Compacto */}
-          <Card className="border-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <div className="p-3 md:p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 md:space-x-3">
-                  <Calculator className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
-                  <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
-                    Caja Registradora
-                  </span>
-                </div>
-                <Badge variant={cashRegister?.isOpen ? "default" : "secondary"} className="text-xs">
-                  {cashRegister?.isOpen ? (
-                    <>
-                      <Unlock className="mr-1 h-3 w-3" />
-                      Abierta
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="mr-1 h-3 w-3" />
-                      Cerrada
-                    </>
-                  )}
-                </Badge>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
+      <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+        {/* Estado de caja - Compacto */}
+        <Card className="border-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <div className="p-3 md:p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <Calculator className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
+                  Caja Registradora
+                </span>
               </div>
-            </div>
-          </Card>
-
-          {/* Barra de búsqueda y filtros */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  placeholder="Buscar productos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
-                  <SelectValue placeholder="Todas las categorías" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las categorías</SelectItem>
-                  <SelectItem value="juegos">Juegos</SelectItem>
-                  <SelectItem value="consolas">Consolas</SelectItem>
-                  <SelectItem value="accesorios">Accesorios</SelectItem>
-                </SelectContent>
-              </Select>
+              <Badge variant={cashRegisterStatus?.isOpen ? "default" : "secondary"} className="text-xs">
+                {cashRegisterStatus?.isOpen ? (
+                  <>
+                    <Unlock className="mr-1 h-3 w-3" />
+                    Abierta
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-1 h-3 w-3" />
+                    Cerrada
+                  </>
+                )}
+              </Badge>
             </div>
           </div>
+        </Card>
 
-          {/* Atajos de teclado */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3 mb-4">
-              <Keyboard className="h-5 w-5 text-purple-600" />
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">
-                Atajos de Teclado Disponibles
-              </h3>
+        {/* Barra de búsqueda y filtros */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="Buscar productos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
             </div>
-            <div className="flex flex-wrap items-center gap-2 md:gap-3">
-              <Button className="bg-green-600 hover:bg-green-700 text-white px-3 md:px-4 py-2 rounded-lg font-medium text-xs md:text-sm">
-                ✓ Procesar Venta
-              </Button>
-              <Button
-                variant="outline"
-                className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 px-3 md:px-4 py-2 rounded-lg font-medium bg-transparent text-xs md:text-sm"
-              >
-                1 evolution 360
-              </Button>
-            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
+                <SelectValue placeholder="Todas las categorías" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                <SelectItem value="juegos">Juegos</SelectItem>
+                <SelectItem value="consolas">Consolas</SelectItem>
+                <SelectItem value="accesorios">Accesorios</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+        </div>
 
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-            {/* Área de productos */}
-            <div className="flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
-                {filteredProducts.map((product) => {
-                  const shortcut = shortcuts.find((s) => s.productId === product.id)
-                  return (
-                    <Card
-                      key={product.id}
-                      className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
-                      onClick={() => addToCart(product)}
-                    >
-                      <CardContent className="p-0">
-                        {/* Imagen del producto */}
-                        <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                          <img
-                            src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src = "/placeholder.svg?height=300&width=300&text=Error"
-                            }}
-                          />
-                          {shortcut && (
-                            <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
-                              {shortcut.key.toUpperCase()}
-                            </Badge>
-                          )}
-                        </div>
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          {/* Área de productos */}
+          <div className="flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              {filteredProducts.map((product) => {
+                const shortcut = shortcuts.find((s) => s.productId === product.id)
+                return (
+                  <Card
+                    key={product.id}
+                    className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
+                    onClick={() => addToCart(product)}
+                    data-product-shortcut={shortcut?.key}
+                  >
+                    <CardContent className="p-0">
+                      {/* Imagen del producto */}
+                      <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                        <img
+                          src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.src = "/placeholder.svg?height=300&width=300&text=Error"
+                          }}
+                        />
+                        {shortcut && (
+                          <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
+                            {shortcut.key.toUpperCase()}
+                          </Badge>
+                        )}
+                      </div>
 
-                        {/* Información del producto */}
-                        <div className="p-3 md:p-4">
-                          <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
-                            {product.name}
-                          </h3>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <Tag className="h-4 w-4 text-gray-400" />
-                              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">juegos</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm md:text-lg font-bold text-green-600">
-                                S/. {product.price.toFixed(2)}
-                              </div>
+                      {/* Información del producto */}
+                      <div className="p-3 md:p-4">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
+                          {product.name}
+                        </h3>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Tag className="h-4 w-4 text-gray-400" />
+                            <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">juegos</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm md:text-lg font-bold text-green-600">
+                              S/. {product.price.toFixed(2)}
                             </div>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
+          </div>
 
-            {/* Carrito de compras */}
-            <div className="w-full lg:w-80">
+          {/* Carrito de compras - Sticky */}
+          <div className="w-full lg:w-80">
+            <div className="sticky top-20">
               <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
@@ -545,6 +502,22 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
                     Agrega productos y procesa ventas rápidamente
                   </p>
                 </div>
+
+                {/* Promoción en el carrito */}
+                {promotion.hasPromotion && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
+                      <Gift className="h-4 w-4" />
+                      <span className="font-bold text-sm">¡Promoción 10+1!</span>
+                    </div>
+                    <div className="text-xs text-green-600 dark:text-green-400 text-center space-y-1">
+                      <p>
+                        Tickets gratis: <span className="font-bold">{promotion.freeItems}</span>
+                      </p>
+                      <p className="font-bold">Total tickets: {promotion.totalTickets}</p>
+                    </div>
+                  </div>
+                )}
 
                 <ScrollArea className="h-48 md:h-64 p-4">
                   {cart.length === 0 ? (
@@ -636,8 +609,9 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
                   <div className="space-y-2">
                     <Button
                       onClick={() => setShowCheckout(true)}
-                      disabled={cart.length === 0 || !cashRegister?.isOpen}
+                      disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
                       className="w-full bg-green-600 hover:bg-green-700 text-white h-10 md:h-12 rounded-xl font-medium text-sm md:text-base"
+                      data-shortcut="process-sale"
                     >
                       <Package className="h-4 w-4 mr-2" />
                       Procesar
@@ -647,6 +621,7 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
                       variant="outline"
                       disabled={cart.length === 0}
                       className="w-full h-8 md:h-10 rounded-xl bg-transparent text-sm"
+                      data-shortcut="clear-cart"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Limpiar
@@ -656,105 +631,105 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
               </Card>
             </div>
           </div>
+        </div>
 
-          {/* Modal de confirmación */}
-          <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
-            <DialogContent className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl">
-              <DialogHeader className="text-center pb-6">
-                <DialogTitle className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-                  Confirmar Venta
-                </DialogTitle>
-              </DialogHeader>
+        {/* Modal de confirmación */}
+        <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+          <DialogContent className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl">
+            <DialogHeader className="text-center pb-6">
+              <DialogTitle className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                Confirmar Venta
+              </DialogTitle>
+            </DialogHeader>
 
-              <div className="space-y-6">
-                {/* Lista de productos */}
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  <h4 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
-                    <Package className="h-4 w-4" />
-                    <span>Productos:</span>
-                  </h4>
-                  {cart.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
-                    >
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Promoción en el modal */}
-                {promotion.hasPromotion && (
-                  <div className="bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
-                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-3">
-                      <Gift className="h-5 w-5" />
-                      <span className="font-bold text-lg">¡Promoción 10+1!</span>
-                    </div>
-                    <div className="text-sm text-green-600 dark:text-green-400 text-center space-y-1">
-                      <p>
-                        Tickets pagados: <span className="font-bold">{promotion.totalItems}</span>
-                      </p>
-                      <p>
-                        Tickets gratis:{" "}
-                        <span className="font-bold text-green-700 dark:text-green-300">{promotion.freeItems}</span>
-                      </p>
-                      <p className="font-bold text-lg">Total tickets: {promotion.totalTickets}</p>
-                    </div>
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Total y método de pago */}
-                <div className="space-y-4">
-                  <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
-                    <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
-                    <span className="text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">Método de Pago:</span>
-                    <span className="capitalize font-bold text-gray-900 dark:text-white">
-                      {paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+            <div className="space-y-6">
+              {/* Lista de productos */}
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                <h4 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                  <Package className="h-4 w-4" />
+                  <span>Productos:</span>
+                </h4>
+                {cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {item.name} x{item.quantity}
                     </span>
+                    <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Promoción en el modal */}
+              {promotion.hasPromotion && (
+                <div className="bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-3">
+                    <Gift className="h-5 w-5" />
+                    <span className="font-bold text-lg">¡Promoción 10+1!</span>
+                  </div>
+                  <div className="text-sm text-green-600 dark:text-green-400 text-center space-y-1">
+                    <p>
+                      Tickets pagados: <span className="font-bold">{promotion.totalItems}</span>
+                    </p>
+                    <p>
+                      Tickets gratis:{" "}
+                      <span className="font-bold text-green-700 dark:text-green-300">{promotion.freeItems}</span>
+                    </p>
+                    <p className="font-bold text-lg">Total tickets: {promotion.totalTickets}</p>
                   </div>
                 </div>
+              )}
 
-                {/* Botones de acción */}
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    onClick={processSale}
-                    disabled={processing}
-                    className="flex-1 h-12 md:h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-sm md:text-lg"
-                  >
-                    {processing ? (
-                      <div className="flex items-center space-x-2">
-                        <img src="/loading-wheel.gif" alt="Procesando..." className="w-5 h-5" />
-                        <span>Procesando...</span>
-                      </div>
-                    ) : (
-                      "✅ Confirmar Venta"
-                    )}
-                  </Button>
+              <Separator />
 
-                  <Button
-                    onClick={() => setShowCheckout(false)}
-                    variant="outline"
-                    className="flex-1 h-12 md:h-14 border-2 rounded-2xl font-bold"
-                  >
-                    Cancelar
-                  </Button>
+              {/* Total y método de pago */}
+              <div className="space-y-4">
+                <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
+                  <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
+                  <span className="text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Método de Pago:</span>
+                  <span className="capitalize font-bold text-gray-900 dark:text-white">
+                    {paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+                  </span>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
 
-          {/* Contenedor oculto para impresión */}
-          <div id="print-container" className="print-only"></div>
-        </div>
+              {/* Botones de acción */}
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  onClick={processSale}
+                  disabled={processing}
+                  className="flex-1 h-12 md:h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-sm md:text-lg"
+                >
+                  {processing ? (
+                    <div className="flex items-center space-x-2">
+                      <img src="/loading-wheel.gif" alt="Procesando..." className="w-5 h-5" />
+                      <span>Procesando...</span>
+                    </div>
+                  ) : (
+                    "✅ Confirmar Venta"
+                  )}
+                </Button>
+
+                <Button
+                  onClick={() => setShowCheckout(false)}
+                  variant="outline"
+                  className="flex-1 h-12 md:h-14 border-2 rounded-2xl font-bold"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Contenedor oculto para impresión */}
+        <div id="print-container" className="print-only"></div>
       </div>
     </div>
   )

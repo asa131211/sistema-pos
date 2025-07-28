@@ -22,6 +22,7 @@ import {
   Filter,
   Users,
   Package,
+  Gift,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -154,7 +155,46 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     }
   }, [dateFilter, paymentFilter, sellerFilter, specificDate])
 
-  // Calcular estadísticas
+  // Calcular estadísticas por vendedor
+  const getSellerStats = () => {
+    const sellerStats = {}
+
+    sales.forEach((sale) => {
+      const sellerId = sale.sellerId
+      const sellerName = users.find((u) => u.id === sellerId)?.name || sale.sellerEmail
+
+      if (!sellerStats[sellerId]) {
+        sellerStats[sellerId] = {
+          name: sellerName,
+          email: sale.sellerEmail,
+          totalSales: 0,
+          cashSales: 0,
+          transferSales: 0,
+          totalTransactions: 0,
+          promotions: 0,
+          sales: [],
+        }
+      }
+
+      sellerStats[sellerId].totalSales += sale.total
+      sellerStats[sellerId].totalTransactions += 1
+      sellerStats[sellerId].sales.push(sale)
+
+      if (sale.paymentMethod === "efectivo") {
+        sellerStats[sellerId].cashSales += sale.total
+      } else {
+        sellerStats[sellerId].transferSales += sale.total
+      }
+
+      if (sale.promotion?.hasPromotion) {
+        sellerStats[sellerId].promotions += 1
+      }
+    })
+
+    return Object.values(sellerStats)
+  }
+
+  // Calcular estadísticas generales
   const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
   const totalTransactions = sales.length
   const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0
@@ -183,13 +223,14 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     .slice(0, 5)
 
   const exportToCSV = () => {
-    const headers = ["Fecha", "Vendedor", "Total", "Método de Pago", "Productos"]
+    const headers = ["Fecha", "Vendedor", "Total", "Método de Pago", "Productos", "Promoción"]
     const csvData = sales.map((sale) => [
       new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES"),
       sale.sellerEmail,
       `S/. ${sale.total.toFixed(2)}`,
       sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
       sale.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
+      sale.promotion?.hasPromotion ? `Sí - ${sale.promotion.freeItems} gratis` : "No",
     ])
 
     const csvContent = [headers, ...csvData].map((row) => row.join(",")).join("\n")
@@ -205,15 +246,17 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     toast.success("Reporte exportado exitosamente")
   }
 
+  const sellerStats = getSellerStats()
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="ml-16 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
+      <div className="p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Reportes</h1>
-              <p className="text-gray-600">Análisis avanzado de ventas y rendimiento</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reportes</h1>
+              <p className="text-gray-600 dark:text-gray-400">Análisis avanzado de ventas y rendimiento</p>
             </div>
             <Button onClick={exportToCSV} className="bg-purple-600 hover:bg-purple-700 text-white">
               <Download className="h-4 w-4 mr-2" />
@@ -223,16 +266,16 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div className="flex items-center space-x-2 mb-4">
             <Filter className="h-5 w-5 text-purple-600" />
-            <h3 className="font-semibold text-gray-900">Filtros</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Filtros</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Período</Label>
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Período</Label>
               <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="border-gray-200">
+                <SelectTrigger className="border-gray-200 dark:border-gray-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -248,20 +291,22 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
 
             {dateFilter === "specific" && (
               <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">Fecha Específica</Label>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                  Fecha Específica
+                </Label>
                 <Input
                   type="date"
                   value={specificDate}
                   onChange={(e) => setSpecificDate(e.target.value)}
-                  className="border-gray-200"
+                  className="border-gray-200 dark:border-gray-600"
                 />
               </div>
             )}
 
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Método de Pago</Label>
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Método de Pago</Label>
               <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                <SelectTrigger className="border-gray-200">
+                <SelectTrigger className="border-gray-200 dark:border-gray-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,9 +318,9 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Vendedor</Label>
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Vendedor</Label>
               <Select value={sellerFilter} onValueChange={setSellerFilter}>
-                <SelectTrigger className="border-gray-200">
+                <SelectTrigger className="border-gray-200 dark:border-gray-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -293,58 +338,64 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-700">Total Vendido</CardTitle>
+              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Total Vendido</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-800">S/. {totalSales.toFixed(2)}</div>
-              <p className="text-xs text-green-600 mt-1">
+              <div className="text-2xl font-bold text-green-800 dark:text-green-200">S/. {totalSales.toFixed(2)}</div>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                 <TrendingUp className="h-3 w-3 inline mr-1" />
                 Total de ingresos
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-cyan-50">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900 dark:to-cyan-900">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700">Transacciones</CardTitle>
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Transacciones</CardTitle>
               <ShoppingCart className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-800">{totalTransactions}</div>
-              <p className="text-xs text-blue-600 mt-1">
+              <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">{totalTransactions}</div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                 <BarChart3 className="h-3 w-3 inline mr-1" />
                 Ventas realizadas
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-pink-50">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-700">Ticket Promedio</CardTitle>
+              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                Ticket Promedio
+              </CardTitle>
               <Calendar className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-800">S/. {averageTicket.toFixed(2)}</div>
-              <p className="text-xs text-purple-600 mt-1">
+              <div className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                S/. {averageTicket.toFixed(2)}
+              </div>
+              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
                 <TrendingUp className="h-3 w-3 inline mr-1" />
                 Por transacción
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-red-50">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900 dark:to-red-900">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-700">Productos Vendidos</CardTitle>
+              <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                Productos Vendidos
+              </CardTitle>
               <Package className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-800">
+              <div className="text-2xl font-bold text-orange-800 dark:text-orange-200">
                 {sales.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0)}
               </div>
-              <p className="text-xs text-orange-600 mt-1">
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                 <Package className="h-3 w-3 inline mr-1" />
                 Unidades totales
               </p>
@@ -352,36 +403,144 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           </Card>
         </div>
 
+        {/* Estadísticas por Vendedor */}
+        {sellerFilter === "all" && sellerStats.length > 0 && (
+          <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 mb-8">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                Rendimiento por Vendedor
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                Estadísticas individuales de cada vendedor
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {sellerStats.map((seller: any) => (
+                  <div key={seller.email} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <Users className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900 dark:text-white">{seller.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{seller.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        {seller.promotions > 0 && (
+                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                            <Gift className="h-3 w-3 mr-1" />
+                            {seller.promotions} promociones
+                          </Badge>
+                        )}
+                        <Badge variant="outline">{seller.totalTransactions} ventas</Badge>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Total Vendido</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">
+                          S/. {seller.totalSales.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                        <p className="text-sm text-green-600 dark:text-green-400">Efectivo</p>
+                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                          S/. {seller.cashSales.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                        <p className="text-sm text-blue-600 dark:text-blue-400">Transferencia</p>
+                        <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                          S/. {seller.transferSales.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+                        <p className="text-sm text-purple-600 dark:text-purple-400">Promedio</p>
+                        <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
+                          S/. {(seller.totalSales / seller.totalTransactions).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Detalle de ventas del vendedor */}
+                    <div className="mt-4">
+                      <h5 className="font-medium text-gray-900 dark:text-white mb-2">Últimas Ventas</h5>
+                      <div className="max-h-40 overflow-y-auto">
+                        <div className="space-y-2">
+                          {seller.sales.slice(0, 5).map((sale: Sale) => (
+                            <div
+                              key={sale.id}
+                              className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
+                                </span>
+                                {sale.promotion?.hasPromotion && (
+                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                                    <Gift className="h-2 w-2 mr-1" />
+                                    Promoción
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Badge
+                                  className={
+                                    sale.paymentMethod === "efectivo"
+                                      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                                      : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                                  }
+                                >
+                                  {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
+                                </Badge>
+                                <span className="font-bold text-green-600">S/. {sale.total.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Charts and Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Payment Methods */}
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Métodos de Pago</CardTitle>
-              <CardDescription>Distribución de ventas por método de pago</CardDescription>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Métodos de Pago</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                Distribución de ventas por método de pago
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900">Efectivo</span>
+                    <span className="font-medium text-gray-900 dark:text-white">Efectivo</span>
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-green-600">S/. {cashSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {totalSales > 0 ? ((cashSales / totalSales) * 100).toFixed(1) : 0}%
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900">Transferencia</span>
+                    <span className="font-medium text-gray-900 dark:text-white">Transferencia</span>
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-blue-600">S/. {transferSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {totalSales > 0 ? ((transferSales / totalSales) * 100).toFixed(1) : 0}%
                     </div>
                   </div>
@@ -391,28 +550,37 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           </Card>
 
           {/* Top Products */}
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Productos Más Vendidos</CardTitle>
-              <CardDescription>Top 5 productos por cantidad vendida</CardDescription>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                Productos Más Vendidos
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                Top 5 productos por cantidad vendida
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {topProducts.map(([productName, stats], index) => (
-                  <div key={productName} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div
+                    key={productName}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                  >
                     <div className="flex items-center space-x-3">
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-200">#{index + 1}</Badge>
-                      <span className="font-medium text-gray-900 truncate">{productName}</span>
+                      <Badge className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-700">
+                        #{index + 1}
+                      </Badge>
+                      <span className="font-medium text-gray-900 dark:text-white truncate">{productName}</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-gray-900">{stats.quantity} unidades</div>
-                      <div className="text-xs text-gray-500">S/. {stats.revenue.toFixed(2)}</div>
+                      <div className="font-bold text-gray-900 dark:text-white">{stats.quantity} unidades</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">S/. {stats.revenue.toFixed(2)}</div>
                     </div>
                   </div>
                 ))}
                 {topProducts.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                     <p>No hay datos de productos</p>
                   </div>
                 )}
@@ -422,20 +590,22 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
         </div>
 
         {/* Sales Table */}
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900">Historial de Ventas</CardTitle>
-            <CardDescription>Detalle completo de todas las transacciones</CardDescription>
+            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Historial de Ventas</CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400">
+              Detalle completo de todas las transacciones
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-3"></div>
-                <p className="text-gray-500">Cargando reportes...</p>
+                <p className="text-gray-500 dark:text-gray-400">Cargando reportes...</p>
               </div>
             ) : sales.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                 <p>No hay ventas para mostrar</p>
                 <p className="text-sm">Ajusta los filtros o realiza algunas ventas</p>
               </div>
@@ -444,29 +614,30 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Vendedor</TableHead>
-                      <TableHead>Productos</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-gray-900 dark:text-white">Fecha</TableHead>
+                      <TableHead className="text-gray-900 dark:text-white">Vendedor</TableHead>
+                      <TableHead className="text-gray-900 dark:text-white">Productos</TableHead>
+                      <TableHead className="text-gray-900 dark:text-white">Método</TableHead>
+                      <TableHead className="text-gray-900 dark:text-white">Promoción</TableHead>
+                      <TableHead className="text-right text-gray-900 dark:text-white">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sales.map((sale) => (
                       <TableRow key={sale.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-gray-900 dark:text-white">
                           {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-gray-400" />
-                            <span className="truncate">{sale.sellerEmail}</span>
+                            <span className="truncate text-gray-900 dark:text-white">{sale.sellerEmail}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             {sale.items.map((item, index) => (
-                              <div key={index} className="text-sm">
+                              <div key={index} className="text-sm text-gray-900 dark:text-white">
                                 {item.name} x{item.quantity}
                               </div>
                             ))}
@@ -476,12 +647,22 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                           <Badge
                             className={
                               sale.paymentMethod === "efectivo"
-                                ? "bg-green-100 text-green-800 border-green-200"
-                                : "bg-blue-100 text-blue-800 border-blue-200"
+                                ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700"
+                                : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700"
                             }
                           >
                             {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {sale.promotion?.hasPromotion ? (
+                            <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700">
+                              <Gift className="h-3 w-3 mr-1" />
+                              {sale.promotion.freeItems} gratis
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-bold text-green-600">
                           S/. {sale.total.toFixed(2)}

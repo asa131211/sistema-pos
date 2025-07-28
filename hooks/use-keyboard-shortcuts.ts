@@ -26,9 +26,18 @@ export function useKeyboardShortcuts() {
       // Atajos del sistema
       if (key === "enter") {
         event.preventDefault()
+        // Primer Enter: Procesar venta
         const processButton = document.querySelector('[data-shortcut="process-sale"]') as HTMLButtonElement
         if (processButton && !processButton.disabled) {
           processButton.click()
+
+          // Segundo Enter: Imprimir (después de un pequeño delay)
+          setTimeout(() => {
+            const confirmButton = document.querySelector('button:contains("✅ Confirmar Venta")') as HTMLButtonElement
+            if (confirmButton && !confirmButton.disabled) {
+              confirmButton.click()
+            }
+          }, 100)
         }
       } else if (key === "x") {
         event.preventDefault()

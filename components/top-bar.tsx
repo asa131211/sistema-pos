@@ -22,9 +22,11 @@ import { toast } from "sonner"
 interface TopBarProps {
   darkMode: boolean
   setDarkMode: (darkMode: boolean) => void
+  cashRegisterStatus?: { isOpen: boolean; data: any }
+  onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
 }
 
-export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
+export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCashRegisterChange }: TopBarProps) {
   const [user] = useAuthState(auth)
   const [userProfile, setUserProfile] = useState({
     name: "",
@@ -32,7 +34,6 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
     role: "",
   })
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [cashRegister, setCashRegister] = useState<any>(null)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -65,31 +66,6 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
 
     return () => clearInterval(timer)
   }, [])
-
-  useEffect(() => {
-    const checkCashRegisterStatus = async () => {
-      if (!user) return
-
-      try {
-        const today = new Date().toISOString().split("T")[0]
-        const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${today}`))
-
-        if (cashRegDoc.exists()) {
-          setCashRegister(cashRegDoc.data())
-        } else {
-          setCashRegister(null)
-        }
-      } catch (error) {
-        console.error("Error checking cash register:", error)
-        setCashRegister(null)
-      }
-    }
-
-    checkCashRegisterStatus()
-    const interval = setInterval(checkCashRegisterStatus, 30000) // Check every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [user])
 
   const handleLogout = async () => {
     try {
@@ -136,7 +112,11 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
         console.warn("Error registering movement:", movementError)
       }
 
-      setCashRegister(cashRegData)
+      // Actualizar estado inmediatamente
+      if (onCashRegisterChange) {
+        onCashRegisterChange({ isOpen: true, data: cashRegData })
+      }
+
       toast.success("Caja abierta exitosamente")
     } catch (error) {
       console.error("Error opening cash register:", error)
@@ -147,25 +127,29 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
   }
 
   const closeCashRegister = async () => {
-    if (!user || !cashRegister) return
+    if (!user || !cashRegisterStatus?.data) return
 
     setLoading(true)
     try {
-      await updateDoc(doc(db, "cash-registers", cashRegister.id), {
+      await updateDoc(doc(db, "cash-registers", cashRegisterStatus.data.id), {
         isOpen: false,
         closedAt: serverTimestamp(),
       })
 
       await addDoc(collection(db, "cash-movements"), {
-        cashRegisterId: cashRegister.id,
+        cashRegisterId: cashRegisterStatus.data.id,
         type: "closing",
-        amount: cashRegister.currentAmount,
+        amount: cashRegisterStatus.data.currentAmount,
         description: "Cierre de caja desde top bar",
         userId: user.uid,
         timestamp: serverTimestamp(),
       })
 
-      setCashRegister({ ...cashRegister, isOpen: false })
+      // Actualizar estado inmediatamente
+      if (onCashRegisterChange) {
+        onCashRegisterChange({ isOpen: false, data: { ...cashRegisterStatus.data, isOpen: false } })
+      }
+
       setShowCloseDialog(false)
       toast.success("Caja cerrada exitosamente")
     } catch (error) {
@@ -178,7 +162,7 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
 
   return (
     <>
-      <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-6">
+      <header className="sticky top-0 z-50 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-6">
         {/* Logo y título */}
         <div className="flex items-center space-x-3 md:space-x-4">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
@@ -203,12 +187,13 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
 
           {/* Cash Register Controls */}
           <div className="flex items-center space-x-2">
-            {!cashRegister?.isOpen ? (
+            {!cashRegisterStatus?.isOpen ? (
               <Button
                 onClick={openCashRegister}
                 disabled={loading}
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs"
+                data-shortcut="toggle-cash"
               >
                 <Unlock className="h-3 w-3 mr-1" />
                 {loading ? "Abriendo..." : "Abrir Caja"}
@@ -219,6 +204,7 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
                 variant="destructive"
                 size="sm"
                 className="h-8 px-3 text-xs"
+                data-shortcut="toggle-cash"
               >
                 <Lock className="h-3 w-3 mr-1" />
                 Cerrar Caja
@@ -316,19 +302,19 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Total Ventas:</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    S/. {cashRegister?.totalSales?.toFixed(2) || "0.00"}
+                    S/. {cashRegisterStatus?.data?.totalSales?.toFixed(2) || "0.00"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Efectivo:</span>
                   <span className="font-semibold text-green-600">
-                    S/. {cashRegister?.cashSales?.toFixed(2) || "0.00"}
+                    S/. {cashRegisterStatus?.data?.cashSales?.toFixed(2) || "0.00"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Transferencias:</span>
                   <span className="font-semibold text-blue-600">
-                    S/. {cashRegister?.transferSales?.toFixed(2) || "0.00"}
+                    S/. {cashRegisterStatus?.data?.transferSales?.toFixed(2) || "0.00"}
                   </span>
                 </div>
               </div>
