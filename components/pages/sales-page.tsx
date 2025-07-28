@@ -426,233 +426,179 @@ export default function SalesPage({
       }
     }
 
-    // CSS optimizado para eliminar páginas en blanco
+    // Limpiar cualquier contenedor de impresión existente
+    const existingContainer = document.getElementById("print-container")
+    if (existingContainer) {
+      existingContainer.remove()
+    }
+
+    // Crear nuevo contenedor
+    const printContainer = document.createElement("div")
+    printContainer.id = "print-container"
+    printContainer.style.display = "none"
+
+    // CSS simplificado y funcional
     const printStyles = `
     <style>
-      @media print {
-        * {
-          margin: 0 !important;
-          padding: 0 !important;
-          box-sizing: border-box !important;
-        }
-        
-        html, body {
-          width: 80mm !important;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          font-family: 'Courier New', monospace !important;
-          font-size: 11px !important;
-          line-height: 1.1 !important;
-          color: #000 !important;
-          background: white !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        
-        @page {
-          size: 80mm auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        
-        .print-container {
-          width: 80mm !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-        }
-        
-        .print-ticket {
-          width: 80mm !important;
-          max-width: 80mm !important;
-          min-height: auto !important;
-          margin: 0 !important;
-          padding: 6px !important;
-          border: 1px solid #000 !important;
-          background: white !important;
-          page-break-after: always !important;
-          page-break-inside: avoid !important;
-          display: block !important;
-          position: relative !important;
-        }
-        
-        .print-ticket:last-child {
-          page-break-after: avoid !important;
-        }
-        
-        .ticket-header {
-          text-align: center !important;
-          border-bottom: 1px dashed #000 !important;
-          padding-bottom: 6px !important;
-          margin-bottom: 6px !important;
-        }
-        
-        .ticket-logo {
-          margin-bottom: 3px !important;
-        }
-        
-        .ticket-logo-text {
-          font-size: 20px !important;
-          font-weight: bold !important;
-          margin: 2px 0 !important;
-        }
-        
-        .ticket-title {
-          font-size: 14px !important;
-          font-weight: bold !important;
-          margin: 1px 0 !important;
-        }
-        
-        .ticket-subtitle {
-          font-size: 10px !important;
-          margin: 1px 0 !important;
-        }
-        
-        .ticket-number {
-          font-size: 12px !important;
-          font-weight: bold !important;
-          margin: 2px 0 !important;
-        }
-        
-        .ticket-promo {
-          background: #000 !important;
-          color: white !important;
-          padding: 1px 3px !important;
-          font-size: 9px !important;
-          font-weight: bold !important;
-          display: inline-block !important;
-          margin: 2px 0 !important;
-        }
-        
-        .ticket-content {
-          margin: 6px 0 !important;
-        }
-        
-        .ticket-row {
-          display: flex !important;
-          justify-content: space-between !important;
-          margin-bottom: 2px !important;
-          font-size: 10px !important;
-          align-items: center !important;
-        }
-        
-        .ticket-label {
-          font-weight: bold !important;
-          flex: 1 !important;
-        }
-        
-        .ticket-value {
-          text-align: right !important;
-          flex: 1 !important;
-        }
-        
-        .ticket-total-section {
-          border-top: 1px dashed #000 !important;
-          padding-top: 3px !important;
-          margin-top: 6px !important;
-        }
-        
-        .ticket-total {
-          text-align: center !important;
-          font-size: 12px !important;
-          font-weight: bold !important;
-          padding: 3px !important;
-          border: 1px solid #000 !important;
-          margin: 2px 0 !important;
-        }
-        
-        .ticket-footer {
-          border-top: 1px dashed #000 !important;
-          padding-top: 6px !important;
-          margin-top: 6px !important;
-          text-align: center !important;
-        }
-        
-        .ticket-info {
-          font-size: 9px !important;
-          margin-bottom: 1px !important;
-        }
-        
-        .ticket-promo-note {
-          font-size: 9px !important;
-          font-weight: bold !important;
-          margin: 2px 0 !important;
-          background: #f0f0f0 !important;
-          padding: 1px !important;
-        }
-        
-        .ticket-thanks {
-          font-size: 11px !important;
-          font-weight: bold !important;
-          margin: 4px 0 2px !important;
-        }
-        
-        .ticket-brand {
-          font-size: 10px !important;
-          font-weight: bold !important;
-          margin-bottom: 1px !important;
-        }
-        
-        .ticket-note {
-          font-size: 8px !important;
-          font-style: italic !important;
-          margin-top: 2px !important;
-        }
-        
-        /* Ocultar todo excepto el contenido de impresión */
-        body * {
-          visibility: hidden !important;
-        }
-        
-        .print-container,
-        .print-container * {
-          visibility: visible !important;
-        }
-        
-        .print-container {
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 100% !important;
-        }
-        
-        /* Eliminar elementos que puedan causar páginas en blanco */
-        .no-print,
-        .no-print *,
-        nav,
-        header,
-        footer,
-        aside,
-        .sidebar,
-        .menu {
+      @media screen {
+        #print-container {
           display: none !important;
-          visibility: hidden !important;
         }
       }
       
-      /* Estilos para pantalla - ocultar contenedor de impresión */
-      .print-container {
-        display: none !important;
-        position: absolute !important;
-        left: -9999px !important;
-        top: -9999px !important;
-        width: 1px !important;
-        height: 1px !important;
-        overflow: hidden !important;
+      @media print {
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          line-height: 1.3;
+          color: #000;
+          background: white;
+        }
+        
+        @page {
+          size: 80mm auto;
+          margin: 5mm;
+        }
+        
+        body > *:not(#print-container) {
+          display: none !important;
+        }
+        
+        #print-container {
+          display: block !important;
+          visibility: visible !important;
+        }
+        
+        .ticket {
+          width: 70mm;
+          margin: 0 auto 5mm auto;
+          padding: 3mm;
+          border: 1px solid #000;
+          background: white;
+          page-break-after: always;
+          page-break-inside: avoid;
+        }
+        
+        .ticket:last-child {
+          page-break-after: auto;
+        }
+        
+        .ticket-header {
+          text-align: center;
+          border-bottom: 1px dashed #000;
+          padding-bottom: 3mm;
+          margin-bottom: 3mm;
+        }
+        
+        .ticket-logo {
+          font-size: 20px;
+          margin-bottom: 2mm;
+        }
+        
+        .ticket-title {
+          font-size: 14px;
+          font-weight: bold;
+          margin-bottom: 1mm;
+        }
+        
+        .ticket-subtitle {
+          font-size: 10px;
+          margin-bottom: 2mm;
+        }
+        
+        .ticket-number {
+          font-size: 12px;
+          font-weight: bold;
+          margin-bottom: 2mm;
+        }
+        
+        .ticket-promo {
+          background: #000;
+          color: white;
+          padding: 1mm 2mm;
+          font-size: 8px;
+          font-weight: bold;
+          display: inline-block;
+        }
+        
+        .ticket-content {
+          margin: 3mm 0;
+        }
+        
+        .ticket-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 1mm;
+          font-size: 10px;
+        }
+        
+        .ticket-label {
+          font-weight: bold;
+        }
+        
+        .ticket-value {
+          text-align: right;
+        }
+        
+        .ticket-total-section {
+          border-top: 1px dashed #000;
+          padding-top: 2mm;
+          margin-top: 3mm;
+        }
+        
+        .ticket-total {
+          text-align: center;
+          font-size: 11px;
+          font-weight: bold;
+          padding: 2mm;
+          border: 1px solid #000;
+        }
+        
+        .ticket-footer {
+          border-top: 1px dashed #000;
+          padding-top: 3mm;
+          margin-top: 3mm;
+          text-align: center;
+        }
+        
+        .ticket-info {
+          font-size: 8px;
+          margin-bottom: 1mm;
+        }
+        
+        .ticket-thanks {
+          font-size: 10px;
+          font-weight: bold;
+          margin: 2mm 0;
+        }
+        
+        .ticket-brand {
+          font-size: 9px;
+          font-weight: bold;
+          margin-bottom: 1mm;
+        }
+        
+        .ticket-note {
+          font-size: 7px;
+          font-style: italic;
+        }
       }
     </style>
   `
 
-    // Generar HTML optimizado para cada ticket
-    const allTicketsHTML = allTickets
+    // Generar HTML de tickets
+    const ticketsHTML = allTickets
       .map(
         (ticket, index) => `
-    <div class="print-ticket">
+    <div class="ticket">
       <div class="ticket-header">
-        <div class="ticket-logo">
-          <div class="ticket-logo-text">🐅</div>
-        </div>
+        <div class="ticket-logo">🐅</div>
         <div class="ticket-title">SANCHEZ PARK</div>
         <div class="ticket-subtitle">Ticket de ${ticket.type}</div>
         <div class="ticket-number">#${ticket.ticketNumber}</div>
@@ -682,7 +628,7 @@ export default function SalesPage({
         <div class="ticket-info">Vendedor: ${ticket.seller}</div>
         <div class="ticket-info">Pago: ${ticket.paymentMethod}</div>
         <div class="ticket-info">Ticket: ${index + 1} de ${allTickets.length}</div>
-        ${ticket.isFree ? '<div class="ticket-promo-note">¡Felicidades! Ticket de promoción 10+1</div>' : ""}
+        ${ticket.isFree ? '<div class="ticket-info">¡Felicidades! Ticket de promoción 10+1</div>' : ""}
         <div class="ticket-thanks">¡Gracias por su compra!</div>
         <div class="ticket-brand">Sanchez Park</div>
         <div class="ticket-note">Conserve este ticket</div>
@@ -692,41 +638,34 @@ export default function SalesPage({
       )
       .join("")
 
-    // Limpiar cualquier contenedor de impresión existente
-    const existingContainer = document.getElementById("print-container")
-    if (existingContainer) {
-      existingContainer.remove()
-    }
-
-    // Crear nuevo contenedor optimizado
-    const printContainer = document.createElement("div")
-    printContainer.id = "print-container"
-    printContainer.className = "print-container"
-
-    // Agregar estilos y contenido
-    printContainer.innerHTML = printStyles + `<div class="print-container">${allTicketsHTML}</div>`
+    // Agregar contenido al contenedor
+    printContainer.innerHTML = printStyles + ticketsHTML
 
     // Agregar al DOM
     document.body.appendChild(printContainer)
 
-    console.log(`✅ ${allTickets.length} tickets preparados para impresión sin páginas en blanco`)
+    console.log(`✅ ${allTickets.length} tickets preparados para impresión`)
+    console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
 
-    // Esperar a que el DOM se actualice completamente
+    // Imprimir después de un breve delay
     setTimeout(() => {
-      // Configurar la impresión
-      const originalTitle = document.title
-      document.title = `Tickets-${new Date().getTime()}`
+      console.log("Iniciando impresión...")
 
-      // Función de limpieza después de imprimir
+      // Configurar título temporal
+      const originalTitle = document.title
+      document.title = `Tickets-${Date.now()}`
+
+      // Función de limpieza
       const cleanup = () => {
         document.title = originalTitle
         const container = document.getElementById("print-container")
         if (container) {
           container.remove()
+          console.log("Contenedor de impresión limpiado")
         }
       }
 
-      // Configurar eventos de impresión
+      // Event listener para después de imprimir
       const handleAfterPrint = () => {
         cleanup()
         window.removeEventListener("afterprint", handleAfterPrint)
@@ -735,11 +674,16 @@ export default function SalesPage({
       window.addEventListener("afterprint", handleAfterPrint)
 
       // Iniciar impresión
-      window.print()
+      try {
+        window.print()
+      } catch (error) {
+        console.error("Error al imprimir:", error)
+        cleanup()
+      }
 
-      // Limpieza de respaldo después de 5 segundos
-      setTimeout(cleanup, 5000)
-    }, 200)
+      // Limpieza de respaldo después de 10 segundos
+      setTimeout(cleanup, 10000)
+    }, 300)
   }, [cart, promotion, paymentMethod, user])
 
   const processSale = useCallback(async () => {
