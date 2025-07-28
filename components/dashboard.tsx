@@ -2,26 +2,65 @@
 
 import { useState, useEffect } from "react"
 import { useAuthState } from "react-firebase-hooks/auth"
-import { auth } from "@/lib/firebase"
-import TopBar from "./top-bar"
-import Sidebar from "./sidebar"
-import HomePage from "./pages/home-page"
-import SalesPage from "./pages/sales-page"
-import ProductsPage from "./pages/products-page"
-import ReportsPage from "./pages/reports-page"
-import UsersPage from "./pages/users-page"
-import SettingsPage from "./pages/settings-page"
-import CashRegister from "./cash-register"
+import { auth, db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import Sidebar from "@/components/sidebar"
+import TopBar from "@/components/top-bar"
+import HomePage from "@/components/pages/home-page"
+import SalesPage from "@/components/pages/sales-page"
+import ProductsPage from "@/components/pages/products-page"
+import UsersPage from "@/components/pages/users-page"
+import ReportsPage from "@/components/pages/reports-page"
+import SettingsPage from "@/components/pages/settings-page"
+import { SyncIndicator } from "@/components/sync-status"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 
 export default function Dashboard() {
   const [user] = useAuthState(auth)
-  const [currentPage, setCurrentPage] = useState("home")
+  const [userRole, setUserRole] = useState<"admin" | "vendedor" | null>(null)
+  const [currentPage, setCurrentPage] = useState("ventas")
+  const [loading, setLoading] = useState(true)
+  const [darkMode, setDarkMode] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [cashRegisterStatus, setCashRegisterStatus] = useState({ isOpen: false, data: null })
+  const [cashRegisterStatus, setCashRegisterStatus] = useState<{ isOpen: boolean; data: any }>({
+    isOpen: false,
+    data: null,
+  })
 
-  // Verificar estado de caja al cargar
+  useKeyboardShortcuts()
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user) {
+        try {
+          console.log("🔄 Sincronizando datos de usuario...")
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            setUserRole(userData.role)
+            setCurrentPage(userData.role === "admin" ? "inicio" : "ventas")
+            console.log("✅ Rol de usuario sincronizado:", userData.role)
+          }
+        } catch (error) {
+          console.error("❌ Error fetching user role:", error)
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchUserRole()
+  }, [user])
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [darkMode])
+
+  // Check cash register status
   useEffect(() => {
     const checkCashRegisterStatus = async () => {
       if (!user) return
@@ -43,109 +82,98 @@ export default function Dashboard() {
     }
 
     checkCashRegisterStatus()
+    const interval = setInterval(checkCashRegisterStatus, 30000)
+
+    return () => clearInterval(interval)
   }, [user])
 
-  // Atajos de teclado globales
+  // Auto-reset de ventas a las 7 AM
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Solo procesar si no estamos en un input o textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
+    const checkDailyReset = () => {
+      const now = new Date()
+      const resetTime = new Date()
+      resetTime.setHours(7, 0, 0, 0)
+
+      if (now > resetTime) {
+        resetTime.setDate(resetTime.getDate() + 1)
       }
 
-      switch (e.key.toLowerCase()) {
-        case "x":
-          // Limpiar carrito - solo en página de ventas
-          if (currentPage === "sales") {
-            const clearButton = document.querySelector('[data-shortcut="clear-cart"]') as HTMLButtonElement
-            if (clearButton && !clearButton.disabled) {
-              clearButton.click()
-            }
-          }
-          break
-        case "p":
-          // Abrir/cerrar caja
-          e.preventDefault()
-          const cashRegisterButton = document.querySelector('[data-shortcut="cash-register"]') as HTMLButtonElement
-          if (cashRegisterButton) {
-            cashRegisterButton.click()
-          }
-          break
-        case "enter":
-          // Procesar venta - solo en página de ventas
-          if (currentPage === "sales") {
-            e.preventDefault()
-            const processButton = document.querySelector('[data-shortcut="process-sale"]') as HTMLButtonElement
-            if (processButton && !processButton.disabled) {
-              processButton.click()
-            }
-          }
-          break
-      }
+      const timeUntilReset = resetTime.getTime() - now.getTime()
 
-      // Atajos de productos personalizados
-      const productCard = document.querySelector(`[data-product-shortcut="${e.key}"]`) as HTMLElement
-      if (productCard && currentPage === "sales") {
-        productCard.click()
-      }
+      const resetTimeout = setTimeout(() => {
+        console.log("🔄 Reinicio automático del sistema a las 7:00 AM")
+        checkDailyReset()
+      }, timeUntilReset)
+
+      return () => clearTimeout(resetTimeout)
     }
 
-    window.addEventListener("keydown", handleKeyPress)
-    return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [currentPage])
+    const cleanup = checkDailyReset()
+    return cleanup
+  }, [])
 
-  const handleCashRegisterChange = (status: { isOpen: boolean; data: any }) => {
-    setCashRegisterStatus(status)
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <img src="/loading-wheel.gif" alt="Cargando..." className="w-16 h-16 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400 text-lg">Sincronizando datos...</p>
+          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
+        </div>
+      </div>
+    )
   }
 
   const renderPage = () => {
     switch (currentPage) {
-      case "home":
-        return <HomePage />
-      case "sales":
+      case "inicio":
+        return <HomePage userRole={userRole} sidebarCollapsed={sidebarCollapsed} />
+      case "ventas":
         return (
           <SalesPage
             sidebarCollapsed={sidebarCollapsed}
             cashRegisterStatus={cashRegisterStatus}
-            onCashRegisterChange={handleCashRegisterChange}
+            onCashRegisterChange={setCashRegisterStatus}
           />
         )
-      case "products":
-        return <ProductsPage />
-      case "reports":
-        return <ReportsPage />
-      case "users":
-        return <UsersPage />
-      case "settings":
-        return <SettingsPage />
-      case "cash-register":
-        return (
-          <CashRegister onStatusChange={(isOpen) => setCashRegisterStatus({ isOpen, data: cashRegisterStatus.data })} />
-        )
+      case "productos":
+        return <ProductsPage sidebarCollapsed={sidebarCollapsed} />
+      case "usuarios":
+        return <UsersPage sidebarCollapsed={sidebarCollapsed} />
+      case "reportes":
+        return <ReportsPage sidebarCollapsed={sidebarCollapsed} />
+      case "configuracion":
+        return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} sidebarCollapsed={sidebarCollapsed} />
       default:
-        return <HomePage />
+        return (
+          <SalesPage
+            sidebarCollapsed={sidebarCollapsed}
+            cashRegisterStatus={cashRegisterStatus}
+            onCashRegisterChange={setCashRegisterStatus}
+          />
+        )
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* TopBar fijo */}
-      <div className="fixed top-0 left-0 right-0 z-50">
-        <TopBar
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-          cashRegisterStatus={cashRegisterStatus}
-          onCashRegisterChange={handleCashRegisterChange}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <TopBar
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        cashRegisterStatus={cashRegisterStatus}
+        onCashRegisterChange={setCashRegisterStatus}
+      />
+      <div className="flex flex-1">
+        <Sidebar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          userRole={userRole}
+          isCollapsed={sidebarCollapsed}
+          setIsCollapsed={setSidebarCollapsed}
         />
+        <main className="flex-1 overflow-auto">{renderPage()}</main>
       </div>
-
-      {/* Sidebar fijo */}
-      <div className="fixed top-16 left-0 bottom-0 z-40">
-        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} collapsed={sidebarCollapsed} />
-      </div>
-
-      {/* Contenido principal con margen para topbar y sidebar */}
-      <div className="pt-16">{renderPage()}</div>
+      <SyncIndicator />
     </div>
   )
 }
