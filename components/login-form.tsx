@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, ShoppingCart, Clock, Calendar } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
@@ -33,110 +33,76 @@ export default function LoginForm() {
     }
   }
 
-  const currentTime = new Date().toLocaleTimeString("es-ES")
-  const currentDate = new Date().toLocaleDateString("es-ES")
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50">
-      {/* Header similar al diseño */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
-              <ShoppingCart className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Caja y Ventas</h1>
-              <p className="text-sm text-gray-600">Sistema de punto de venta</p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <CardHeader className="text-center pb-6">
+          <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <img
+              src="/tiger-logo-bw.png"
+              alt="Sanchez Park"
+              className="w-12 h-12 object-contain filter brightness-0 invert"
+            />
           </div>
+          <CardTitle className="text-2xl font-bold text-gray-900">Sanchez Park</CardTitle>
+          <CardDescription className="text-gray-600">Ingresa tus credenciales para acceder al sistema</CardDescription>
+        </CardHeader>
 
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <Clock className="h-4 w-4" />
-              <span>{currentTime}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <Calendar className="h-4 w-4" />
-              <span>{currentDate}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Contenido principal */}
-      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] p-6">
-        <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="text-center pb-6">
-            <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <img
-                src="/tiger-logo-bw.png"
-                alt="Sanchez Park"
-                className="w-12 h-12 object-contain filter brightness-0 invert"
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                Usuario
+              </Label>
+              <Input
+                id="email"
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nombre_usuario"
+                required
+                className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
               />
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">Sanchez Park</CardTitle>
-            <CardDescription className="text-gray-600">
-              Ingresa tus credenciales para acceder al sistema
-            </CardDescription>
-          </CardHeader>
 
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Usuario
-                </Label>
-                <Input
-                  id="email"
-                  type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nombre_usuario"
-                  required
-                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                Contraseña
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Contraseña
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
-                />
-              </div>
+            {error && (
+              <Alert variant="destructive" className="border-red-200 bg-red-50">
+                <AlertDescription className="text-red-700">{error}</AlertDescription>
+              </Alert>
+            )}
 
-              {error && (
-                <Alert variant="destructive" className="border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
-                </Alert>
+            <Button
+              type="submit"
+              className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-xl shadow-lg transition-all duration-200"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Iniciando sesión...
+                </>
+              ) : (
+                "Iniciar Sesión"
               )}
-
-              <Button
-                type="submit"
-                className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-xl shadow-lg transition-all duration-200"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Iniciando sesión...
-                  </>
-                ) : (
-                  "Iniciar Sesión"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

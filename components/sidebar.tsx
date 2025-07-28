@@ -30,7 +30,7 @@ export default function Sidebar({ currentPage, setCurrentPage, userRole, isColla
   const menuItems = userRole === "admin" ? adminMenuItems : vendedorMenuItems
 
   return (
-    <div className="fixed left-0 top-16 h-[calc(100vh-64px)] w-16 bg-white border-r border-gray-200 flex flex-col z-40">
+    <div className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       {/* Navegación */}
       <nav className="flex-1 p-2 space-y-2">
         {menuItems.map((item) => {
@@ -44,7 +44,7 @@ export default function Sidebar({ currentPage, setCurrentPage, userRole, isColla
                 "w-12 h-12 p-0 rounded-xl transition-all duration-200",
                 isActive
                   ? "bg-purple-600 text-white shadow-lg hover:bg-purple-700"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800",
               )}
               onClick={() => setCurrentPage(item.id)}
               title={item.label}

@@ -18,7 +18,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 export default function Dashboard() {
   const [user] = useAuthState(auth)
   const [userRole, setUserRole] = useState<"admin" | "vendedor" | null>(null)
-  const [currentPage, setCurrentPage] = useState("ventas") // Cambiar página por defecto a ventas
+  const [currentPage, setCurrentPage] = useState("ventas")
   const [loading, setLoading] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -34,7 +34,6 @@ export default function Dashboard() {
           if (userDoc.exists()) {
             const userData = userDoc.data()
             setUserRole(userData.role)
-            // Si es admin, mostrar dashboard por defecto, si es vendedor, mostrar ventas
             setCurrentPage(userData.role === "admin" ? "inicio" : "ventas")
             console.log("✅ Rol de usuario sincronizado:", userData.role)
           }
@@ -62,9 +61,8 @@ export default function Dashboard() {
     const checkDailyReset = () => {
       const now = new Date()
       const resetTime = new Date()
-      resetTime.setHours(7, 0, 0, 0) // 7:00 AM
+      resetTime.setHours(7, 0, 0, 0)
 
-      // Si ya pasaron las 7 AM de hoy, programar para mañana
       if (now > resetTime) {
         resetTime.setDate(resetTime.getDate() + 1)
       }
@@ -73,10 +71,6 @@ export default function Dashboard() {
 
       const resetTimeout = setTimeout(() => {
         console.log("🔄 Reinicio automático del sistema a las 7:00 AM")
-        // Aquí podrías agregar lógica adicional para el reinicio
-        // Por ejemplo, limpiar caché local, mostrar notificación, etc.
-
-        // Programar el siguiente reinicio (24 horas después)
         checkDailyReset()
       }, timeUntilReset)
 
@@ -89,11 +83,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <img src="/loading-wheel.gif" alt="Cargando..." className="w-16 h-16 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Sincronizando datos...</p>
-          <p className="text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">Sincronizando datos...</p>
+          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
         </div>
       </div>
     )
@@ -119,7 +113,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <TopBar darkMode={darkMode} setDarkMode={setDarkMode} />
       <div className="flex flex-1">
         <Sidebar
@@ -129,7 +123,7 @@ export default function Dashboard() {
           isCollapsed={sidebarCollapsed}
           setIsCollapsed={setSidebarCollapsed}
         />
-        <main className="flex-1">{renderPage()}</main>
+        <main className="flex-1 overflow-auto">{renderPage()}</main>
       </div>
       <SyncIndicator />
     </div>
