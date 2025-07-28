@@ -4,7 +4,8 @@ import type React from "react"
 
 import { useState } from "react"
 import { signInWithEmailAndPassword } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +16,7 @@ import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 export default function LoginForm() {
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -28,6 +29,22 @@ export default function LoginForm() {
     setError("")
 
     try {
+      let email = username
+
+      // Si no contiene @, buscar el email por nombre de usuario
+      if (!username.includes("@")) {
+        const usersRef = collection(db, "users")
+        const q = query(usersRef, where("username", "==", username))
+        const querySnapshot = await getDocs(q)
+
+        if (querySnapshot.empty) {
+          throw new Error("auth/user-not-found")
+        }
+
+        const userDoc = querySnapshot.docs[0]
+        email = userDoc.data().email
+      }
+
       await signInWithEmailAndPassword(auth, email, password)
       toast.success("¡Bienvenido! Sesión iniciada correctamente")
     } catch (error: any) {
@@ -35,7 +52,7 @@ export default function LoginForm() {
 
       let errorMessage = "Error al iniciar sesión"
 
-      switch (error.code) {
+      switch (error.code || error.message) {
         case "auth/user-not-found":
           errorMessage = "Usuario no encontrado"
           break
@@ -120,15 +137,15 @@ export default function LoginForm() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300 font-medium">
-                Correo Electrónico
+              <Label htmlFor="username" className="text-gray-700 dark:text-gray-300 font-medium">
+                Usuario o Correo
               </Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin o tu@email.com"
                 required
                 className="h-12 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
               />
@@ -179,8 +196,17 @@ export default function LoginForm() {
             </Button>
           </form>
 
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <p className="text-xs text-gray-500 dark:text-gray-400">Sistema de gestión de ventas personalizado</p>
+            <div className="text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
+              <p className="font-medium mb-1">Usuarios de prueba:</p>
+              <p>
+                👤 <span className="font-mono">admin</span> / <span className="font-mono">123456</span>
+              </p>
+              <p>
+                👤 <span className="font-mono">vendedor</span> / <span className="font-mono">123456</span>
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
