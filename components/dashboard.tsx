@@ -12,7 +12,7 @@ import ProductsPage from "@/components/pages/products-page"
 import UsersPage from "@/components/pages/users-page"
 import ReportsPage from "@/components/pages/reports-page"
 import SettingsPage from "@/components/pages/settings-page"
-import { SyncStatus, SyncIndicator } from "@/components/sync-status"
+import { SyncIndicator } from "@/components/sync-status"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 
 export default function Dashboard() {
@@ -89,11 +89,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <img src="/loading-wheel.gif" alt="Cargando..." className="w-16 h-16 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400 text-lg">Sincronizando datos...</p>
-          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
+          <p className="text-gray-600 text-lg">Sincronizando datos...</p>
+          <p className="text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
         </div>
       </div>
     )
@@ -102,37 +102,34 @@ export default function Dashboard() {
   const renderPage = () => {
     switch (currentPage) {
       case "inicio":
-        return <HomePage userRole={userRole} />
+        return <HomePage userRole={userRole} sidebarCollapsed={sidebarCollapsed} />
       case "ventas":
         return <SalesPage sidebarCollapsed={sidebarCollapsed} />
       case "productos":
-        return <ProductsPage />
+        return <ProductsPage sidebarCollapsed={sidebarCollapsed} />
       case "usuarios":
-        return <UsersPage />
+        return <UsersPage sidebarCollapsed={sidebarCollapsed} />
       case "reportes":
-        return <ReportsPage />
+        return <ReportsPage sidebarCollapsed={sidebarCollapsed} />
       case "configuracion":
-        return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} />
+        return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} sidebarCollapsed={sidebarCollapsed} />
       default:
         return <SalesPage sidebarCollapsed={sidebarCollapsed} />
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      <Sidebar
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        userRole={userRole}
-        isCollapsed={sidebarCollapsed}
-        setIsCollapsed={setSidebarCollapsed}
-      />
-      <div className="flex-1 flex flex-col">
-        <TopBar darkMode={darkMode} setDarkMode={setDarkMode} />
-        <div className="px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <SyncStatus />
-        </div>
-        <main className="flex-1 p-6 overflow-auto">{renderPage()}</main>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <TopBar darkMode={darkMode} setDarkMode={setDarkMode} />
+      <div className="flex flex-1">
+        <Sidebar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          userRole={userRole}
+          isCollapsed={sidebarCollapsed}
+          setIsCollapsed={setSidebarCollapsed}
+        />
+        <main className="flex-1">{renderPage()}</main>
       </div>
       <SyncIndicator />
     </div>

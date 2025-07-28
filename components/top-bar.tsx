@@ -1,7 +1,5 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-
 import { useState, useEffect } from "react"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { signOut } from "firebase/auth"
@@ -17,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Moon, Sun, LogOut, User, Clock, Calendar } from "lucide-react"
+import { Moon, Sun, LogOut, User, Clock, Calendar, Wifi, ShoppingCart } from "lucide-react"
 
 interface TopBarProps {
   darkMode: boolean
@@ -61,6 +59,10 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
       setCurrentTime(new Date())
     }, 1000)
 
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
 
@@ -69,7 +71,6 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
     window.addEventListener("offline", handleOffline)
 
     return () => {
-      clearInterval(timer)
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
     }
@@ -84,65 +85,74 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm">
-      {/* Left side - Title and description */}
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+      {/* Logo y título */}
       <div className="flex items-center space-x-4">
-        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-          <img src="/tiger-logo.png" alt="Sanchez Park" className="w-6 h-6 object-contain" />
+        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+          <ShoppingCart className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Caja y Ventas</h1>
-          <p className="text-sm text-gray-500">Procesa ventas y maneja caja</p>
+          <h1 className="text-xl font-bold text-gray-900">Caja y Ventas</h1>
+          <p className="text-sm text-gray-600">Procesa ventas y maneja caja</p>
         </div>
       </div>
 
-      {/* Right side - Time, date, status and user */}
+      {/* Centro - Tiempo y fecha */}
       <div className="flex items-center space-x-6">
-        {/* Time */}
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <Clock className="h-4 w-4" />
           <span className="font-mono">{currentTime.toLocaleTimeString("es-ES")}</span>
         </div>
-
-        {/* Date */}
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <Calendar className="h-4 w-4" />
           <span>{currentTime.toLocaleDateString("es-ES")}</span>
         </div>
+      </div>
 
-        {/* Online status */}
+      {/* Derecha - Estado y usuario */}
+      <div className="flex items-center space-x-4">
+        {/* Estado de conexión */}
         <div className="flex items-center space-x-2">
-          <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-green-500" : "bg-red-500")}></div>
-          <span className={cn("text-sm font-medium", isOnline ? "text-green-600" : "text-red-600")}>
-            {isOnline ? "En línea" : "Sin conexión"}
-          </span>
+          <div
+            className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${
+              isOnline ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}
+          >
+            <Wifi className="h-3 w-3" />
+            <span>{isOnline ? "En línea" : "Sin conexión"}</span>
+          </div>
+
+          <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">Caja Abierta</div>
         </div>
 
-        {/* Cash register status */}
-        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
-          Caja Abierta
-        </Badge>
-
-        {/* Theme toggle */}
+        {/* Controles de tema */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setDarkMode(!darkMode)}
-          className="text-gray-600 hover:text-gray-900"
+          className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900"
         >
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        {/* User menu */}
+        {/* Usuario */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={userProfile.avatar || "/placeholder.svg"} alt={userProfile.name} />
-                <AvatarFallback className="bg-purple-600 text-white">
-                  {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "A"}
-                </AvatarFallback>
-              </Avatar>
+            <Button variant="ghost" className="relative h-10 w-auto px-3 rounded-full hover:bg-gray-100">
+              <div className="flex items-center space-x-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={userProfile.avatar || "/placeholder.svg"} alt={userProfile.name} />
+                  <AvatarFallback className="bg-purple-600 text-white text-sm">
+                    {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-left hidden md:block">
+                  <p className="text-sm font-medium text-gray-900">{userProfile.name || "Usuario"}</p>
+                  <Badge variant={userProfile.role === "admin" ? "default" : "secondary"} className="text-xs">
+                    {userProfile.role === "admin" ? "Admin" : "Vendedor"}
+                  </Badge>
+                </div>
+              </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -150,7 +160,7 @@ export default function TopBar({ darkMode, setDarkMode }: TopBarProps) {
               <Avatar className="h-10 w-10">
                 <AvatarImage src={userProfile.avatar || "/placeholder.svg"} alt={userProfile.name} />
                 <AvatarFallback className="bg-purple-600 text-white">
-                  {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "A"}
+                  {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col space-y-1 leading-none">

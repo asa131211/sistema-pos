@@ -23,6 +23,7 @@ import ImageUpload from "@/components/image-upload"
 interface SettingsPageProps {
   darkMode: boolean
   setDarkMode: (darkMode: boolean) => void
+  sidebarCollapsed?: boolean
 }
 
 interface Shortcut {
@@ -39,7 +40,7 @@ interface UserProfile {
   avatar?: string
 }
 
-export default function SettingsPage({ darkMode, setDarkMode }: SettingsPageProps) {
+export default function SettingsPage({ darkMode, setDarkMode, sidebarCollapsed = false }: SettingsPageProps) {
   const [user] = useAuthState(auth)
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: "",

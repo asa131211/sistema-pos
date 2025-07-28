@@ -1,7 +1,8 @@
 "use client"
+
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Home, ShoppingCart, Package, Users, BarChart3, Settings, Menu, X } from "lucide-react"
+import { Home, ShoppingCart, Package, Users, BarChart3, Settings } from "lucide-react"
 
 interface SidebarProps {
   currentPage: string
@@ -29,26 +30,9 @@ export default function Sidebar({ currentPage, setCurrentPage, userRole, isColla
   const menuItems = userRole === "admin" ? adminMenuItems : vendedorMenuItems
 
   return (
-    <div
-      className={cn(
-        "fixed left-0 top-0 h-screen bg-gradient-to-b from-purple-600 via-purple-700 to-blue-800 text-white flex flex-col shadow-xl transition-all duration-300 z-40",
-        isCollapsed ? "w-16" : "w-64",
-      )}
-    >
-      {/* Toggle button */}
-      <div className="p-4 flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-white hover:bg-white/10 p-2 rounded-lg"
-        >
-          {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
-        </Button>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-2">
+    <div className="fixed left-0 top-16 h-[calc(100vh-64px)] w-16 bg-white border-r border-gray-200 flex flex-col z-40">
+      {/* Navegación */}
+      <nav className="flex-1 p-2 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon
           const isActive = currentPage === item.id
@@ -57,17 +41,15 @@ export default function Sidebar({ currentPage, setCurrentPage, userRole, isColla
               key={item.id}
               variant="ghost"
               className={cn(
-                "w-full text-white transition-all duration-200 justify-start group",
-                isActive ? "bg-white/20 shadow-lg" : "hover:bg-white/10",
-                isCollapsed ? "px-3 justify-center" : "px-4",
+                "w-12 h-12 p-0 rounded-xl transition-all duration-200",
+                isActive
+                  ? "bg-purple-600 text-white shadow-lg hover:bg-purple-700"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
               )}
               onClick={() => setCurrentPage(item.id)}
-              title={isCollapsed ? item.label : undefined}
+              title={item.label}
             >
-              <div className={cn("flex items-center", !isCollapsed && "space-x-3")}>
-                <Icon className="h-5 w-5" />
-                {!isCollapsed && <span className="font-medium">{item.label}</span>}
-              </div>
+              <Icon className="h-5 w-5" />
             </Button>
           )
         })}

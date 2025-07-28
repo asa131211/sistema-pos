@@ -1,648 +1,437 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
+import { useAuthState } from "react-firebase-hooks/auth"
+import { auth, db } from "@/lib/firebase"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts"
-import { DollarSign, Download, TrendingUp, Clock, Award } from "lucide-react"
-import { toast } from "sonner"
+  BarChart3,
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  CalendarIcon,
+  Download,
+  Package,
+  Clock,
+  Gift,
+} from "lucide-react"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 
 interface Sale {
   id: string
-  items: any[]
+  items: Array<{
+    id: string
+    name: string
+    price: number
+    quantity: number
+  }>
   total: number
   paymentMethod: string
   sellerId: string
   sellerEmail: string
   timestamp: any
+  date: string
+  promotion?: {
+    totalItems: number
+    freeItems: number
+    totalTickets: number
+    hasPromotion: boolean
+  }
 }
 
-interface Seller {
-  id: string
-  name: string
-  email: string
-  role: string
+interface ReportsPageProps {
+  sidebarCollapsed?: boolean
 }
 
-export default function ReportsPage() {
+export default function ReportsPage({ sidebarCollapsed = false }: ReportsPageProps) {
+  const [user] = useAuthState(auth)
   const [sales, setSales] = useState<Sale[]>([])
-  const [users, setUsers] = useState<Seller[]>([])
-  const [selectedSeller, setSelectedSeller] = useState<string>("all")
-  const [dateFilter, setDateFilter] = useState<string>("today")
+  const [loading, setLoading] = useState(true)
+  const [selectedPeriod, setSelectedPeriod] = useState("today")
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [showCalendar, setShowCalendar] = useState(false)
 
   useEffect(() => {
-    // Escuchar ventas
-    const unsubscribeSales = onSnapshot(query(collection(db, "sales"), orderBy("timestamp", "desc")), (snapshot) => {
-      const salesData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Sale[]
-      setSales(salesData)
-    })
+    const loadSales = async () => {
+      if (!user) return
 
-    // Escuchar usuarios
-    const unsubscribeUsers = onSnapshot(query(collection(db, "users")), (snapshot) => {
-      const usersData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Seller[]
-      setUsers(usersData)
-    })
+      setLoading(true)
+      try {
+        let salesQuery
 
-    return () => {
-      unsubscribeSales()
-      unsubscribeUsers()
-    }
-  }, [])
+        const today = new Date().toISOString().split("T")[0]
+        const startOfWeek = new Date()
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+        const weekStart = startOfWeek.toISOString().split("T")[0]
 
-  const getFilteredSales = () => {
-    let filtered = sales
+        const startOfMonth = new Date()
+        startOfMonth.setDate(1)
+        const monthStart = startOfMonth.toISOString().split("T")[0]
 
-    // Filtrar por fecha
-    const now = new Date()
-    if (dateFilter === "today") {
-      const today = now.toDateString()
-      filtered = filtered.filter((sale) => new Date(sale.timestamp.toDate()).toDateString() === today)
-    } else if (dateFilter === "yesterday") {
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      const yesterdayStr = yesterday.toDateString()
-      filtered = filtered.filter((sale) => new Date(sale.timestamp.toDate()).toDateString() === yesterdayStr)
-    } else if (dateFilter === "week") {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      filtered = filtered.filter((sale) => new Date(sale.timestamp.toDate()) >= weekAgo)
-    } else if (dateFilter === "month") {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      filtered = filtered.filter((sale) => new Date(sale.timestamp.toDate()) >= monthAgo)
-    }
-
-    // Filtrar por vendedor
-    if (selectedSeller !== "all") {
-      filtered = filtered.filter((sale) => sale.sellerId === selectedSeller)
-    }
-
-    return filtered
-  }
-
-  // NUEVO: Productos más vendidos
-  const getTopProducts = () => {
-    const filteredSales = getFilteredSales()
-    const productStats = {}
-
-    filteredSales.forEach((sale) => {
-      sale.items.forEach((item) => {
-        if (!productStats[item.name]) {
-          productStats[item.name] = {
-            name: item.name,
-            quantity: 0,
-            revenue: 0,
-            sales: 0,
-          }
+        switch (selectedPeriod) {
+          case "today":
+            salesQuery = query(collection(db, "sales"), where("date", "==", today), orderBy("timestamp", "desc"))
+            break
+          case "week":
+            salesQuery = query(
+              collection(db, "sales"),
+              where("date", ">=", weekStart),
+              orderBy("date", "desc"),
+              orderBy("timestamp", "desc"),
+            )
+            break
+          case "month":
+            salesQuery = query(
+              collection(db, "sales"),
+              where("date", ">=", monthStart),
+              orderBy("date", "desc"),
+              orderBy("timestamp", "desc"),
+            )
+            break
+          case "custom":
+            const customDate = selectedDate.toISOString().split("T")[0]
+            salesQuery = query(collection(db, "sales"), where("date", "==", customDate), orderBy("timestamp", "desc"))
+            break
+          default:
+            salesQuery = query(collection(db, "sales"), orderBy("timestamp", "desc"))
         }
-        productStats[item.name].quantity += item.quantity
-        productStats[item.name].revenue += item.price * item.quantity
-        productStats[item.name].sales += 1
-      })
-    })
 
-    return Object.values(productStats)
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 10)
-  }
+        console.log("🔄 Cargando ventas para período:", selectedPeriod)
+        const salesSnapshot = await getDocs(salesQuery)
+        const salesData = salesSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Sale[]
 
-  // NUEVO: Horarios pico de ventas
-  const getHourlyStats = () => {
-    const filteredSales = getFilteredSales()
-    const hourlyData = Array.from({ length: 24 }, (_, i) => ({
-      hour: `${i.toString().padStart(2, "0")}:00`,
-      sales: 0,
-      revenue: 0,
-    }))
-
-    filteredSales.forEach((sale) => {
-      const hour = new Date(sale.timestamp.toDate()).getHours()
-      hourlyData[hour].sales += 1
-      hourlyData[hour].revenue += sale.total
-    })
-
-    return hourlyData.filter((data) => data.sales > 0)
-  }
-
-  // NUEVO: Comparación con período anterior
-  const getComparison = () => {
-    const now = new Date()
-    let currentPeriod = []
-    let previousPeriod = []
-
-    if (dateFilter === "today") {
-      const today = now.toDateString()
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString()
-
-      currentPeriod = sales.filter((sale) => new Date(sale.timestamp.toDate()).toDateString() === today)
-      previousPeriod = sales.filter((sale) => new Date(sale.timestamp.toDate()).toDateString() === yesterday)
-    } else if (dateFilter === "week") {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-
-      currentPeriod = sales.filter((sale) => new Date(sale.timestamp.toDate()) >= weekAgo)
-      previousPeriod = sales.filter((sale) => {
-        const saleDate = new Date(sale.timestamp.toDate())
-        return saleDate >= twoWeeksAgo && saleDate < weekAgo
-      })
-    }
-
-    const currentTotal = currentPeriod.reduce((sum, sale) => sum + sale.total, 0)
-    const previousTotal = previousPeriod.reduce((sum, sale) => sum + sale.total, 0)
-    const change = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0
-
-    return {
-      current: currentTotal,
-      previous: previousTotal,
-      change: change,
-      isPositive: change >= 0,
-    }
-  }
-
-  // NUEVO: Exportar datos
-  const exportToCSV = () => {
-    const filteredSales = getFilteredSales()
-    const csvData = [
-      ["Fecha", "Vendedor", "Productos", "Método de Pago", "Total"],
-      ...filteredSales.map((sale) => [
-        new Date(sale.timestamp.toDate()).toLocaleString("es-ES"),
-        users.find((u) => u.id === sale.sellerId)?.name || sale.sellerEmail,
-        sale.items.map((item) => `${item.name} x${item.quantity}`).join("; "),
-        sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
-        `S/. ${sale.total.toFixed(2)}`,
-      ]),
-    ]
-
-    const csvContent = csvData.map((row) => row.join(",")).join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `reporte-ventas-${dateFilter}-${new Date().toISOString().split("T")[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    toast.success("Reporte exportado exitosamente")
-  }
-
-  const getSellerStats = () => {
-    const filteredSales = getFilteredSales()
-    const sellerStats = {}
-
-    filteredSales.forEach((sale) => {
-      const sellerId = sale.sellerId
-      if (!sellerStats[sellerId]) {
-        const user = users.find((u) => u.id === sellerId)
-        sellerStats[sellerId] = {
-          name: user?.name || sale.sellerEmail,
-          email: sale.sellerEmail,
-          totalSales: 0,
-          totalAmount: 0,
-          cashAmount: 0,
-          transferAmount: 0,
-          salesCount: 0,
-        }
+        console.log("✅ Ventas cargadas:", salesData.length)
+        setSales(salesData)
+      } catch (error) {
+        console.error("❌ Error loading sales:", error)
+      } finally {
+        setLoading(false)
       }
+    }
 
-      sellerStats[sellerId].totalAmount += sale.total
-      sellerStats[sellerId].salesCount += 1
+    loadSales()
+  }, [user, selectedPeriod, selectedDate])
 
-      if (sale.paymentMethod === "efectivo") {
-        sellerStats[sellerId].cashAmount += sale.total
+  // Calcular estadísticas
+  const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
+  const totalTransactions = sales.length
+  const totalItems = sales.reduce(
+    (sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+    0,
+  )
+  const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0
+
+  const cashSales = sales.filter((sale) => sale.paymentMethod === "efectivo").reduce((sum, sale) => sum + sale.total, 0)
+  const transferSales = sales
+    .filter((sale) => sale.paymentMethod === "transferencia")
+    .reduce((sum, sale) => sum + sale.total, 0)
+
+  const topProducts = sales
+    .flatMap((sale) => sale.items)
+    .reduce((acc: any, item) => {
+      const existing = acc.find((p: any) => p.id === item.id)
+      if (existing) {
+        existing.quantity += item.quantity
+        existing.total += item.price * item.quantity
       } else {
-        sellerStats[sellerId].transferAmount += sale.total
+        acc.push({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          total: item.price * item.quantity,
+        })
       }
-    })
-
-    return Object.values(sellerStats)
-  }
-
-  const getPaymentMethodStats = () => {
-    const filteredSales = getFilteredSales()
-    const cash = filteredSales
-      .filter((sale) => sale.paymentMethod === "efectivo")
-      .reduce((sum, sale) => sum + sale.total, 0)
-
-    const transfer = filteredSales
-      .filter((sale) => sale.paymentMethod === "transferencia")
-      .reduce((sum, sale) => sum + sale.total, 0)
-
-    return { cash, transfer }
-  }
-
-  const getDailySalesData = () => {
-    const filteredSales = getFilteredSales()
-    const dailyData = {}
-
-    filteredSales.forEach((sale) => {
-      const date = new Date(sale.timestamp.toDate()).toLocaleDateString("es-ES")
-      if (!dailyData[date]) {
-        dailyData[date] = 0
-      }
-      dailyData[date] += sale.total
-    })
-
-    return Object.entries(dailyData)
-      .map(([date, amount]) => ({
-        date,
-        amount,
-      }))
-      .slice(-7)
-  }
-
-  const filteredSales = getFilteredSales()
-  const sellerStats = getSellerStats()
-  const paymentStats = getPaymentMethodStats()
-  const dailySalesData = getDailySalesData()
-  const topProducts = getTopProducts()
-  const hourlyStats = getHourlyStats()
-  const comparison = getComparison()
-
-  const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"]
+      return acc
+    }, [])
+    .sort((a: any, b: any) => b.quantity - a.quantity)
+    .slice(0, 5)
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reportes</h1>
-          <p className="text-gray-600 dark:text-gray-400">Análisis avanzado de ventas y rendimiento</p>
+    <div className="min-h-[calc(100vh-64px)] bg-gray-50 ml-16">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Reportes de Ventas</h1>
+                <p className="text-gray-600">Análisis avanzado de ventas y rendimiento</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-48 h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Hoy</SelectItem>
+                  <SelectItem value="week">Esta Semana</SelectItem>
+                  <SelectItem value="month">Este Mes</SelectItem>
+                  <SelectItem value="custom">Fecha Personalizada</SelectItem>
+                  <SelectItem value="all">Todos los Datos</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {selectedPeriod === "custom" && (
+                <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-10 px-3 border-gray-200 hover:bg-gray-50 rounded-xl bg-transparent"
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {format(selectedDate, "PPP", { locale: es })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedDate(date)
+                          setShowCalendar(false)
+                        }
+                      }}
+                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              <Button
+                variant="outline"
+                className="h-10 px-4 border-gray-200 hover:bg-gray-50 rounded-xl bg-transparent"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
+          </div>
         </div>
-        <Button onClick={exportToCSV} className="flex items-center">
-          <Download className="mr-2 h-4 w-4" />
-          Exportar CSV
-        </Button>
-      </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-4">
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoy</SelectItem>
-            <SelectItem value="yesterday">Ayer</SelectItem>
-            <SelectItem value="week">Esta Semana</SelectItem>
-            <SelectItem value="month">Este Mes</SelectItem>
-            <SelectItem value="all">Todo el Tiempo</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={selectedSeller} onValueChange={setSelectedSeller}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Todos los vendedores" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los Vendedores</SelectItem>
-            {users.map((user) => (
-              <SelectItem key={user.id} value={user.id}>
-                {user.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="productos">Productos</TabsTrigger>
-          <TabsTrigger value="horarios">Horarios</TabsTrigger>
-          <TabsTrigger value="comparacion">Comparación</TabsTrigger>
-          <TabsTrigger value="por-vendedor">Vendedores</TabsTrigger>
-          <TabsTrigger value="detalle">Detalle</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="general" className="space-y-6">
-          {/* Tarjetas de resumen con comparación */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Ventas</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  S/. {filteredSales.reduce((sum, sale) => sum + sale.total, 0).toFixed(2)}
-                </div>
-                <p className="text-xs text-muted-foreground">{filteredSales.length} transacciones</p>
-                {comparison.change !== 0 && (
-                  <div
-                    className={`flex items-center text-xs ${comparison.isPositive ? "text-green-600" : "text-red-600"}`}
-                  >
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    {comparison.isPositive ? "+" : ""}
-                    {comparison.change.toFixed(1)}% vs período anterior
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Efectivo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">S/. {paymentStats.cash.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">
-                  {filteredSales.filter((s) => s.paymentMethod === "efectivo").length} ventas
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Transferencias</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">S/. {paymentStats.transfer.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">
-                  {filteredSales.filter((s) => s.paymentMethod === "transferencia").length} ventas
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Gráfico de ventas diarias */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Ventas por Día</CardTitle>
+        {/* Estadísticas principales */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Vendido</CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailySalesData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`S/. ${value}`, "Ventas"]} />
-                  <Bar dataKey="amount" fill="#3b82f6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* NUEVA PESTAÑA: Productos más vendidos */}
-        <TabsContent value="productos" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Award className="mr-2 h-5 w-5" />
-                  Top 10 Productos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {topProducts.map((product, index) => (
-                    <div
-                      key={product.name}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">
-                          {index + 1}
-                        </Badge>
-                        <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-gray-500">{product.quantity} unidades vendidas</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-green-600">S/. {product.revenue.toFixed(2)}</p>
-                        <p className="text-xs text-gray-500">{product.sales} ventas</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Distribución de Productos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={topProducts.slice(0, 6)}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="quantity"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {topProducts.slice(0, 6).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* NUEVA PESTAÑA: Horarios pico */}
-        <TabsContent value="horarios" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Clock className="mr-2 h-5 w-5" />
-                Horarios Pico de Ventas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={hourlyStats}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Bar yAxisId="left" dataKey="sales" fill="#3b82f6" name="Número de Ventas" />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    name="Ingresos (S/.)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="text-2xl font-bold text-green-600">S/. {totalSales.toFixed(2)}</div>
+              <p className="text-xs text-gray-500 mt-1">{totalTransactions} transacciones</p>
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {hourlyStats.slice(0, 3).map((hour, index) => (
-              <Card key={hour.hour}>
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <Clock className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <h3 className="font-semibold">{hour.hour}</h3>
-                    <p className="text-2xl font-bold text-green-600">S/. {hour.revenue.toFixed(2)}</p>
-                    <p className="text-sm text-gray-500">{hour.sales} ventas</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* NUEVA PESTAÑA: Comparación */}
-        <TabsContent value="comparacion" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <TrendingUp className="mr-2 h-5 w-5" />
-                Comparación con Período Anterior
-              </CardTitle>
+          <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Ticket Promedio</CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-6 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <h3 className="text-lg font-semibold mb-2">Período Actual</h3>
-                  <p className="text-3xl font-bold text-blue-600">S/. {comparison.current.toFixed(2)}</p>
-                  <p className="text-sm text-gray-600">
-                    {dateFilter === "today" ? "Hoy" : dateFilter === "week" ? "Esta Semana" : "Este Período"}
-                  </p>
-                </div>
+              <div className="text-2xl font-bold text-blue-600">S/. {averageTicket.toFixed(2)}</div>
+              <p className="text-xs text-gray-500 mt-1">Por transacción</p>
+            </CardContent>
+          </Card>
 
-                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <h3 className="text-lg font-semibold mb-2">Período Anterior</h3>
-                  <p className="text-3xl font-bold text-gray-600">S/. {comparison.previous.toFixed(2)}</p>
-                  <p className="text-sm text-gray-600">
-                    {dateFilter === "today" ? "Ayer" : dateFilter === "week" ? "Semana Anterior" : "Período Anterior"}
-                  </p>
-                </div>
+          <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Items Vendidos</CardTitle>
+              <Package className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{totalItems}</div>
+              <p className="text-xs text-gray-500 mt-1">Productos totales</p>
+            </CardContent>
+          </Card>
 
-                <div
-                  className={`text-center p-6 rounded-lg ${comparison.isPositive ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"}`}
-                >
-                  <h3 className="text-lg font-semibold mb-2">Cambio</h3>
-                  <p className={`text-3xl font-bold ${comparison.isPositive ? "text-green-600" : "text-red-600"}`}>
-                    {comparison.isPositive ? "+" : ""}
-                    {comparison.change.toFixed(1)}%
-                  </p>
-                  <p className="text-sm text-gray-600">{comparison.isPositive ? "Crecimiento" : "Disminución"}</p>
+          <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Transacciones</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{totalTransactions}</div>
+              <p className="text-xs text-gray-500 mt-1">Ventas procesadas</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Métodos de pago */}
+          <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">Métodos de Pago</CardTitle>
+              <CardDescription className="text-gray-600">Distribución por tipo de pago</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="font-medium text-gray-900">Efectivo</span>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-green-600">S/. {cashSales.toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">
+                    {totalSales > 0 ? ((cashSales / totalSales) * 100).toFixed(1) : 0}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <span className="font-medium text-gray-900">Transferencia</span>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-blue-600">S/. {transferSales.toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">
+                    {totalSales > 0 ? ((transferSales / totalSales) * 100).toFixed(1) : 0}%
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="por-vendedor" className="space-y-6">
-          <div className="grid gap-6">
-            {sellerStats.map((seller, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle className="flex items-center">{seller.name}</CardTitle>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{seller.email}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">S/. {seller.totalAmount.toFixed(2)}</div>
-                      <p className="text-sm text-gray-600">Total Vendido</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{seller.salesCount}</div>
-                      <p className="text-sm text-gray-600">Ventas</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">S/. {seller.cashAmount.toFixed(2)}</div>
-                      <p className="text-sm text-gray-600">Efectivo</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">S/. {seller.transferAmount.toFixed(2)}</div>
-                      <p className="text-sm text-gray-600">Transferencias</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="detalle" className="space-y-6">
-          <Card>
+          {/* Productos más vendidos */}
+          <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
             <CardHeader>
-              <CardTitle>Detalle de Ventas</CardTitle>
+              <CardTitle className="text-lg font-semibold text-gray-900">Productos Más Vendidos</CardTitle>
+              <CardDescription className="text-gray-600">Top 5 productos por cantidad</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Vendedor</TableHead>
-                    <TableHead>Productos</TableHead>
-                    <TableHead>Método de Pago</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSales.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell>{new Date(sale.timestamp.toDate()).toLocaleString("es-ES")}</TableCell>
-                      <TableCell>{users.find((u) => u.id === sale.sellerId)?.name || sale.sellerEmail}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {sale.items.map((item, index) => (
-                            <div key={index} className="text-sm">
-                              {item.name} x{item.quantity}
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={sale.paymentMethod === "efectivo" ? "default" : "secondary"}>
-                          {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
+              <ScrollArea className="h-64">
+                <div className="space-y-3">
+                  {topProducts.map((product, index) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <div className="flex items-center space-x-3">
+                        <Badge
+                          variant="secondary"
+                          className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs"
+                        >
+                          {index + 1}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">S/. {sale.total.toFixed(2)}</TableCell>
-                    </TableRow>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{product.name}</p>
+                          <p className="text-xs text-gray-500">{product.quantity} unidades</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600 text-sm">S/. {product.total.toFixed(2)}</div>
+                      </div>
+                    </div>
                   ))}
-                  {filteredSales.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                        No hay ventas para mostrar
-                      </TableCell>
-                    </TableRow>
+                  {topProducts.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>No hay datos de productos</p>
+                    </div>
                   )}
-                </TableBody>
-              </Table>
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+
+        {/* Lista de ventas recientes */}
+        <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">Ventas Recientes</CardTitle>
+            <CardDescription className="text-gray-600">Historial detallado de transacciones</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8">
+                <img src="/loading-wheel.gif" alt="Cargando..." className="w-8 h-8 mx-auto mb-3" />
+                <p className="text-gray-500">Cargando ventas...</p>
+              </div>
+            ) : sales.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <p>No hay ventas para el período seleccionado</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-96">
+                <div className="space-y-3">
+                  {sales.map((sale) => (
+                    <div key={sale.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <Badge variant="outline" className="text-xs">
+                            #{sale.id.slice(-6)}
+                          </Badge>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <Clock className="h-3 w-3" />
+                            <span>
+                              {sale.timestamp?.toDate
+                                ? sale.timestamp.toDate().toLocaleString("es-ES")
+                                : new Date(sale.timestamp).toLocaleString("es-ES")}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-green-600">S/. {sale.total.toFixed(2)}</div>
+                          <Badge
+                            variant={sale.paymentMethod === "efectivo" ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {sale.paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {sale.items.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span className="text-gray-700">
+                              {item.name} x{item.quantity}
+                            </span>
+                            <span className="font-medium text-gray-900">
+                              S/. {(item.price * item.quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {sale.promotion?.hasPromotion && (
+                        <div className="mt-3 p-2 bg-green-100 rounded-lg border border-green-200">
+                          <div className="flex items-center space-x-2 text-sm text-green-700">
+                            <Gift className="h-3 w-3" />
+                            <span className="font-medium">
+                              Promoción 10+1: {sale.promotion.freeItems} tickets gratis
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                        <span>Vendedor: {sale.sellerEmail}</span>
+                        <span>Items: {sale.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -9,9 +9,10 @@ import { DollarSign, Users, Package, Calendar } from "lucide-react"
 
 interface HomePageProps {
   userRole: "admin" | "vendedor" | null
+  sidebarCollapsed?: boolean
 }
 
-export default function HomePage({ userRole }: HomePageProps) {
+export default function HomePage({ userRole, sidebarCollapsed = false }: HomePageProps) {
   const [stats, setStats] = useState({
     totalSales: 0,
     totalProducts: 0,

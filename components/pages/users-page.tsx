@@ -25,7 +25,11 @@ interface UserData {
   createdAt: any
 }
 
-export default function UsersPage() {
+interface UsersPageProps {
+  sidebarCollapsed?: boolean
+}
+
+export default function UsersPage({ sidebarCollapsed = false }: UsersPageProps) {
   const [users, setUsers] = useState<UserData[]>([])
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingUser, setEditingUser] = useState<UserData | null>(null)
