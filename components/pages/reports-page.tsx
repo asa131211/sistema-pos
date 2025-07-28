@@ -436,6 +436,12 @@ export default function SalesPage({
     const printContainer = document.createElement("div")
     printContainer.id = "print-container"
     printContainer.style.display = "none"
+    printContainer.style.width = "13cm" // ancho físico del papel
+    printContainer.style.padding = "1cm"
+    printContainer.style.fontSize = "12px"
+    printContainer.style.whiteSpace = "normal"
+    printContainer.style.wordWrap = "break-word"
+
 
     // CSS extremadamente compacto para tickets de 13cm exactos
     const printStyles = `
