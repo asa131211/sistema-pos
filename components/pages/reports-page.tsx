@@ -1,930 +1,1137 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import {
-  collection,
-  query,
-  onSnapshot,
-  orderBy,
-  getDocs,
-  doc,
-  writeBatch,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore"
+import { useState, useEffect, useMemo, useCallback, memo } from "react"
+import { collection, query, onSnapshot, addDoc, doc, updateDoc, getDoc, limit, orderBy } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  BarChart3,
-  TrendingUp,
-  DollarSign,
   ShoppingCart,
-  Calendar,
-  Download,
-  Filter,
-  Users,
-  Package,
-  Gift,
+  Plus,
+  Minus,
   Trash2,
-  AlertTriangle,
-  RefreshCw,
-  Database,
+  Search,
+  Gift,
+  Package,
+  Tag,
+  Calculator,
+  Unlock,
+  Lock,
+  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 
-interface Sale {
+interface Product {
   id: string
-  items: Array<{
-    id: string
-    name: string
-    price: number
-    quantity: number
-  }>
-  total: number
-  paymentMethod: string
-  sellerId: string
-  sellerEmail: string
-  timestamp: any
-  date: string
-  promotion?: {
-    totalItems: number
-    freeItems: number
-    totalTickets: number
-    hasPromotion: boolean
-  }
+  name: string
+  price: number
+  image: string
+  category?: string
 }
 
-interface ReportsPageProps {
+interface CartItem extends Product {
+  quantity: number
+}
+
+interface SalesPageProps {
   sidebarCollapsed?: boolean
+  cashRegisterStatus?: { isOpen: boolean; data: any }
+  onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
 }
 
-export default function ReportsPage({ sidebarCollapsed = false }: ReportsPageProps) {
-  const [user] = useAuthState(auth)
-  const [sales, setSales] = useState<Sale[]>([])
-  const [users, setUsers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState("today")
-  const [paymentFilter, setPaymentFilter] = useState("all")
-  const [sellerFilter, setSellerFilter] = useState("all")
-  const [specificDate, setSpecificDate] = useState("")
-
-  // Estados para el reseteo
-  const [showResetDialog, setShowResetDialog] = useState(false)
-  const [confirmText, setConfirmText] = useState("")
-  const [isResetting, setIsResetting] = useState(false)
+// Debounce hook para optimizar búsquedas
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
 
   useEffect(() => {
-    console.log("🔍 Iniciando carga de reportes...")
-    setLoading(true)
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
 
-    try {
-      // Cargar usuarios para el filtro
-      const loadUsers = async () => {
-        const usersSnapshot = await getDocs(collection(db, "users"))
-        const usersData = usersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        setUsers(usersData)
-      }
-      loadUsers()
-
-      // Crear consulta base sin filtros complejos primero
-      const salesQuery = query(collection(db, "sales"), orderBy("timestamp", "desc"))
-
-      console.log("📊 Configurando listener de ventas...")
-
-      const unsubscribe = onSnapshot(
-        salesQuery,
-        (snapshot) => {
-          console.log(`📄 Documentos recibidos: ${snapshot.docs.length}`)
-
-          const salesData = snapshot.docs.map((doc) => {
-            const data = doc.data()
-            return {
-              id: doc.id,
-              ...data,
-            }
-          }) as Sale[]
-
-          // Aplicar filtros en el cliente
-          let filteredSales = salesData
-
-          // Filtro de fecha
-          if (dateFilter === "today") {
-            const today = new Date().toISOString().split("T")[0]
-            filteredSales = filteredSales.filter((sale) => sale.date === today)
-          } else if (dateFilter === "yesterday") {
-            const yesterday = new Date()
-            yesterday.setDate(yesterday.getDate() - 1)
-            const yesterdayStr = yesterday.toISOString().split("T")[0]
-            filteredSales = filteredSales.filter((sale) => sale.date === yesterdayStr)
-          } else if (dateFilter === "week") {
-            const weekAgo = new Date()
-            weekAgo.setDate(weekAgo.getDate() - 7)
-            filteredSales = filteredSales.filter((sale) => {
-              const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp)
-              return saleDate >= weekAgo
-            })
-          } else if (dateFilter === "month") {
-            const monthAgo = new Date()
-            monthAgo.setMonth(monthAgo.getMonth() - 1)
-            filteredSales = filteredSales.filter((sale) => {
-              const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp)
-              return saleDate >= monthAgo
-            })
-          } else if (dateFilter === "specific" && specificDate) {
-            filteredSales = filteredSales.filter((sale) => sale.date === specificDate)
-          }
-
-          // Filtro de método de pago
-          if (paymentFilter !== "all") {
-            filteredSales = filteredSales.filter((sale) => sale.paymentMethod === paymentFilter)
-          }
-
-          // Filtro de vendedor
-          if (sellerFilter !== "all") {
-            filteredSales = filteredSales.filter((sale) => sale.sellerId === sellerFilter)
-          }
-
-          console.log(`✅ Total ventas filtradas: ${filteredSales.length}`)
-          setSales(filteredSales)
-          setLoading(false)
-        },
-        (error) => {
-          console.error("❌ Error cargando ventas:", error)
-          toast.error("Error al cargar los reportes: " + error.message)
-          setLoading(false)
-        },
-      )
-
-      return () => unsubscribe()
-    } catch (error) {
-      console.error("❌ Error configurando consulta:", error)
-      toast.error("Error al configurar los reportes")
-      setLoading(false)
+    return () => {
+      clearTimeout(handler)
     }
-  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+  }, [value, delay])
 
-  // Función para resetear todas las ventas
-  const resetAllSalesData = async () => {
-    if (confirmText !== "VACIAR VENTAS") {
-      toast.error("Debes escribir exactamente 'VACIAR VENTAS' para confirmar")
-      return
+  return debouncedValue
+}
+
+// Componente optimizado para productos individuales
+const ProductCard = memo(
+  ({
+    product,
+    onAddToCart,
+    shortcut,
+  }: {
+    product: Product
+    onAddToCart: (product: Product) => void
+    shortcut?: any
+  }) => {
+    const handleClick = useCallback(() => {
+      onAddToCart(product)
+    }, [product, onAddToCart])
+
+    return (
+      <Card
+        className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
+        onClick={handleClick}
+        data-product-shortcut={shortcut?.key}
+      >
+        <CardContent className="p-0">
+          <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <img
+              src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.src = "/placeholder.svg?height=300&width=300&text=Error"
+              }}
+            />
+            {shortcut && (
+              <Badge className="absolute top-3 left-3 bg-blue-600 text-white">{shortcut.key.toUpperCase()}</Badge>
+            )}
+          </div>
+
+          <div className="p-3 md:p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
+              {product.name}
+            </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Tag className="h-4 w-4 text-gray-400" />
+                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  {product.category || "juegos"}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-sm md:text-lg font-bold text-green-600">S/. {product.price.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  },
+)
+
+ProductCard.displayName = "ProductCard"
+
+// Componente optimizado para items del carrito
+const CartItem = memo(
+  ({
+    item,
+    onUpdateQuantity,
+    onRemove,
+  }: {
+    item: CartItem
+    onUpdateQuantity: (id: string, change: number) => void
+    onRemove: (id: string) => void
+  }) => {
+    const handleIncrease = useCallback(() => onUpdateQuantity(item.id, 1), [item.id, onUpdateQuantity])
+    const handleDecrease = useCallback(() => onUpdateQuantity(item.id, -1), [item.id, onUpdateQuantity])
+    const handleRemove = useCallback(() => onRemove(item.id), [item.id, onRemove])
+
+    return (
+      <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+        <img
+          src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
+          alt={item.name}
+          className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
+          loading="lazy"
+        />
+        <div className="flex-1 min-w-0">
+          <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">{item.name}</h4>
+          <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
+        </div>
+        <div className="flex items-center space-x-1 md:space-x-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDecrease}
+            className="h-6 w-6 p-0 rounded-full bg-transparent"
+          >
+            <Minus className="h-3 w-3" />
+          </Button>
+          <span className="text-xs md:text-sm font-medium w-4 md:w-6 text-center text-gray-900 dark:text-white">
+            {item.quantity}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleIncrease}
+            className="h-6 w-6 p-0 rounded-full bg-transparent"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleRemove}
+            className="h-6 w-6 p-0 ml-1 md:ml-2 rounded-full"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  },
+)
+
+CartItem.displayName = "CartItem"
+
+export default function SalesPage({
+  sidebarCollapsed = false,
+  cashRegisterStatus,
+  onCashRegisterChange,
+}: SalesPageProps) {
+  const [user] = useAuthState(auth)
+  const [products, setProducts] = useState<Product[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [paymentMethod, setPaymentMethod] = useState("efectivo")
+  const [showCheckout, setShowCheckout] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [shortcuts, setShortcuts] = useState<any[]>([])
+  const [isOnline, setIsOnline] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+
+  // Debounced search term para optimizar búsquedas
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+  // Detectar estado de conexión
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    setIsOnline(navigator.onLine)
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
     }
+  }, [])
 
-    setIsResetting(true)
+  // Optimized Firebase listener con límite
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined
 
-    try {
-      console.log("🔄 Iniciando vaciado de datos de ventas...")
-
-      // Obtener todas las ventas para contar
-      const allSalesSnapshot = await getDocs(collection(db, "sales"))
-      const totalSales = allSalesSnapshot.size
-      const totalAmount = allSalesSnapshot.docs.reduce((sum, doc) => {
-        const data = doc.data()
-        return sum + (data.total || 0)
-      }, 0)
-
-      // Crear batch para operaciones múltiples
-      const batch = writeBatch(db)
-      let operationsCount = 0
-
-      // Eliminar todas las ventas
-      console.log("🗑️ Eliminando todas las ventas...")
-      allSalesSnapshot.docs.forEach((docSnapshot) => {
-        batch.delete(doc(db, "sales", docSnapshot.id))
-        operationsCount++
-      })
-
-      // Eliminar movimientos de caja relacionados con ventas
-      console.log("🗑️ Eliminando movimientos de caja...")
-      const cashMovementsSnapshot = await getDocs(collection(db, "cash-movements"))
-      cashMovementsSnapshot.docs.forEach((docSnapshot) => {
-        const data = docSnapshot.data()
-        if (data.type === "sale" || data.description?.includes("Venta")) {
-          batch.delete(doc(db, "cash-movements", docSnapshot.id))
-          operationsCount++
-        }
-      })
-
-      // Ejecutar todas las eliminaciones
-      if (operationsCount > 0) {
-        console.log(`📝 Ejecutando ${operationsCount} operaciones de eliminación...`)
-        await batch.commit()
-      }
-
-      // Registrar el vaciado en el historial
-      await addDoc(collection(db, "system-logs"), {
-        action: "SALES_DATA_RESET",
-        performedBy: user?.uid,
-        performedByEmail: user?.email,
-        timestamp: serverTimestamp(),
-        details: {
-          salesDeleted: totalSales,
-          totalAmountReset: totalAmount,
-          resetFrom: "reports_page",
-        },
-        description: `Vaciado de datos de ventas desde reportes - ${totalSales} ventas eliminadas`,
-      })
-
-      // Limpiar localStorage relacionado con ventas
+    const setupListener = async () => {
       try {
-        localStorage.removeItem("offline_sales")
-        console.log("🧹 Cache de ventas limpiado")
+        setLoading(true)
+
+        // Usar query con límite para mejor rendimiento
+        const productsQuery = query(
+          collection(db, "products"),
+          orderBy("name"),
+          limit(50), // Limitar productos iniciales
+        )
+
+        unsubscribe = onSnapshot(
+          productsQuery,
+          (snapshot) => {
+            const productsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Product[]
+
+            setProducts(productsData)
+            setLoading(false)
+          },
+          (error) => {
+            console.error("Error loading products:", error)
+            toast.error("Error al cargar productos")
+            setLoading(false)
+          },
+        )
       } catch (error) {
-        console.log("No hay cache de ventas para limpiar")
+        console.error("Error setting up listener:", error)
+        setLoading(false)
       }
-
-      // Cerrar dialog y limpiar estado
-      setShowResetDialog(false)
-      setConfirmText("")
-
-      toast.success("✅ Datos de ventas vaciados exitosamente", {
-        description: `Se eliminaron ${totalSales} ventas por un total de S/. ${totalAmount.toFixed(2)}`,
-        duration: 5000,
-      })
-
-      console.log("✅ Vaciado de ventas completado exitosamente")
-    } catch (error) {
-      console.error("❌ Error durante el vaciado:", error)
-      toast.error("Error al vaciar los datos de ventas: " + error.message)
-    } finally {
-      setIsResetting(false)
     }
-  }
 
-  // Función para exportar datos antes del vaciado
-  const exportDataBeforeReset = async () => {
-    try {
-      console.log("📤 Exportando datos de ventas...")
+    setupListener()
 
-      const allSalesSnapshot = await getDocs(collection(db, "sales"))
-      const salesData = allSalesSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate?.()?.toISOString() || doc.data().timestamp,
-      }))
-
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        exportedBy: user?.email,
-        exportType: "sales_backup_before_reset",
-        sales: salesData,
-        summary: {
-          totalSales: salesData.length,
-          totalAmount: salesData.reduce((sum, sale) => sum + (sale.total || 0), 0),
-        },
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
       }
-
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: "application/json;charset=utf-8;",
-      })
-
-      const link = document.createElement("a")
-      const url = URL.createObjectURL(blob)
-      link.setAttribute("href", url)
-      link.setAttribute("download", `backup-ventas-${new Date().toISOString().split("T")[0]}.json`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      toast.success("📤 Backup de ventas exportado exitosamente")
-    } catch (error) {
-      console.error("Error exportando datos:", error)
-      toast.error("Error al exportar backup de ventas")
     }
-  }
+  }, [])
 
-  // Calcular estadísticas por vendedor
-  const getSellerStats = () => {
-    const sellerStats = {}
-
-    sales.forEach((sale) => {
-      const sellerId = sale.sellerId
-      const sellerName = users.find((u) => u.id === sellerId)?.name || sale.sellerEmail
-
-      if (!sellerStats[sellerId]) {
-        sellerStats[sellerId] = {
-          name: sellerName,
-          email: sale.sellerEmail,
-          totalSales: 0,
-          cashSales: 0,
-          transferSales: 0,
-          totalTransactions: 0,
-          promotions: 0,
-          sales: [],
+  // Cargar shortcuts de forma optimizada
+  useEffect(() => {
+    const loadShortcuts = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists()) {
+            setShortcuts(userDoc.data().shortcuts || [])
+          }
+        } catch (error) {
+          console.error("Error loading shortcuts:", error)
         }
       }
+    }
+    loadShortcuts()
+  }, [user])
 
-      sellerStats[sellerId].totalSales += sale.total
-      sellerStats[sellerId].totalTransactions += 1
-      sellerStats[sellerId].sales.push(sale)
+  // Memoized filtered products para evitar recálculos innecesarios
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+      return matchesSearch && matchesCategory
+    })
+  }, [products, debouncedSearchTerm, selectedCategory])
 
-      if (sale.paymentMethod === "efectivo") {
-        sellerStats[sellerId].cashSales += sale.total
-      } else {
-        sellerStats[sellerId].transferSales += sale.total
+  // Memoized categories para evitar recálculos
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(products.map((p) => p.category).filter(Boolean))]
+    return uniqueCategories
+  }, [products])
+
+  // Calcular promoción optimizado
+  const promotion = useMemo(() => {
+    const totalItems = cart.reduce((total, item) => total + item.quantity, 0)
+    const freeItems = Math.floor(totalItems / 10)
+    const totalTickets = totalItems + freeItems
+
+    return {
+      totalItems,
+      freeItems,
+      totalTickets,
+      hasPromotion: freeItems > 0,
+    }
+  }, [cart])
+
+  // Optimized add to cart function
+  const addToCart = useCallback(
+    (product: Product) => {
+      if (!cashRegisterStatus?.isOpen) {
+        toast.error("Debes abrir la caja antes de realizar ventas")
+        return
       }
 
-      if (sale.promotion?.hasPromotion) {
-        sellerStats[sellerId].promotions += 1
+      setCart((prev) => {
+        const existingItem = prev.find((item) => item.id === product.id)
+        if (existingItem) {
+          return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+        }
+        return [...prev, { ...product, quantity: 1 }]
+      })
+    },
+    [cashRegisterStatus?.isOpen],
+  )
+
+  // Optimized quantity update
+  const updateQuantity = useCallback((id: string, change: number) => {
+    setCart((prev) => {
+      return prev
+        .map((item) => {
+          if (item.id === id) {
+            const newQuantity = item.quantity + change
+            return newQuantity > 0 ? { ...item, quantity: newQuantity } : item
+          }
+          return item
+        })
+        .filter((item) => item.quantity > 0)
+    })
+  }, [])
+
+  const removeFromCart = useCallback((id: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const clearCart = useCallback(() => {
+    setCart([])
+  }, [])
+
+  // Memoized total calculation
+  const totalAmount = useMemo(() => {
+    return cart.reduce((total, item) => total + item.price * item.quantity, 0)
+  }, [cart])
+
+  const saveOfflineSale = useCallback((saleData: any) => {
+    try {
+      const offlineData = {
+        sales: [saleData],
+        timestamp: Date.now(),
+      }
+      localStorage.setItem("offline_sales", JSON.stringify(offlineData))
+      toast.success("💾 Venta guardada offline - Se sincronizará cuando vuelva la conexión")
+      return true
+    } catch (error) {
+      console.error("Error saving offline sale:", error)
+      toast.error("Error al guardar venta offline")
+      return false
+    }
+  }, [])
+
+  const generateAndPrintTickets = useCallback(() => {
+    const allTickets = []
+    let ticketCounter = 1
+
+    // Crear tickets pagados
+    cart.forEach((item) => {
+      for (let i = 0; i < item.quantity; i++) {
+        allTickets.push({
+          ticketNumber: String(ticketCounter).padStart(3, "0"),
+          productName: item.name,
+          productPrice: item.price,
+          saleDate: new Date().toLocaleString("es-ES"),
+          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+          seller: user?.displayName || user?.email || "Vendedor",
+          isFree: false,
+          type: "PAGADO",
+        })
+        ticketCounter++
       }
     })
 
-    return Object.values(sellerStats)
+    // Agregar tickets gratis
+    if (promotion.hasPromotion) {
+      const productsInCart = cart.filter((item) => item.quantity > 0)
+      const freeTicketsToDistribute = promotion.freeItems
+
+      for (let i = 0; i < freeTicketsToDistribute; i++) {
+        const productIndex = i % productsInCart.length
+        const selectedProduct = productsInCart[productIndex]
+
+        allTickets.push({
+          ticketNumber: String(ticketCounter).padStart(3, "0"),
+          productName: selectedProduct.name,
+          productPrice: 0,
+          saleDate: new Date().toLocaleString("es-ES"),
+          paymentMethod: "PROMOCIÓN 10+1",
+          seller: user?.displayName || user?.email || "Vendedor",
+          isFree: true,
+          type: "GRATIS",
+        })
+        ticketCounter++
+      }
+    }
+
+    // Limpiar cualquier contenedor de impresión existente
+    const existingContainer = document.getElementById("print-container")
+    if (existingContainer) {
+      existingContainer.remove()
+    }
+
+    // Crear nuevo contenedor
+    const printContainer = document.createElement("div")
+    printContainer.id = "print-container"
+    printContainer.style.display = "none"
+
+    // CSS actualizado para tickets de ancho completo y 13cm de largo con texto más negrita
+    const printStyles = `
+<style>
+  @media screen {
+    #print-container {
+      display: none !important;
+    }
   }
+  
+  @media print {
+    * {
+      margin: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+    }
+    
+    html, body {
+      width: 100% !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-family: 'Courier New', monospace !important;
+      font-size: 12px !important;
+      line-height: 1.1 !important;
+      color: #000 !important;
+      background: white !important;
+      font-weight: bold !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    
+    @page {
+      size: 100% 13cm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    body > *:not(#print-container) {
+      display: none !important;
+    }
+    
+    #print-container {
+      display: block !important;
+      visibility: visible !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    .ticket {
+      width: 100% !important;
+      height: 13cm !important;
+      margin: 0 !important;
+      padding: 4px !important;
+      background: white !important;
+      page-break-after: always !important;
+      page-break-inside: avoid !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
+      font-weight: bold !important;
+      border: 1px solid #000 !important;
+    }
+    
+    .ticket:last-child {
+      page-break-after: auto !important;
+    }
+    
+    /* Header ultra compacto */
+    .header {
+      text-align: center !important;
+      border-bottom: 1px solid #000 !important;
+      padding-bottom: 2px !important;
+      margin-bottom: 2px !important;
+      flex-shrink: 0 !important;
+    }
+    
+    .logo {
+      font-size: 20px !important;
+      margin-bottom: 1px !important;
+      line-height: 1 !important;
+      font-weight: 900 !important;
+    }
+    
+    .title {
+      font-size: 14px !important;
+      font-weight: 900 !important;
+      margin-bottom: 1px !important;
+      line-height: 1 !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    .subtitle {
+      font-size: 10px !important;
+      margin-bottom: 1px !important;
+      line-height: 1 !important;
+      font-weight: bold !important;
+    }
+    
+    .number {
+      font-size: 12px !important;
+      font-weight: 900 !important;
+      margin-bottom: 1px !important;
+      line-height: 1 !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    .promo-badge {
+      background: #000 !important;
+      color: white !important;
+      padding: 1px 3px !important;
+      font-size: 8px !important;
+      font-weight: 900 !important;
+      display: inline-block !important;
+      margin-top: 1px !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    /* Contenido ultra compacto */
+    .content {
+      margin: 2px 0 !important;
+      flex-grow: 1 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
+    }
+    
+    .row {
+      display: flex !important;
+      justify-content: space-between !important;
+      margin-bottom: 1px !important;
+      font-size: 10px !important;
+      line-height: 1 !important;
+      font-weight: bold !important;
+      padding: 0 !important;
+    }
+    
+    .label {
+      font-weight: 900 !important;
+      flex: 1 !important;
+      letter-spacing: 0.3px !important;
+    }
+    
+    .value {
+      text-align: right !important;
+      flex: 1 !important;
+      font-weight: bold !important;
+    }
+    
+    .total-section {
+      border-top: 1px solid #000 !important;
+      padding-top: 2px !important;
+      margin-top: 2px !important;
+      flex-shrink: 0 !important;
+    }
+    
+    .total {
+      text-align: center !important;
+      font-size: 11px !important;
+      font-weight: 900 !important;
+      padding: 2px !important;
+      background: #f0f0f0 !important;
+      line-height: 1 !important;
+      border: 1px solid #000 !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    /* Footer ultra compacto */
+    .footer {
+      border-top: 1px solid #000 !important;
+      padding-top: 2px !important;
+      margin-top: 2px !important;
+      text-align: center !important;
+      flex-shrink: 0 !important;
+    }
+    
+    .info {
+      font-size: 8px !important;
+      margin-bottom: 1px !important;
+      line-height: 1 !important;
+      font-weight: bold !important;
+    }
+    
+    .thanks {
+      font-size: 10px !important;
+      font-weight: 900 !important;
+      margin: 2px 0 1px 0 !important;
+      line-height: 1 !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    .brand {
+      font-size: 9px !important;
+      font-weight: 900 !important;
+      margin-bottom: 1px !important;
+      line-height: 1 !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    .note {
+      font-size: 7px !important;
+      font-style: italic !important;
+      line-height: 1 !important;
+      margin-top: 1px !important;
+      font-weight: bold !important;
+    }
+    
+    .promo-note {
+      font-size: 7px !important;
+      font-weight: 900 !important;
+      margin: 1px 0 !important;
+      background: #f0f0f0 !important;
+      padding: 1px !important;
+      line-height: 1 !important;
+      border: 1px solid #000 !important;
+    }
+  }
+</style>
+`
 
-  // Calcular estadísticas generales
-  const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
-  const totalTransactions = sales.length
-  const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0
-  const cashSales = sales.filter((sale) => sale.paymentMethod === "efectivo").reduce((sum, sale) => sum + sale.total, 0)
-  const transferSales = sales
-    .filter((sale) => sale.paymentMethod === "transferencia")
-    .reduce((sum, sale) => sum + sale.total, 0)
+    // Generar HTML de tickets con nuevo formato
+    const ticketsHTML = allTickets
+      .map(
+        (ticket, index) => `
+    <div class="ticket">
+      <div class="header">
+        <div class="logo">🐅</div>
+        <div class="title">SANCHEZ PARK</div>
+        <div class="subtitle">${ticket.type}</div>
+        <div class="number">#${ticket.ticketNumber}</div>
+        ${ticket.isFree ? '<div class="promo-badge">🎁 PROMOCIÓN 10+1</div>' : ""}
+      </div>
+      
+      <div class="content">
+        <div class="row">
+          <span class="label">Producto:</span>
+          <span class="value">${ticket.productName.length > 30 ? ticket.productName.substring(0, 30) + "..." : ticket.productName}</span>
+        </div>
+        <div class="row">
+          <span class="label">Cantidad:</span>
+          <span class="value">1 unidad</span>
+        </div>
+        <div class="row">
+          <span class="label">Precio:</span>
+          <span class="value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
+        </div>
+        <div class="total-section">
+          <div class="total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <div class="info">${ticket.saleDate}</div>
+        <div class="info">${ticket.seller.length > 25 ? ticket.seller.substring(0, 25) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.paymentMethod}</div>
+        <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
+        ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
+        <div class="thanks">¡Gracias por su compra!</div>
+        <div class="brand">Sanchez Park</div>
+        <div class="note">Conserve este ticket</div>
+      </div>
+    </div>
+  `,
+      )
+      .join("")
 
-  // Productos más vendidos
-  const productStats = sales.reduce(
-    (acc, sale) => {
-      sale.items.forEach((item) => {
-        if (!acc[item.name]) {
-          acc[item.name] = { quantity: 0, revenue: 0 }
+    // Agregar contenido al contenedor
+    printContainer.innerHTML = printStyles + ticketsHTML
+
+    // Agregar al DOM
+    document.body.appendChild(printContainer)
+
+    console.log(`✅ ${allTickets.length} tickets grandes (100% ancho x 13cm) preparados para impresión`)
+    console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
+
+    // Imprimir después de un breve delay
+    setTimeout(() => {
+      console.log("Iniciando impresión de tickets grandes...")
+
+      // Configurar título temporal
+      const originalTitle = document.title
+      document.title = `Tickets-Grandes-${Date.now()}`
+
+      // Función de limpieza
+      const cleanup = () => {
+        document.title = originalTitle
+        const container = document.getElementById("print-container")
+        if (container) {
+          container.remove()
+          console.log("Contenedor de impresión limpiado")
         }
-        acc[item.name].quantity += item.quantity
-        acc[item.name].revenue += item.price * item.quantity
-      })
-      return acc
-    },
-    {} as Record<string, { quantity: number; revenue: number }>,
-  )
+      }
 
-  const topProducts = Object.entries(productStats)
-    .sort(([, a], [, b]) => b.quantity - a.quantity)
-    .slice(0, 5)
+      // Event listener para después de imprimir
+      const handleAfterPrint = () => {
+        cleanup()
+        window.removeEventListener("afterprint", handleAfterPrint)
+      }
 
-  const exportToCSV = () => {
-    const headers = ["Fecha", "Vendedor", "Total", "Método de Pago", "Productos", "Promoción"]
-    const csvData = sales.map((sale) => [
-      new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES"),
-      sale.sellerEmail,
-      `S/. ${sale.total.toFixed(2)}`,
-      sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
-      sale.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
-      sale.promotion?.hasPromotion ? `Sí - ${sale.promotion.freeItems} gratis` : "No",
-    ])
+      window.addEventListener("afterprint", handleAfterPrint)
 
-    const csvContent = [headers, ...csvData].map((row) => row.join(",")).join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `reporte-ventas-${new Date().toISOString().split("T")[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success("Reporte exportado exitosamente")
+      // Iniciar impresión
+      try {
+        window.print()
+      } catch (error) {
+        console.error("Error al imprimir:", error)
+        cleanup()
+      }
+
+      // Limpieza de respaldo después de 10 segundos
+      setTimeout(cleanup, 10000)
+    }, 300)
+  }, [cart, promotion, paymentMethod, user])
+
+  const processSale = useCallback(async () => {
+    if (cart.length === 0) {
+      toast.error("El carrito está vacío")
+      return
+    }
+
+    if (!cashRegisterStatus?.isOpen) {
+      toast.error("Debes abrir la caja antes de procesar ventas")
+      return
+    }
+
+    setProcessing(true)
+    try {
+      const saleData = {
+        items: cart,
+        total: totalAmount,
+        paymentMethod,
+        sellerId: user?.uid,
+        sellerEmail: user?.email,
+        timestamp: new Date(),
+        date: new Date().toISOString().split("T")[0],
+        promotion: {
+          totalItems: promotion.totalItems,
+          freeItems: promotion.freeItems,
+          totalTickets: promotion.totalTickets,
+          hasPromotion: promotion.hasPromotion,
+        },
+      }
+
+      if (isOnline) {
+        // Usar batch para operaciones atómicas
+        const batch = db.batch ? db.batch() : null
+
+        // Modo online
+        await addDoc(collection(db, "sales"), saleData)
+
+        // Actualizar caja registradora
+        const today = new Date().toISOString().split("T")[0]
+        const cashRegId = `${user?.uid}-${today}`
+        const cashRegRef = doc(db, "cash-registers", cashRegId)
+        const cashRegDoc = await getDoc(cashRegRef)
+
+        if (cashRegDoc.exists()) {
+          const currentData = cashRegDoc.data()
+          const saleAmount = totalAmount
+
+          const updatedData = {
+            totalSales: currentData.totalSales + saleAmount,
+            cashSales: paymentMethod === "efectivo" ? currentData.cashSales + saleAmount : currentData.cashSales,
+            transferSales:
+              paymentMethod === "transferencia" ? currentData.transferSales + saleAmount : currentData.transferSales,
+            currentAmount:
+              paymentMethod === "efectivo" ? currentData.currentAmount + saleAmount : currentData.currentAmount,
+          }
+
+          await updateDoc(cashRegRef, updatedData)
+
+          // Actualizar estado local inmediatamente
+          if (onCashRegisterChange) {
+            onCashRegisterChange({
+              isOpen: true,
+              data: { ...currentData, ...updatedData },
+            })
+          }
+        }
+      } else {
+        // Modo offline
+        saveOfflineSale(saleData)
+      }
+
+      // Generar e imprimir tickets
+      generateAndPrintTickets()
+
+      setCart([])
+      setShowCheckout(false)
+
+      if (promotion.hasPromotion) {
+        toast.success(`🎉 Venta procesada! ${promotion.freeItems} tickets gratis por promoción 10+1`, {
+          duration: 4000,
+        })
+      } else {
+        toast.success("Venta procesada exitosamente", {
+          duration: 2000,
+        })
+      }
+    } catch (error) {
+      console.error("Error processing sale:", error)
+      toast.error("Error al procesar la venta")
+    } finally {
+      setProcessing(false)
+    }
+  }, [
+    cart,
+    totalAmount,
+    paymentMethod,
+    user,
+    promotion,
+    isOnline,
+    cashRegisterStatus,
+    onCashRegisterChange,
+    generateAndPrintTickets,
+    saveOfflineSale,
+  ])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
+          <p className="text-gray-600 dark:text-gray-400">Cargando productos...</p>
+        </div>
+      </div>
+    )
   }
-
-  const sellerStats = getSellerStats()
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reportes</h1>
-              <p className="text-gray-600 dark:text-gray-400">Análisis avanzado de ventas y rendimiento</p>
-            </div>
-            <div className="flex space-x-3">
-              <Button onClick={exportToCSV} className="bg-purple-600 hover:bg-purple-700 text-white">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
-              </Button>
-              <Button
-                onClick={() => setShowResetDialog(true)}
-                variant="destructive"
-                className="bg-red-600 hover:bg-red-700 text-white"
-                disabled={totalTransactions === 0}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Vaciar Ventas
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <Filter className="h-5 w-5 text-purple-600" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Filtros</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Período</Label>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="border-gray-200 dark:border-gray-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Hoy</SelectItem>
-                  <SelectItem value="yesterday">Ayer</SelectItem>
-                  <SelectItem value="week">Última semana</SelectItem>
-                  <SelectItem value="month">Último mes</SelectItem>
-                  <SelectItem value="specific">Fecha específica</SelectItem>
-                  <SelectItem value="all">Todos los tiempos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {dateFilter === "specific" && (
-              <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                  Fecha Específica
-                </Label>
-                <Input
-                  type="date"
-                  value={specificDate}
-                  onChange={(e) => setSpecificDate(e.target.value)}
-                  className="border-gray-200 dark:border-gray-600"
-                />
+      <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+        {/* Estado de caja - Compacto */}
+        <Card className="border-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <div className="p-3 md:p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <Calculator className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
+                  Caja Registradora
+                </span>
               </div>
-            )}
-
-            <div>
-              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Método de Pago</Label>
-              <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                <SelectTrigger className="border-gray-200 dark:border-gray-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
-                  <SelectItem value="transferencia">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Vendedor</Label>
-              <Select value={sellerFilter} onValueChange={setSellerFilter}>
-                <SelectTrigger className="border-gray-200 dark:border-gray-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los vendedores</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Total Vendido</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-800 dark:text-green-200">S/. {totalSales.toFixed(2)}</div>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                <TrendingUp className="h-3 w-3 inline mr-1" />
-                Total de ingresos
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900 dark:to-cyan-900">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Transacciones</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">{totalTransactions}</div>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                <BarChart3 className="h-3 w-3 inline mr-1" />
-                Ventas realizadas
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                Ticket Promedio
-              </CardTitle>
-              <Calendar className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-800 dark:text-purple-200">
-                S/. {averageTicket.toFixed(2)}
-              </div>
-              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                <TrendingUp className="h-3 w-3 inline mr-1" />
-                Por transacción
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900 dark:to-red-900">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                Productos Vendidos
-              </CardTitle>
-              <Package className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-800 dark:text-orange-200">
-                {sales.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0)}
-              </div>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                <Package className="h-3 w-3 inline mr-1" />
-                Unidades totales
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Estadísticas por Vendedor */}
-        {sellerFilter === "all" && sellerStats.length > 0 && (
-          <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 mb-8">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                Rendimiento por Vendedor
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                Estadísticas individuales de cada vendedor
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {sellerStats.map((seller: any) => (
-                  <div key={seller.email} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <Users className="h-5 w-5 text-purple-600" />
-                        <div>
-                          <h4 className="font-semibold text-gray-900 dark:text-white">{seller.name}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{seller.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        {seller.promotions > 0 && (
-                          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                            <Gift className="h-3 w-3 mr-1" />
-                            {seller.promotions} promociones
-                          </Badge>
-                        )}
-                        <Badge variant="outline">{seller.totalTransactions} ventas</Badge>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Total Vendido</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">
-                          S/. {seller.totalSales.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                        <p className="text-sm text-green-600 dark:text-green-400">Efectivo</p>
-                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                          S/. {seller.cashSales.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                        <p className="text-sm text-blue-600 dark:text-blue-400">Transferencia</p>
-                        <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                          S/. {seller.transferSales.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
-                        <p className="text-sm text-purple-600 dark:text-purple-400">Promedio</p>
-                        <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
-                          S/. {(seller.totalSales / seller.totalTransactions).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Detalle de ventas del vendedor */}
-                    <div className="mt-4">
-                      <h5 className="font-medium text-gray-900 dark:text-white mb-2">Últimas Ventas</h5>
-                      <div className="max-h-40 overflow-y-auto">
-                        <div className="space-y-2">
-                          {seller.sales.slice(0, 5).map((sale: Sale) => (
-                            <div
-                              key={sale.id}
-                              className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
-                                </span>
-                                {sale.promotion?.hasPromotion && (
-                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
-                                    <Gift className="h-2 w-2 mr-1" />
-                                    Promoción
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Badge
-                                  className={
-                                    sale.paymentMethod === "efectivo"
-                                      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                                      : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
-                                  }
-                                >
-                                  {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
-                                </Badge>
-                                <span className="font-bold text-green-600">S/. {sale.total.toFixed(2)}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Charts and Tables */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Payment Methods */}
-          <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Métodos de Pago</CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                Distribución de ventas por método de pago
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900 dark:text-white">Efectivo</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-green-600">S/. {cashSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((cashSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900 dark:text-white">Transferencia</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-blue-600">S/. {transferSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((transferSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Products */}
-          <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                Productos Más Vendidos
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                Top 5 productos por cantidad vendida
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {topProducts.map(([productName, stats], index) => (
-                  <div
-                    key={productName}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Badge className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-700">
-                        #{index + 1}
-                      </Badge>
-                      <span className="font-medium text-gray-900 dark:text-white truncate">{productName}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-gray-900 dark:text-white">{stats.quantity} unidades</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">S/. {stats.revenue.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))}
-                {topProducts.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                    <p>No hay datos de productos</p>
-                  </div>
+              <Badge variant={cashRegisterStatus?.isOpen ? "default" : "secondary"} className="text-xs">
+                {cashRegisterStatus?.isOpen ? (
+                  <>
+                    <Unlock className="mr-1 h-3 w-3" />
+                    Abierta
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-1 h-3 w-3" />
+                    Cerrada
+                  </>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sales Table */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Historial de Ventas</CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-400">
-              Detalle completo de todas las transacciones
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-3"></div>
-                <p className="text-gray-500 dark:text-gray-400">Cargando reportes...</p>
-              </div>
-            ) : sales.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                <p>No hay ventas para mostrar</p>
-                <p className="text-sm">Ajusta los filtros o realiza algunas ventas</p>
-              </div>
-            ) : (
-              <ScrollArea className="h-96">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-gray-900 dark:text-white">Fecha</TableHead>
-                      <TableHead className="text-gray-900 dark:text-white">Vendedor</TableHead>
-                      <TableHead className="text-gray-900 dark:text-white">Productos</TableHead>
-                      <TableHead className="text-gray-900 dark:text-white">Método</TableHead>
-                      <TableHead className="text-gray-900 dark:text-white">Promoción</TableHead>
-                      <TableHead className="text-right text-gray-900 dark:text-white">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sales.map((sale) => (
-                      <TableRow key={sale.id}>
-                        <TableCell className="font-medium text-gray-900 dark:text-white">
-                          {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Users className="h-4 w-4 text-gray-400" />
-                            <span className="truncate text-gray-900 dark:text-white">{sale.sellerEmail}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {sale.items.map((item, index) => (
-                              <div key={index} className="text-sm text-gray-900 dark:text-white">
-                                {item.name} x{item.quantity}
-                              </div>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={
-                              sale.paymentMethod === "efectivo"
-                                ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700"
-                                : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700"
-                            }
-                          >
-                            {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {sale.promotion?.hasPromotion ? (
-                            <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700">
-                              <Gift className="h-3 w-3 mr-1" />
-                              {sale.promotion.freeItems} gratis
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-bold text-green-600">
-                          S/. {sale.total.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
-          </CardContent>
+              </Badge>
+            </div>
+          </div>
         </Card>
 
-        {/* Dialog de Confirmación para Vaciar Ventas */}
-        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-          <DialogContent className="max-w-md bg-white dark:bg-gray-900">
-            <DialogHeader>
-              <DialogTitle className="text-center text-xl font-bold text-red-700 dark:text-red-300 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 mr-2" />
-                ¡VACIAR DATOS DE VENTAS!
+        {/* Barra de búsqueda y filtros */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="Buscar productos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
+                <SelectValue placeholder="Todas las categorías" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          {/* Área de productos */}
+          <div className="flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              {filteredProducts.map((product) => {
+                const shortcut = shortcuts.find((s) => s.productId === product.id)
+                return <ProductCard key={product.id} product={product} onAddToCart={addToCart} shortcut={shortcut} />
+              })}
+            </div>
+          </div>
+
+          {/* Carrito de compras - Sticky */}
+          <div className="w-full lg:w-80">
+            <div className="sticky top-20">
+              <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ShoppingCart className="h-5 w-5 text-purple-600" />
+                      <h2 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">
+                        Carrito de Compras
+                      </h2>
+                    </div>
+                    <Badge variant="secondary" className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                      {cart.reduce((total, item) => total + item.quantity, 0)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Agrega productos y procesa ventas rápidamente
+                  </p>
+                </div>
+
+                {/* Promoción en el carrito */}
+                {promotion.hasPromotion && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
+                      <Gift className="h-4 w-4" />
+                      <span className="font-bold text-sm">¡Promoción 10+1!</span>
+                    </div>
+                    <div className="text-xs text-green-600 dark:text-green-400 text-center space-y-1">
+                      <p>
+                        Tickets gratis: <span className="font-bold">{promotion.freeItems}</span>
+                      </p>
+                      <p className="font-bold">Total tickets: {promotion.totalTickets}</p>
+                    </div>
+                  </div>
+                )}
+
+                <ScrollArea className="h-48 md:h-64 p-4">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                      <p>Carrito vacío</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {cart.map((item) => (
+                        <CartItem
+                          key={item.id}
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeFromCart}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                  {/* Método de pago */}
+                  <div className="space-y-2">
+                    <Label className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Método de Pago
+                    </Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger className="w-full bg-white dark:bg-gray-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="efectivo">💵 Efectivo</SelectItem>
+                        <SelectItem value="transferencia">💳 Transferencia</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Total */}
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
+                      <span className="text-lg md:text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Botones */}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => setShowCheckout(true)}
+                      disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-10 md:h-12 rounded-xl font-medium text-sm md:text-base"
+                      data-shortcut="process-sale"
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Procesar
+                    </Button>
+                    <Button
+                      onClick={clearCart}
+                      variant="outline"
+                      disabled={cart.length === 0}
+                      className="w-full h-8 md:h-10 rounded-xl bg-transparent text-sm"
+                      data-shortcut="clear-cart"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Limpiar
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal de confirmación */}
+        <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+          <DialogContent className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl">
+            <DialogHeader className="text-center pb-6">
+              <DialogTitle className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                Confirmar Venta
               </DialogTitle>
-              <DialogDescription className="text-center text-gray-600 dark:text-gray-400">
-                Esta acción eliminará permanentemente todas las ventas registradas
-              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
-              <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-700 dark:text-red-300">
-                  <strong>Se eliminarán:</strong>
-                  <ul className="list-disc list-inside mt-1 text-sm">
-                    <li>{totalTransactions.toLocaleString()} ventas</li>
-                    <li>S/. {totalSales.toFixed(2)} en registros</li>
-                    <li>Movimientos de caja relacionados</li>
-                    <li>Historial de transacciones</li>
-                  </ul>
-                </AlertDescription>
-              </Alert>
-
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center">
-                  <Database className="h-4 w-4 mr-2" />
-                  Recomendación:
+              {/* Lista de productos */}
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                <h4 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                  <Package className="h-4 w-4" />
+                  <span>Productos:</span>
                 </h4>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Exporta un backup antes de vaciar los datos para mantener un registro histórico.
-                </p>
-                <Button
-                  onClick={exportDataBeforeReset}
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 border-blue-200 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 bg-transparent"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Exportar Backup
-                </Button>
+                {cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {item.name} x{item.quantity}
+                    </span>
+                    <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Para confirmar, escribe exactamente: <strong>VACIAR VENTAS</strong>
-                </Label>
-                <Input
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
-                  placeholder="Escribe: VACIAR VENTAS"
-                  className="border-red-200 dark:border-red-700 focus:border-red-500 focus:ring-red-500/20"
-                />
+              {/* Promoción en el modal */}
+              {promotion.hasPromotion && (
+                <div className="bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-3">
+                    <Gift className="h-5 w-5" />
+                    <span className="font-bold text-lg">¡Promoción 10+1!</span>
+                  </div>
+                  <div className="text-sm text-green-600 dark:text-green-400 text-center space-y-1">
+                    <p>
+                      Tickets pagados: <span className="font-bold">{promotion.totalItems}</span>
+                    </p>
+                    <p>
+                      Tickets gratis:{" "}
+                      <span className="font-bold text-green-700 dark:text-green-300">{promotion.freeItems}</span>
+                    </p>
+                    <p className="font-bold text-lg">Total tickets: {promotion.totalTickets}</p>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Total y método de pago */}
+              <div className="space-y-4">
+                <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
+                  <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
+                  <span className="text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Método de Pago:</span>
+                  <span className="capitalize font-bold text-gray-900 dark:text-white">
+                    {paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex space-x-3">
+              {/* Botones de acción */}
+              <div className="flex space-x-3 pt-4">
                 <Button
-                  onClick={resetAllSalesData}
-                  disabled={isResetting || confirmText !== "VACIAR VENTAS"}
-                  variant="destructive"
-                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  onClick={processSale}
+                  disabled={processing}
+                  className="flex-1 h-12 md:h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-sm md:text-lg"
                 >
-                  {isResetting ? (
+                  {processing ? (
                     <div className="flex items-center space-x-2">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Vaciando...</span>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Procesando...</span>
                     </div>
                   ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Vaciar Ventas
-                    </>
+                    "✅ Confirmar Venta"
                   )}
                 </Button>
 
                 <Button
-                  onClick={() => {
-                    setShowResetDialog(false)
-                    setConfirmText("")
-                  }}
+                  onClick={() => setShowCheckout(false)}
                   variant="outline"
-                  className="flex-1"
-                  disabled={isResetting}
+                  className="flex-1 h-12 md:h-14 border-2 rounded-2xl font-bold"
                 >
                   Cancelar
                 </Button>
@@ -932,6 +1139,9 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Contenedor oculto para impresión */}
+        <div id="print-container" className="print-only"></div>
       </div>
     </div>
   )
