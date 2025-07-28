@@ -490,7 +490,7 @@ export default function SalesPage({
           width: 100% !important;
           height: 13cm !important;
           margin: 0 !important;
-          padding: 12px !important;
+          padding: 8px !important;
           background: white !important;
           page-break-after: always !important;
           page-break-inside: avoid !important;
@@ -509,37 +509,37 @@ export default function SalesPage({
         .header {
           text-align: center !important;
           border-bottom: 2px solid #000 !important;
-          padding-bottom: 10px !important;
-          margin-bottom: 10px !important;
+          padding-bottom: 6px !important;
+          margin-bottom: 6px !important;
           flex-shrink: 0 !important;
         }
         
         .logo {
-          font-size: 32px !important;
-          margin-bottom: 6px !important;
+          font-size: 28px !important;
+          margin-bottom: 3px !important;
           line-height: 1 !important;
           font-weight: 900 !important;
         }
         
         .title {
-          font-size: 24px !important;
+          font-size: 20px !important;
           font-weight: 900 !important;
-          margin-bottom: 4px !important;
+          margin-bottom: 2px !important;
           line-height: 1 !important;
-          letter-spacing: 2px !important;
+          letter-spacing: 1px !important;
         }
         
         .subtitle {
-          font-size: 16px !important;
-          margin-bottom: 4px !important;
+          font-size: 14px !important;
+          margin-bottom: 2px !important;
           line-height: 1 !important;
           font-weight: bold !important;
         }
         
         .number {
-          font-size: 20px !important;
+          font-size: 18px !important;
           font-weight: 900 !important;
-          margin-bottom: 6px !important;
+          margin-bottom: 3px !important;
           line-height: 1 !important;
           letter-spacing: 1px !important;
         }
@@ -547,17 +547,17 @@ export default function SalesPage({
         .promo-badge {
           background: #000 !important;
           color: white !important;
-          padding: 4px 8px !important;
-          font-size: 12px !important;
+          padding: 2px 6px !important;
+          font-size: 10px !important;
           font-weight: 900 !important;
           display: inline-block !important;
-          margin-top: 4px !important;
+          margin-top: 2px !important;
           letter-spacing: 1px !important;
         }
         
         /* Contenido con distribución vertical */
         .content {
-          margin: 12px 0 !important;
+          margin: 8px 0 !important;
           flex-grow: 1 !important;
           display: flex !important;
           flex-direction: column !important;
@@ -567,11 +567,11 @@ export default function SalesPage({
         .row {
           display: flex !important;
           justify-content: space-between !important;
-          margin-bottom: 8px !important;
-          font-size: 16px !important;
-          line-height: 1.4 !important;
+          margin-bottom: 4px !important;
+          font-size: 14px !important;
+          line-height: 1.2 !important;
           font-weight: bold !important;
-          padding: 2px 0 !important;
+          padding: 1px 0 !important;
         }
         
         .label {
@@ -588,18 +588,18 @@ export default function SalesPage({
         
         .total-section {
           border-top: 2px solid #000 !important;
-          padding-top: 8px !important;
-          margin-top: 12px !important;
+          padding-top: 4px !important;
+          margin-top: 6px !important;
           flex-shrink: 0 !important;
         }
         
         .total {
           text-align: center !important;
-          font-size: 20px !important;
+          font-size: 16px !important;
           font-weight: 900 !important;
-          padding: 8px !important;
+          padding: 4px !important;
           background: #f0f0f0 !important;
-          line-height: 1.4 !important;
+          line-height: 1.2 !important;
           border: 2px solid #000 !important;
           letter-spacing: 1px !important;
         }
@@ -607,50 +607,50 @@ export default function SalesPage({
         /* Footer con bordes y texto más negrita */
         .footer {
           border-top: 2px solid #000 !important;
-          padding-top: 10px !important;
-          margin-top: 10px !important;
+          padding-top: 6px !important;
+          margin-top: 6px !important;
           text-align: center !important;
           flex-shrink: 0 !important;
         }
         
         .info {
-          font-size: 14px !important;
-          margin-bottom: 4px !important;
-          line-height: 1.3 !important;
+          font-size: 12px !important;
+          margin-bottom: 2px !important;
+          line-height: 1.1 !important;
           font-weight: bold !important;
         }
         
         .thanks {
-          font-size: 18px !important;
+          font-size: 14px !important;
           font-weight: 900 !important;
-          margin: 8px 0 6px 0 !important;
-          line-height: 1.3 !important;
+          margin: 4px 0 3px 0 !important;
+          line-height: 1.1 !important;
           letter-spacing: 1px !important;
         }
         
         .brand {
-          font-size: 16px !important;
+          font-size: 13px !important;
           font-weight: 900 !important;
-          margin-bottom: 4px !important;
-          line-height: 1.3 !important;
+          margin-bottom: 2px !important;
+          line-height: 1.1 !important;
           letter-spacing: 1px !important;
         }
         
         .note {
-          font-size: 12px !important;
+          font-size: 10px !important;
           font-style: italic !important;
-          line-height: 1.3 !important;
-          margin-top: 4px !important;
+          line-height: 1.1 !important;
+          margin-top: 2px !important;
           font-weight: bold !important;
         }
         
         .promo-note {
-          font-size: 12px !important;
+          font-size: 10px !important;
           font-weight: 900 !important;
-          margin: 4px 0 !important;
+          margin: 2px 0 !important;
           background: #f0f0f0 !important;
-          padding: 2px !important;
-          line-height: 1.3 !important;
+          padding: 1px !important;
+          line-height: 1.1 !important;
           border: 1px solid #000 !important;
         }
       }
