@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
+import { collection, query, onSnapshot, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,13 +25,8 @@ import {
   Unlock,
   Lock,
   X,
-  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
-import { useDebouncedSearch } from "@/hooks/use-debounced-search"
-import { useOptimizedProducts } from "@/hooks/use-optimized-products"
-import { usePerformanceMonitor } from "@/hooks/use-performance-monitor"
-import { PerformanceMonitor, PERFORMANCE_CONFIG } from "@/lib/performance-config"
 
 interface Product {
   id: string
@@ -58,6 +53,7 @@ export default function SalesPage({
   onCashRegisterChange,
 }: SalesPageProps) {
   const [user] = useAuthState(auth)
+  const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -67,32 +63,6 @@ export default function SalesPage({
   const [isOnline, setIsOnline] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [showMobileCart, setShowMobileCart] = useState(false)
-
-  // Performance monitoring (interno, no visible)
-  usePerformanceMonitor("SalesPage")
-  const performanceMonitor = PerformanceMonitor.getInstance()
-
-  // Optimized products loading (interno)
-  const {
-    products,
-    loading: productsLoading,
-    hasMore,
-    loadMore,
-  } = useOptimizedProducts(PERFORMANCE_CONFIG.MAX_PRODUCTS_PER_PAGE)
-
-  // Optimized search (interno)
-  const { filteredProducts, isSearching } = useDebouncedSearch(
-    products,
-    searchTerm,
-    ["name", "category"],
-    PERFORMANCE_CONFIG.SEARCH_DEBOUNCE_MS,
-  )
-
-  // Filter by category (optimizado internamente)
-  const finalFilteredProducts = useMemo(() => {
-    if (selectedCategory === "all") return filteredProducts
-    return filteredProducts.filter((product) => product.category === selectedCategory)
-  }, [filteredProducts, selectedCategory])
 
   // Detectar tamaño de pantalla
   useEffect(() => {
@@ -120,6 +90,19 @@ export default function SalesPage({
     }
   }, [])
 
+  // Cargar productos
+  useEffect(() => {
+    const unsubscribe = onSnapshot(query(collection(db, "products")), (snapshot) => {
+      const productsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Product[]
+      setProducts(productsData)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
   useEffect(() => {
     const loadShortcuts = async () => {
       if (user) {
@@ -136,7 +119,16 @@ export default function SalesPage({
     loadShortcuts()
   }, [user])
 
-  // Calcular promoción 10+1 (optimizado)
+  // Filtrar productos
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+      return matchesSearch && matchesCategory
+    })
+  }, [products, searchTerm, selectedCategory])
+
+  // Calcular promoción 10+1
   const promotion = useMemo(() => {
     const totalItems = cart.reduce((total, item) => total + item.quantity, 0)
     const freeItems = Math.floor(totalItems / 10)
@@ -150,21 +142,10 @@ export default function SalesPage({
     }
   }, [cart])
 
-  // Optimized add to cart con rate limiting interno
   const addToCart = useCallback(
     (product: Product) => {
-      if (!performanceMonitor.trackOperation("addToCart")) {
-        toast.error("Demasiadas operaciones. Espera un momento.")
-        return
-      }
-
       if (!cashRegisterStatus?.isOpen) {
         toast.error("Debes abrir la caja antes de realizar ventas")
-        return
-      }
-
-      if (cart.length >= PERFORMANCE_CONFIG.MAX_CART_ITEMS) {
-        toast.error(`Máximo ${PERFORMANCE_CONFIG.MAX_CART_ITEMS} productos en el carrito`)
         return
       }
 
@@ -176,12 +157,10 @@ export default function SalesPage({
         return [...prev, { ...product, quantity: 1, paymentMethod: "efectivo" }]
       })
     },
-    [cart.length, cashRegisterStatus?.isOpen, performanceMonitor],
+    [cashRegisterStatus?.isOpen],
   )
 
   const updateQuantity = useCallback((id: string, change: number) => {
-    if (!performanceMonitor.trackOperation("updateQuantity")) return
-
     setCart((prev) => {
       return prev
         .map((item) => {
@@ -209,8 +188,7 @@ export default function SalesPage({
     setCart([])
   }, [])
 
-  // Total optimizado
-  const totalAmount = useMemo(() => {
+  const getTotalAmount = useCallback(() => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
   }, [cart])
 
@@ -343,11 +321,6 @@ export default function SalesPage({
   }, [cart, promotion, user])
 
   const processSale = useCallback(async () => {
-    if (!performanceMonitor.trackOperation("processSale")) {
-      toast.error("Demasiadas operaciones. Espera un momento.")
-      return
-    }
-
     if (cart.length === 0) {
       toast.error("El carrito está vacío")
       return
@@ -371,7 +344,7 @@ export default function SalesPage({
 
       const saleData = {
         items: cart,
-        total: totalAmount,
+        total: getTotalAmount(),
         cashTotal,
         transferTotal,
         sellerId: user?.uid,
@@ -400,7 +373,7 @@ export default function SalesPage({
           const currentData = cashRegDoc.data()
 
           const updatedData = {
-            totalSales: currentData.totalSales + totalAmount,
+            totalSales: currentData.totalSales + getTotalAmount(),
             cashSales: currentData.cashSales + cashTotal,
             transferSales: currentData.transferSales + transferTotal,
             currentAmount: currentData.currentAmount + cashTotal,
@@ -445,7 +418,7 @@ export default function SalesPage({
     }
   }, [
     cart,
-    totalAmount,
+    getTotalAmount,
     promotion,
     user,
     isOnline,
@@ -455,7 +428,7 @@ export default function SalesPage({
     generateAndPrintTickets,
   ])
 
-  // Componente del carrito (DISEÑO ORIGINAL)
+  // Componente del carrito
   const CartContent = useCallback(
     ({ isMobileView = false }) => (
       <Card
@@ -585,7 +558,7 @@ export default function SalesPage({
           <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
             <div className="flex justify-between items-center">
               <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
-              <span className="text-lg md:text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
+              <span className="text-lg md:text-xl font-bold text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
             </div>
           </div>
 
@@ -614,13 +587,22 @@ export default function SalesPage({
         </div>
       </Card>
     ),
-    [cart, promotion, totalAmount, cashRegisterStatus, updateQuantity, updatePaymentMethod, removeFromCart, clearCart],
+    [
+      cart,
+      promotion,
+      getTotalAmount,
+      cashRegisterStatus,
+      updateQuantity,
+      updatePaymentMethod,
+      removeFromCart,
+      clearCart,
+    ],
   )
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
-        {/* Estado de caja - DISEÑO ORIGINAL */}
+        {/* Estado de caja */}
         <Card className="border-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <div className="p-3 md:p-4">
             <div className="flex items-center justify-between">
@@ -648,9 +630,9 @@ export default function SalesPage({
         </Card>
 
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-          {/* Área de productos - DISEÑO ORIGINAL */}
+          {/* Área de productos */}
           <div className="flex-1">
-            {/* Barra de búsqueda - DISEÑO ORIGINAL */}
+            {/* Barra de búsqueda */}
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                 <div className="flex-1 relative">
@@ -676,9 +658,9 @@ export default function SalesPage({
               </div>
             </div>
 
-            {/* Grid de productos - DISEÑO ORIGINAL pero optimizado internamente */}
+            {/* Grid de productos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
-              {finalFilteredProducts.map((product) => {
+              {filteredProducts.map((product) => {
                 const shortcut = shortcuts.find((s) => s.productId === product.id)
                 return (
                   <Card
@@ -729,30 +711,9 @@ export default function SalesPage({
                 )
               })}
             </div>
-
-            {/* Botón cargar más (solo visible si hay más productos) */}
-            {hasMore && !isSearching && selectedCategory === "all" && (
-              <div className="text-center mt-6">
-                <Button
-                  onClick={loadMore}
-                  disabled={productsLoading}
-                  variant="outline"
-                  className="bg-white dark:bg-gray-800"
-                >
-                  {productsLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Cargando...
-                    </>
-                  ) : (
-                    "Cargar más productos"
-                  )}
-                </Button>
-              </div>
-            )}
           </div>
 
-          {/* Carrito de compras - Desktop (DISEÑO ORIGINAL) */}
+          {/* Carrito de compras - Desktop */}
           {!isMobile && (
             <div className="w-full lg:w-80">
               <CartContent />
@@ -760,7 +721,7 @@ export default function SalesPage({
           )}
         </div>
 
-        {/* Carrito flotante móvil - DISEÑO ORIGINAL */}
+        {/* Carrito flotante móvil */}
         {isMobile && (
           <>
             {/* Botón flotante */}
@@ -787,7 +748,7 @@ export default function SalesPage({
           </>
         )}
 
-        {/* Modal de confirmación - DISEÑO ORIGINAL */}
+        {/* Modal de confirmación */}
         <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
           <DialogContent className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl">
             <DialogHeader className="text-center pb-6">
@@ -847,7 +808,7 @@ export default function SalesPage({
               <div className="space-y-4">
                 <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
                   <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
-                  <span className="text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                  <span className="text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
                 </div>
 
                 {/* Desglose por método de pago */}
