@@ -437,283 +437,264 @@ export default function SalesPage({
     printContainer.id = "print-container"
     printContainer.style.display = "none"
 
-    // CSS optimizado para tickets de 8cm exactos
+    // CSS optimizado para ticket de 10cm de altura exacta
     const printStyles = `
-<style>
-  @media screen {
-    #print-container {
-      display: none !important;
-    }
-  }
-  
-  @media print {
-    * {
-      margin: 0 !important;
-      padding: 0 !important;
-      box-sizing: border-box !important;
-    }
-    
-    html, body {
-      width: 100% !important;
-      height: 8cm !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      font-family: 'Courier New', monospace !important;
-      font-size: 6px !important;
-      line-height: 0.8 !important;
-      color: #000 !important;
-      background: white !important;
-      font-weight: bold !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      overflow: hidden !important;
-    }
-    
-    @page {
-      size: 80mm 8cm !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-    
-    body > *:not(#print-container) {
-      display: none !important;
-    }
-    
-    #print-container {
-      display: block !important;
-      visibility: visible !important;
-      width: 80mm !important;
-      height: 8cm !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-    }
-    
-    .ticket {
-      width: 80mm !important;
-      height: 8cm !important;
-      max-height: 8cm !important;
-      margin: 0 !important;
-      padding: 1mm !important;
-      background: white !important;
-      page-break-after: always !important;
-      page-break-inside: avoid !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-      font-weight: bold !important;
-      border: none !important;
-      overflow: hidden !important;
-      box-sizing: border-box !important;
-    }
-    
-    .ticket:last-child {
-      page-break-after: auto !important;
-    }
-    
-    /* Header compacto - 1.5cm */
-    .header {
-      text-align: center !important;
-      border-bottom: 1px solid #000 !important;
-      padding-bottom: 0.5mm !important;
-      margin-bottom: 0.5mm !important;
-      flex: 0 0 auto !important;
-      height: 1.5cm !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-    }
-    
-    .logo {
-      font-size: 10px !important;
-      margin: 0 !important;
-      line-height: 0.8 !important;
-      font-weight: 900 !important;
-    }
-    
-    .title {
-      font-size: 7px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.8 !important;
-      letter-spacing: 0.3px !important;
-    }
-    
-    .subtitle {
-      font-size: 5px !important;
-      margin: 0 !important;
-      line-height: 0.8 !important;
-      font-weight: bold !important;
-    }
-    
-    .number {
-      font-size: 6px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.8 !important;
-    }
-    
-    .promo-badge {
-      background: #000 !important;
-      color: white !important;
-      padding: 0px 1px !important;
-      font-size: 4px !important;
-      font-weight: 900 !important;
-      display: inline-block !important;
-      margin: 0 !important;
-      border-radius: 1px !important;
-    }
-    
-    /* Contenido principal - 4cm */
-    .content {
-      flex: 1 1 auto !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: center !important;
-      height: 4cm !important;
-      margin: 0.5mm 0 !important;
-    }
-    
-    .row {
-      display: flex !important;
-      justify-content: space-between !important;
-      margin-bottom: 0.5mm !important;
-      font-size: 5px !important;
-      line-height: 0.8 !important;
-      font-weight: bold !important;
-      padding: 0 !important;
-    }
-    
-    .label {
-      font-weight: 900 !important;
-      flex: 0 0 35% !important;
-      text-align: left !important;
-    }
-    
-    .value {
-      text-align: right !important;
-      flex: 0 0 60% !important;
-      font-weight: bold !important;
-      word-wrap: break-word !important;
-      overflow: hidden !important;
-    }
-    
-    .total-section {
-      border-top: 1px solid #000 !important;
-      padding-top: 0.5mm !important;
-      margin-top: 1mm !important;
-      flex: 0 0 auto !important;
-    }
-    
-    .total {
-      text-align: center !important;
-      font-size: 6px !important;
-      font-weight: 900 !important;
-      padding: 0.5mm !important;
-      background: #f0f0f0 !important;
-      line-height: 0.8 !important;
-      border: 1px solid #000 !important;
-    }
-    
-    /* Footer compacto - 2.5cm */
-    .footer {
-      border-top: 1px solid #000 !important;
-      padding-top: 0.5mm !important;
-      margin-top: 0.5mm !important;
-      text-align: center !important;
-      flex: 0 0 auto !important;
-      height: 2.5cm !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-    }
-    
-    .info {
-      font-size: 4px !important;
-      margin: 0 !important;
-      line-height: 0.8 !important;
-      font-weight: bold !important;
-    }
-    
-    .thanks {
-      font-size: 5px !important;
-      font-weight: 900 !important;
-      margin: 0.5mm 0 !important;
-      line-height: 0.8 !important;
-    }
-    
-    .brand {
-      font-size: 4px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.8 !important;
-    }
-    
-    .note {
-      font-size: 3px !important;
-      font-style: italic !important;
-      line-height: 0.8 !important;
-      margin: 0 !important;
-      font-weight: bold !important;
-    }
-    
-    .promo-note {
-      font-size: 3px !important;
-      font-weight: 900 !important;
-      margin: 0.5mm 0 !important;
-      background: #f0f0f0 !important;
-      padding: 0.5px !important;
-      line-height: 0.8 !important;
-      border: 1px solid #000 !important;
-      border-radius: 1px !important;
-    }
-  }
-</style>
-`
+    <style>
+      @media screen {
+        #print-container {
+          display: none !important;
+        }
+      }
+      
+      @media print {
+        * {
+          margin: 0 !important;
+          padding: 0 !important;
+          box-sizing: border-box !important;
+        }
+        
+        html, body {
+          width: 100mm !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          font-family: 'Courier New', monospace !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          line-height: 1.2 !important;
+          color: #000 !important;
+          background: white !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        @page {
+          size: 100mm 100mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        body > *:not(#print-container) {
+          display: none !important;
+        }
+        
+        #print-container {
+          display: block !important;
+          visibility: visible !important;
+          width: 100mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        .ticket {
+          width: 100mm !important;
+          height: 100mm !important;
+          margin: 0 !important;
+          padding: 8mm !important;
+          background: white !important;
+          page-break-after: always !important;
+          page-break-inside: avoid !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+          overflow: hidden !important;
+        }
+        
+        .ticket:last-child {
+          page-break-after: auto !important;
+        }
+        
+        /* Header compacto para 10cm */
+        .header {
+          text-align: center !important;
+          margin-bottom: 3mm !important;
+        }
+        
+        .logo {
+          font-size: 24px !important;
+          font-weight: 900 !important;
+          margin-bottom: 1mm !important;
+          line-height: 1 !important;
+        }
+        
+        .title {
+          font-size: 20px !important;
+          font-weight: 900 !important;
+          margin-bottom: 1mm !important;
+          line-height: 1 !important;
+        }
+        
+        .slogan {
+          font-size: 12px !important;
+          font-weight: 900 !important;
+          font-style: italic !important;
+          margin-bottom: 2mm !important;
+          line-height: 1 !important;
+          color: #333 !important;
+        }
+        
+        .subtitle {
+          font-size: 16px !important;
+          font-weight: bold !important;
+          margin-bottom: 1mm !important;
+          line-height: 1 !important;
+        }
+        
+        .number {
+          font-size: 18px !important;
+          font-weight: bold !important;
+          margin-bottom: 2mm !important;
+          line-height: 1 !important;
+        }
+        
+        .promo-badge {
+          background: #000 !important;
+          color: white !important;
+          padding: 1mm 2mm !important;
+          font-size: 10px !important;
+          font-weight: 900 !important;
+          display: inline-block !important;
+          margin-top: 1mm !important;
+        }
+        
+        /* Contenido optimizado para 10cm */
+        .content {
+          flex: 1 !important;
+          margin: 2mm 0 !important;
+        }
+        
+        .row {
+          display: flex !important;
+          justify-content: space-between !important;
+          margin-bottom: 2mm !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          line-height: 1.2 !important;
+        }
+        
+        .label {
+          font-weight: 900 !important;
+          flex: 1 !important;
+        }
+        
+        .value {
+          text-align: right !important;
+          flex: 1 !important;
+          font-weight: bold !important;
+        }
+        
+        .total-section {
+          margin: 2mm 0 !important;
+        }
+        
+        .total {
+          text-align: center !important;
+          font-size: 16px !important;
+          font-weight: 900 !important;
+          padding: 3mm !important;
+          background: #f0f0f0 !important;
+          line-height: 1.2 !important;
+        }
+        
+        /* Footer compacto para 10cm */
+        .footer {
+          text-align: center !important;
+          margin-top: 2mm !important;
+        }
+        
+        .info {
+          font-size: 11px !important;
+          font-weight: bold !important;
+          margin-bottom: 1mm !important;
+          line-height: 1.1 !important;
+        }
+        
+        .thanks {
+          font-size: 14px !important;
+          font-weight: 900 !important;
+          margin: 2mm 0 1mm 0 !important;
+          line-height: 1.1 !important;
+        }
+        
+        .brand {
+          font-size: 12px !important;
+          font-weight: bold !important;
+          margin-bottom: 1mm !important;
+          line-height: 1.1 !important;
+        }
+        
+        .note {
+          font-size: 10px !important;
+          font-weight: bold !important;
+          line-height: 1.1 !important;
+          margin-top: 1mm !important;
+        }
+        
+        .no-returns {
+          font-size: 10px !important;
+          font-weight: bold !important;
+          margin-top: 2mm !important;
+          line-height: 1.1 !important;
+          color: #666 !important;
+        }
+        
+        .promo-note {
+          font-size: 11px !important;
+          font-weight: 900 !important;
+          margin: 1mm 0 !important;
+          background: #f0f0f0 !important;
+          padding: 1mm !important;
+          line-height: 1.1 !important;
+        }
+      }
+    </style>
+  `
 
-    // Generar HTML de tickets con formato extremadamente compacto para 8cm
+    // Generar HTML de tickets optimizado para 10cm
     const ticketsHTML = allTickets
       .map(
         (ticket, index) => `
-<div class="ticket">
-  <div class="header">
-    <div class="logo">🐅</div>
-    <div class="title">SANCHEZ PARK</div>
-    <div class="subtitle">${ticket.type}</div>
-    <div class="number">#${ticket.ticketNumber}</div>
-    ${ticket.isFree ? '<div class="promo-badge">🎁</div>' : ""}
-  </div>
-  
-  <div class="content">
-    <div class="row">
-      <span class="label">Producto:</span>
-      <span class="value">${ticket.productName.length > 15 ? ticket.productName.substring(0, 15) + "..." : ticket.productName}</span>
+    <div class="ticket">
+      <div class="header">
+        <div class="logo">🐅</div>
+        <div class="title">SANCHEZ PARK</div>
+        <div class="slogan">¡A un paso de la diversión!</div>
+        <div class="subtitle">${ticket.type}</div>
+        <div class="number">#${ticket.ticketNumber}</div>
+        ${ticket.isFree ? '<div class="promo-badge">🎁 PROMOCIÓN 10+1</div>' : ""}
+      </div>
+      
+      <div class="content">
+        <div class="row">
+          <span class="label">Producto:</span>
+          <span class="value">${ticket.productName.length > 18 ? ticket.productName.substring(0, 18) + "..." : ticket.productName}</span>
+        </div>
+        <div class="row">
+          <span class="label">Cantidad:</span>
+          <span class="value">1 unidad</span>
+        </div>
+        <div class="row">
+          <span class="label">Precio:</span>
+          <span class="value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
+        </div>
+        <div class="total-section">
+          <div class="total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <div class="info">${ticket.saleDate}</div>
+        <div class="info">${ticket.seller.length > 12 ? ticket.seller.substring(0, 12) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.paymentMethod}</div>
+        <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
+        ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
+        <div class="thanks">¡Gracias por su compra!</div>
+        <div class="brand">Sanchez Park</div>
+        <div class="note">Conserve este ticket</div>
+        <div class="no-returns">No se aceptan devoluciones</div>
+      </div>
     </div>
-    <div class="row">
-      <span class="label">Cant:</span>
-      <span class="value">1 ud</span>
-    </div>
-    <div class="row">
-      <span class="label">Precio:</span>
-      <span class="value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
-    </div>
-    <div class="total-section">
-      <div class="total">${ticket.isFree ? "🎁 GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
-    </div>
-  </div>
-  
-  <div class="footer">
-    <div class="info">${ticket.saleDate.substring(0, 12)}</div>
-    <div class="info">${ticket.seller.length > 10 ? ticket.seller.substring(0, 10) + "..." : ticket.seller}</div>
-    <div class="info">${ticket.paymentMethod.substring(0, 8)}</div>
-    <div class="info">${index + 1}/${allTickets.length}</div>
-    ${ticket.isFree ? '<div class="promo-note">Promo 10+1</div>' : ""}
-    <div class="thanks">¡Gracias!</div>
-    <div class="brand">Sanchez Park</div>
-    <div class="note">Conserve ticket</div>
-  </div>
-</div>
-`,
+  `,
       )
       .join("")
 
@@ -723,15 +704,16 @@ export default function SalesPage({
     // Agregar al DOM
     document.body.appendChild(printContainer)
 
-    console.log(`✅ ${allTickets.length} tickets compactos (80mm x 8cm) preparados para impresión`)
+    console.log(`✅ ${allTickets.length} tickets de 10cm preparados para impresión`)
+    console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
 
     // Imprimir después de un breve delay
     setTimeout(() => {
-      console.log("Iniciando impresión de tickets de 8cm...")
+      console.log("Iniciando impresión de tickets de 10cm...")
 
       // Configurar título temporal
       const originalTitle = document.title
-      document.title = `Tickets-8cm-${Date.now()}`
+      document.title = `Tickets-10cm-${Date.now()}`
 
       // Función de limpieza
       const cleanup = () => {
