@@ -28,7 +28,7 @@ import {
 import { toast } from "sonner"
 import CashRegister from "@/components/cash-register"
 import { cn } from "@/lib/utils"
-import { Sparkles, Star, Zap, Heart, TrendingUp } from "lucide-react"
+import { Sparkles, Star, Zap, TrendingUp } from "lucide-react"
 
 interface Product {
   id: string
@@ -41,7 +41,11 @@ interface CartItem extends Product {
   quantity: number
 }
 
-export default function SalesPage() {
+interface SalesPageProps {
+  sidebarCollapsed?: boolean
+}
+
+export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) {
   const [user] = useAuthState(auth)
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -356,9 +360,18 @@ export default function SalesPage() {
 
   const promotion = calculatePromotion()
 
+  // Calcular márgenes dinámicos basados en el estado del sidebar
+  const getMarginLeft = () => {
+    return sidebarCollapsed ? "ml-20" : "ml-72"
+  }
+
+  const getProductsGridWidth = () => {
+    return sidebarCollapsed ? "pr-80" : "pr-80"
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
-      <div className="ml-72 p-6 space-y-6">
+      <div className={cn("transition-all duration-300 ease-in-out p-6 space-y-6", getMarginLeft())}>
         {/* Sistema de caja */}
         <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
           <CashRegister onStatusChange={setCashRegisterOpen} />
@@ -390,8 +403,8 @@ export default function SalesPage() {
         )}
 
         <div className="flex gap-8">
-          {/* Área de productos */}
-          <div className="flex-1 pr-96">
+          {/* Área de productos con ancho adaptativo */}
+          <div className={cn("flex-1 transition-all duration-300 ease-in-out", getProductsGridWidth())}>
             {/* Header */}
             <div className="mb-8">
               <div className="flex items-center space-x-4 mb-6">
@@ -422,8 +435,15 @@ export default function SalesPage() {
               </div>
             </div>
 
-            {/* Grid de productos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-8">
+            {/* Grid de productos con columnas adaptativas */}
+            <div
+              className={cn(
+                "grid gap-6 pb-8 transition-all duration-300 ease-in-out",
+                sidebarCollapsed
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                  : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+              )}
+            >
               {filteredProducts.map((product) => {
                 const shortcut = shortcuts.find((s) => s.productId === product.id)
                 return (
@@ -499,115 +519,98 @@ export default function SalesPage() {
             </div>
           </div>
 
-          {/* Carrito fijo */}
-          <div className="fixed right-6 top-6 bottom-6 w-96 flex flex-col">
-            <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl flex flex-col overflow-hidden h-full">
-              {/* Header del carrito */}
-              <div className="p-6 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                      <ShoppingCart className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold">Carrito de Compras</h2>
-                      <p className="text-blue-100 text-sm">Productos seleccionados</p>
-                    </div>
-                  </div>
-
+          {/* Carrito fijo optimizado */}
+          <div className="fixed right-6 top-6 bottom-6 w-80 flex flex-col">
+            <div className="bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden h-full">
+              {/* Header compacto del carrito */}
+              <div className="p-4 text-white">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
-                    <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-3 py-1 text-sm font-bold">
-                      {cart.reduce((total, item) => total + item.quantity, 0)} items
-                    </Badge>
-                    <Sparkles className="h-5 w-5 text-yellow-300 animate-pulse" />
+                    <ShoppingCart className="h-6 w-6" />
+                    <div>
+                      <h2 className="text-lg font-bold">Carrito de Compras</h2>
+                      <p className="text-blue-100 text-xs">Productos seleccionados</p>
+                    </div>
                   </div>
+                  <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-2 py-1 text-sm font-bold">
+                    {cart.reduce((total, item) => total + item.quantity, 0)} items
+                  </Badge>
                 </div>
               </div>
 
-              {/* Promoción 10+1 */}
+              {/* Promoción 10+1 compacta */}
               {promotion.hasPromotion && (
-                <div className="p-4 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 text-white">
+                <div className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white">
                   <div className="text-center">
-                    <div className="flex items-center justify-center space-x-3 mb-3">
-                      <Gift className="h-6 w-6" />
-                      <span className="font-bold text-xl">¡Promoción 10+1!</span>
-                      <Heart className="h-5 w-5 text-red-200" />
+                    <div className="flex items-center justify-center space-x-2 mb-1">
+                      <Gift className="h-4 w-4" />
+                      <span className="font-bold text-sm">¡Promoción 10+1!</span>
                     </div>
-                    <p className="text-lg font-bold mb-1">
+                    <p className="text-sm font-bold">
                       🎉 {promotion.freeItems} ticket{promotion.freeItems > 1 ? "s" : ""} GRATIS
-                    </p>
-                    <p className="text-sm text-green-100">
-                      Total: {promotion.totalTickets} tickets ({promotion.totalItems} pagados + {promotion.freeItems}{" "}
-                      gratis)
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Contenido del carrito */}
-              <ScrollArea className="flex-1 p-4">
+              {/* Contenido del carrito optimizado */}
+              <ScrollArea className="flex-1 p-3">
                 {cart.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="p-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-blue-900 rounded-3xl border border-slate-200 dark:border-slate-700">
-                      <ShoppingCart className="h-16 w-16 text-blue-500 opacity-50 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">Carrito vacío</h3>
-                      <p className="text-slate-500 dark:text-slate-400">Agrega productos para comenzar tu venta</p>
+                  <div className="text-center py-8">
+                    <div className="p-6 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
+                      <ShoppingCart className="h-12 w-12 text-white/50 mx-auto mb-3" />
+                      <h3 className="text-lg font-bold text-white mb-1">Carrito vacío</h3>
+                      <p className="text-white/70 text-sm">Agrega productos para comenzar</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {cart.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center space-x-4 p-4 bg-gradient-to-r from-white to-slate-50 dark:from-slate-700 dark:to-slate-600 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-lg"
+                        className="flex items-center space-x-3 p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20"
                       >
-                        {/* Imagen del producto */}
+                        {/* Imagen compacta */}
                         <div className="relative">
                           <img
-                            src={item.image || "/placeholder.svg?height=60&width=60&text=Sin+Imagen"}
+                            src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
                             alt={item.name}
-                            className="w-16 h-16 object-cover rounded-xl shadow-md"
+                            className="w-10 h-10 object-cover rounded-lg"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
-                              target.src = "/placeholder.svg?height=60&width=60&text=Error"
+                              target.src = "/placeholder.svg?height=40&width=40&text=Error"
                             }}
                           />
-                          <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs bg-gradient-to-r from-blue-500 to-purple-600 border-2 border-white">
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs bg-blue-500 border border-white">
                             {item.quantity}
                           </Badge>
                         </div>
 
-                        {/* Información del producto */}
+                        {/* Info compacta */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm truncate text-slate-800 dark:text-white mb-1">
-                            {item.name}
-                          </h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                            S/. {item.price.toFixed(2)} c/u
-                          </p>
-                          <p className="text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                          <h4 className="font-bold text-xs truncate text-white mb-1">{item.name}</h4>
+                          <p className="text-xs text-white/70">S/. {item.price.toFixed(2)} c/u</p>
+                          <p className="text-sm font-bold text-green-300">
                             S/. {(item.price * item.quantity).toFixed(2)}
                           </p>
                         </div>
 
-                        {/* Controles de cantidad */}
-                        <div className="flex items-center space-x-2">
+                        {/* Controles compactos */}
+                        <div className="flex items-center space-x-1">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => updateQuantity(item.id, -1)}
-                            className="h-8 w-8 p-0 rounded-full border-2"
+                            className="h-6 w-6 p-0 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white"
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-
-                          <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
 
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => updateQuantity(item.id, 1)}
-                            className="h-8 w-8 p-0 rounded-full border-2"
+                            className="h-6 w-6 p-0 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white"
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
@@ -616,7 +619,7 @@ export default function SalesPage() {
                             size="sm"
                             variant="destructive"
                             onClick={() => removeFromCart(item.id)}
-                            className="h-8 w-8 p-0 ml-2 rounded-full"
+                            className="h-6 w-6 p-0 ml-1 rounded-full bg-red-500/20 hover:bg-red-500/40 border-red-400/30"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -627,67 +630,65 @@ export default function SalesPage() {
                 )}
               </ScrollArea>
 
-              {/* Footer del carrito */}
-              <div className="p-6 border-t border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-blue-900">
-                <div className="space-y-6">
-                  {/* Total */}
-                  <div className="flex justify-between items-center text-2xl font-bold bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-2xl border-2 border-green-200 dark:border-green-700">
+              {/* Footer compacto del carrito */}
+              <div className="p-4 bg-white/10 backdrop-blur-sm border-t border-white/20">
+                <div className="space-y-4">
+                  {/* Total compacto */}
+                  <div className="flex justify-between items-center text-xl font-bold bg-green-500/20 backdrop-blur-sm p-3 rounded-xl border border-green-400/30">
                     <div className="flex items-center space-x-2">
-                      <TrendingUp className="h-6 w-6 text-green-600" />
-                      <span className="text-slate-700 dark:text-slate-300">Total:</span>
+                      <TrendingUp className="h-5 w-5 text-green-300" />
+                      <span className="text-white">Total:</span>
                     </div>
-                    <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent text-3xl">
-                      S/. {getTotalAmount().toFixed(2)}
-                    </span>
+                    <span className="text-green-300 text-2xl">S/. {getTotalAmount().toFixed(2)}</span>
                   </div>
 
-                  {/* Método de pago */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
-                      <CreditCard className="h-4 w-4" />
+                  {/* Método de pago compacto */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-white/90 flex items-center space-x-1">
+                      <CreditCard className="h-3 w-3" />
                       <span>Método de Pago</span>
                     </Label>
-                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                      <div className="flex items-center space-x-4 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700">
-                        <RadioGroupItem value="efectivo" id="efectivo" />
-                        <Label htmlFor="efectivo" className="flex items-center cursor-pointer flex-1">
-                          <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 rounded-xl mr-4">
-                            <Banknote className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-2">
+                      <div className="flex items-center space-x-3 p-2 rounded-lg border border-white/20 bg-white/5">
+                        <RadioGroupItem value="efectivo" id="efectivo" className="border-white/50" />
+                        <Label htmlFor="efectivo" className="flex items-center cursor-pointer flex-1 text-white">
+                          <div className="p-2 bg-green-500/20 rounded-lg mr-3">
+                            <Banknote className="h-4 w-4 text-green-300" />
                           </div>
                           <div>
-                            <span className="font-bold text-slate-800 dark:text-white">Efectivo</span>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Pago en efectivo</p>
+                            <span className="font-bold text-sm">Efectivo</span>
+                            <p className="text-xs text-white/70">Pago en efectivo</p>
                           </div>
                         </Label>
                       </div>
 
-                      <div className="flex items-center space-x-4 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700">
-                        <RadioGroupItem value="transferencia" id="transferencia" />
-                        <Label htmlFor="transferencia" className="flex items-center cursor-pointer flex-1">
-                          <div className="p-3 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 rounded-xl mr-4">
-                            <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <div className="flex items-center space-x-3 p-2 rounded-lg border border-white/20 bg-white/5">
+                        <RadioGroupItem value="transferencia" id="transferencia" className="border-white/50" />
+                        <Label htmlFor="transferencia" className="flex items-center cursor-pointer flex-1 text-white">
+                          <div className="p-2 bg-blue-500/20 rounded-lg mr-3">
+                            <CreditCard className="h-4 w-4 text-blue-300" />
                           </div>
                           <div>
-                            <span className="font-bold text-slate-800 dark:text-white">Transferencia</span>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Pago digital</p>
+                            <span className="font-bold text-sm">Transferencia</span>
+                            <p className="text-xs text-white/70">Pago digital</p>
                           </div>
                         </Label>
                       </div>
                     </RadioGroup>
                   </div>
 
-                  {/* Botones de acción */}
-                  <div className="space-y-3">
+                  {/* Botones compactos */}
+                  <div className="space-y-2">
                     <Button
                       onClick={() => setShowCheckout(true)}
                       disabled={cart.length === 0 || !cashRegisterOpen}
-                      className="w-full h-14 text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 shadow-xl border-0 rounded-2xl"
+                      className="w-full h-12 text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 shadow-xl border-0 rounded-xl"
                       data-shortcut="process-sale"
                     >
-                      <div className="flex items-center space-x-3">
-                        <ShoppingCart className="h-6 w-6" />
+                      <div className="flex items-center space-x-2">
+                        <ShoppingCart className="h-4 w-4" />
                         <span>Procesar Venta</span>
-                        <Badge className="bg-white/20 text-white px-2 py-1 text-xs">Enter</Badge>
+                        <Badge className="bg-white/20 text-white px-1 py-0.5 text-xs">Enter</Badge>
                       </div>
                     </Button>
 
@@ -695,18 +696,26 @@ export default function SalesPage() {
                       onClick={clearCart}
                       variant="outline"
                       disabled={cart.length === 0}
-                      className="w-full h-12 border-2 bg-transparent rounded-xl"
+                      className="w-full h-10 border border-white/30 bg-white/10 hover:bg-white/20 text-white rounded-xl"
                       data-shortcut="clear-cart"
                     >
                       <div className="flex items-center space-x-2">
-                        <Trash2 className="h-4 w-4" />
-                        <span>Limpiar Carrito</span>
-                        <Badge variant="outline" className="text-xs">
+                        <Trash2 className="h-3 w-3" />
+                        <span className="text-sm">Limpiar Carrito</span>
+                        <Badge variant="outline" className="text-xs border-white/30 text-white/80">
                           X
                         </Badge>
                       </div>
                     </Button>
                   </div>
+
+                  {/* Indicador de sincronización con GIF personalizado */}
+                  {!isOnline && (
+                    <div className="flex items-center justify-center space-x-2 text-xs text-white/80 bg-red-500/20 p-2 rounded-lg border border-red-400/30">
+                      <img src="/loading-wheel.gif" alt="Sincronizando..." className="w-4 h-4" />
+                      <span>Sincronizando...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -789,7 +798,7 @@ export default function SalesPage() {
                   >
                     {processing ? (
                       <div className="flex items-center space-x-2">
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <img src="/loading-wheel.gif" alt="Procesando..." className="w-5 h-5" />
                         <span>Procesando...</span>
                       </div>
                     ) : (

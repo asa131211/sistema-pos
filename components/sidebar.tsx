@@ -1,19 +1,17 @@
 "use client"
-
-import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Home, ShoppingCart, Package, Users, BarChart3, Settings, DollarSign, Menu, X, Sparkles } from "lucide-react"
+import { Home, ShoppingCart, Package, Users, BarChart3, Settings, Menu, X, Sparkles } from "lucide-react"
 
 interface SidebarProps {
   currentPage: string
   setCurrentPage: (page: string) => void
   userRole: "admin" | "vendedor" | null
+  isCollapsed: boolean
+  setIsCollapsed: (collapsed: boolean) => void
 }
 
-export default function Sidebar({ currentPage, setCurrentPage, userRole }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
-
+export default function Sidebar({ currentPage, setCurrentPage, userRole, isCollapsed, setIsCollapsed }: SidebarProps) {
   const adminMenuItems = [
     { id: "inicio", label: "Dashboard", icon: Home, color: "from-blue-500 to-blue-600" },
     { id: "ventas", label: "Punto de Venta", icon: ShoppingCart, color: "from-green-500 to-green-600" },
@@ -47,8 +45,12 @@ export default function Sidebar({ currentPage, setCurrentPage, userRole }: Sideb
         {!isCollapsed && (
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl transform rotate-3 hover:rotate-0 transition-all duration-300">
-                <DollarSign className="h-8 w-8 text-white drop-shadow-lg" />
+              <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl transform rotate-3 hover:rotate-0 transition-all duration-300 overflow-hidden">
+                <img
+                  src="/tiger-logo.png"
+                  alt="Sanchez Park"
+                  className="w-12 h-12 object-contain filter brightness-110"
+                />
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
               </div>
             </div>

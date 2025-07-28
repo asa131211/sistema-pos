@@ -14,7 +14,6 @@ import ReportsPage from "@/components/pages/reports-page"
 import SettingsPage from "@/components/pages/settings-page"
 import { SyncStatus, SyncIndicator } from "@/components/sync-status"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
-import { Loader2 } from "lucide-react"
 
 export default function Dashboard() {
   const [user] = useAuthState(auth)
@@ -22,6 +21,7 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState("ventas") // Cambiar página por defecto a ventas
   const [loading, setLoading] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useKeyboardShortcuts()
 
@@ -91,7 +91,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
+          <img src="/loading-wheel.gif" alt="Cargando..." className="w-16 h-16 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400 text-lg">Sincronizando datos...</p>
           <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
         </div>
@@ -104,7 +104,7 @@ export default function Dashboard() {
       case "inicio":
         return <HomePage userRole={userRole} />
       case "ventas":
-        return <SalesPage />
+        return <SalesPage sidebarCollapsed={sidebarCollapsed} />
       case "productos":
         return <ProductsPage />
       case "usuarios":
@@ -114,13 +114,19 @@ export default function Dashboard() {
       case "configuracion":
         return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} />
       default:
-        return <SalesPage />
+        return <SalesPage sidebarCollapsed={sidebarCollapsed} />
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} userRole={userRole} />
+      <Sidebar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        userRole={userRole}
+        isCollapsed={sidebarCollapsed}
+        setIsCollapsed={setSidebarCollapsed}
+      />
       <div className="flex-1 flex flex-col">
         <TopBar darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
