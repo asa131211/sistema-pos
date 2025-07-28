@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/tiger-logo.png", sizes: "180x180", type: "image/png" }],
     shortcut: "/tiger-logo.png",
   },
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
