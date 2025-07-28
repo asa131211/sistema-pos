@@ -7,6 +7,7 @@ interface PrintOptions {
   margins?: string
   orientation?: "portrait" | "landscape"
   colorAdjust?: boolean
+  fontSize?: string
 }
 
 export const usePrintOptimizer = () => {
@@ -18,7 +19,13 @@ export const usePrintOptimizer = () => {
       clearTimeout(printTimeoutRef.current)
     }
 
-    const { pageSize = "80mm auto", margins = "0", orientation = "portrait", colorAdjust = true } = options
+    const {
+      pageSize = "80mm auto",
+      margins = "0",
+      orientation = "portrait",
+      colorAdjust = true,
+      fontSize = "9px",
+    } = options
 
     // CSS base optimizado
     const baseCSS = `
@@ -36,8 +43,10 @@ export const usePrintOptimizer = () => {
             margin: 0 !important;
             padding: 0 !important;
             font-family: 'Courier New', monospace !important;
-            background: white !important;
+            font-size: ${fontSize} !important;
+            line-height: 1.1 !important;
             color: #000 !important;
+            background: white !important;
             ${colorAdjust ? "-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" : ""}
           }
           
@@ -129,8 +138,8 @@ export const usePrintOptimizer = () => {
       }
 
       // Limpieza de respaldo
-      setTimeout(cleanup, 2000)
-    }, 150)
+      setTimeout(cleanup, 5000)
+    }, 200)
 
     return cleanup
   }, [])
