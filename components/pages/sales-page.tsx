@@ -215,14 +215,190 @@ export default function SalesPage({
       }
     }
 
-    // Generar HTML para impresión con logo del tigre
+    // Agregar estilos CSS para impresión
+    const printStyles = `
+    <style>
+      @media print {
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          line-height: 1.2;
+          color: #000;
+          background: white;
+        }
+        
+        .print-ticket {
+          width: 80mm;
+          max-width: 80mm;
+          margin: 0 auto;
+          padding: 8px;
+          border: 1px solid #000;
+          page-break-after: always;
+          page-break-inside: avoid;
+          background: white;
+        }
+        
+        .print-ticket:last-child {
+          page-break-after: auto;
+        }
+        
+        .ticket-header {
+          text-align: center;
+          border-bottom: 1px dashed #000;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+        }
+        
+        .ticket-logo-img {
+          width: 40px;
+          height: 40px;
+          margin: 0 auto 4px;
+          display: block;
+        }
+        
+        .ticket-title {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 2px;
+        }
+        
+        .ticket-subtitle {
+          font-size: 12px;
+          margin-bottom: 4px;
+        }
+        
+        .ticket-number {
+          font-size: 14px;
+          font-weight: bold;
+          margin-bottom: 4px;
+        }
+        
+        .ticket-promo {
+          background: #000;
+          color: white;
+          padding: 2px 4px;
+          font-size: 10px;
+          font-weight: bold;
+          display: inline-block;
+        }
+        
+        .ticket-content {
+          margin: 8px 0;
+        }
+        
+        .ticket-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 4px;
+          font-size: 11px;
+        }
+        
+        .ticket-label {
+          font-weight: bold;
+        }
+        
+        .ticket-value {
+          text-align: right;
+        }
+        
+        .ticket-total-section {
+          border-top: 1px dashed #000;
+          padding-top: 4px;
+          margin-top: 8px;
+        }
+        
+        .ticket-total {
+          text-align: center;
+          font-size: 14px;
+          font-weight: bold;
+          padding: 4px;
+          border: 1px solid #000;
+        }
+        
+        .ticket-footer {
+          border-top: 1px dashed #000;
+          padding-top: 8px;
+          margin-top: 8px;
+          text-align: center;
+        }
+        
+        .ticket-info {
+          font-size: 10px;
+          margin-bottom: 2px;
+        }
+        
+        .ticket-promo-note {
+          font-size: 10px;
+          font-weight: bold;
+          margin: 4px 0;
+          background: #f0f0f0;
+          padding: 2px;
+        }
+        
+        .ticket-thanks {
+          font-size: 12px;
+          font-weight: bold;
+          margin: 6px 0 4px;
+        }
+        
+        .ticket-brand {
+          font-size: 11px;
+          font-weight: bold;
+          margin-bottom: 2px;
+        }
+        
+        .ticket-note {
+          font-size: 9px;
+          font-style: italic;
+        }
+        
+        @page {
+          size: 80mm auto;
+          margin: 0;
+        }
+      }
+      
+      .print-only {
+        display: none;
+      }
+      
+      @media print {
+        .print-only {
+          display: block !important;
+        }
+        
+        body * {
+          visibility: hidden;
+        }
+        
+        .print-only, .print-only * {
+          visibility: visible;
+        }
+        
+        .print-only {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+      }
+    </style>
+  `
+
+    // Generar HTML para impresión
     const allTicketsHTML = allTickets
       .map(
         (ticket, index) => `
-    <div class="print-ticket" style="page-break-after: ${index === allTickets.length - 1 ? "auto" : "always"};">
+    <div class="print-ticket">
       <div class="ticket-header">
         <div class="ticket-logo">
-          <img src="/tiger-logo-bw.png" alt="Sanchez Park" class="ticket-logo-img" />
+          <img src="/placeholder.svg?height=40&width=40&text=🐅" alt="Sanchez Park" class="ticket-logo-img" />
         </div>
         <div class="ticket-title">SANCHEZ PARK</div>
         <div class="ticket-subtitle">Ticket de ${ticket.type}</div>
@@ -272,9 +448,15 @@ export default function SalesPage({
       document.body.appendChild(printContainer)
     }
 
-    printContainer.innerHTML = allTicketsHTML
+    // Limpiar contenedor y agregar estilos + contenido
+    printContainer.innerHTML = printStyles + allTicketsHTML
+
     console.log(`✅ ${allTickets.length} tickets listos para impresión`)
-    window.print()
+
+    // Pequeño delay para asegurar que el DOM se actualice
+    setTimeout(() => {
+      window.print()
+    }, 100)
   }
 
   const processSale = async () => {
