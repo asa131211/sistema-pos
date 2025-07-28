@@ -437,7 +437,7 @@ export default function SalesPage({
     printContainer.id = "print-container"
     printContainer.style.display = "none"
 
-    // CSS simplificado y funcional
+    // CSS sin marcos y con letras más grandes
     const printStyles = `
     <style>
       @media screen {
@@ -448,22 +448,29 @@ export default function SalesPage({
       
       @media print {
         * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-sizing: border-box !important;
         }
         
-        body {
-          font-family: 'Courier New', monospace;
-          font-size: 12px;
-          line-height: 1.3;
-          color: #000;
-          background: white;
+        html, body {
+          width: 100mm !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          font-family: 'Courier New', monospace !important;
+          font-size: 16px !important;
+          line-height: 1.4 !important;
+          color: #000 !important;
+          background: white !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         
         @page {
-          size: 80mm auto;
-          margin: 5mm;
+          size: 100mm auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         
         body > *:not(#print-container) {
@@ -473,165 +480,192 @@ export default function SalesPage({
         #print-container {
           display: block !important;
           visibility: visible !important;
+          width: 100mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         
         .ticket {
-          width: 70mm;
-          margin: 0 auto 5mm auto;
-          padding: 3mm;
-          border: 1px solid #000;
-          background: white;
-          page-break-after: always;
-          page-break-inside: avoid;
+          width: 100mm !important;
+          margin: 0 !important;
+          padding: 10mm !important;
+          background: white !important;
+          page-break-after: always !important;
+          page-break-inside: avoid !important;
+          min-height: auto !important;
+          display: block !important;
         }
         
         .ticket:last-child {
-          page-break-after: auto;
+          page-break-after: auto !important;
         }
         
-        .ticket-header {
-          text-align: center;
-          border-bottom: 1px dashed #000;
-          padding-bottom: 3mm;
-          margin-bottom: 3mm;
+        /* Header sin marcos */
+        .header {
+          text-align: center !important;
+          padding-bottom: 5mm !important;
+          margin-bottom: 5mm !important;
         }
         
-        .ticket-logo {
-          font-size: 20px;
-          margin-bottom: 2mm;
+        .logo {
+          font-size: 32px !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
         }
         
-        .ticket-title {
-          font-size: 14px;
-          font-weight: bold;
-          margin-bottom: 1mm;
+        .title {
+          font-size: 24px !important;
+          font-weight: bold !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
         }
         
-        .ticket-subtitle {
-          font-size: 10px;
-          margin-bottom: 2mm;
+        .subtitle {
+          font-size: 18px !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
         }
         
-        .ticket-number {
-          font-size: 12px;
-          font-weight: bold;
-          margin-bottom: 2mm;
+        .number {
+          font-size: 20px !important;
+          font-weight: bold !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
         }
         
-        .ticket-promo {
-          background: #000;
-          color: white;
-          padding: 1mm 2mm;
-          font-size: 8px;
-          font-weight: bold;
-          display: inline-block;
+        .promo-badge {
+          background: #000 !important;
+          color: white !important;
+          padding: 2mm 4mm !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          display: inline-block !important;
+          margin-top: 3mm !important;
         }
         
-        .ticket-content {
-          margin: 3mm 0;
+        /* Contenido sin marcos */
+        .content {
+          margin: 5mm 0 !important;
         }
         
-        .ticket-row {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 1mm;
-          font-size: 10px;
+        .row {
+          display: flex !important;
+          justify-content: space-between !important;
+          margin-bottom: 3mm !important;
+          font-size: 16px !important;
+          line-height: 1.4 !important;
         }
         
-        .ticket-label {
-          font-weight: bold;
+        .label {
+          font-weight: bold !important;
+          flex: 1 !important;
         }
         
-        .ticket-value {
-          text-align: right;
+        .value {
+          text-align: right !important;
+          flex: 1 !important;
         }
         
-        .ticket-total-section {
-          border-top: 1px dashed #000;
-          padding-top: 2mm;
-          margin-top: 3mm;
+        .total-section {
+          padding-top: 5mm !important;
+          margin-top: 5mm !important;
         }
         
-        .ticket-total {
-          text-align: center;
-          font-size: 11px;
-          font-weight: bold;
-          padding: 2mm;
-          border: 1px solid #000;
+        .total {
+          text-align: center !important;
+          font-size: 18px !important;
+          font-weight: bold !important;
+          padding: 5mm !important;
+          background: #f0f0f0 !important;
+          line-height: 1.4 !important;
         }
         
-        .ticket-footer {
-          border-top: 1px dashed #000;
-          padding-top: 3mm;
-          margin-top: 3mm;
-          text-align: center;
+        /* Footer sin marcos */
+        .footer {
+          padding-top: 5mm !important;
+          margin-top: 5mm !important;
+          text-align: center !important;
         }
         
-        .ticket-info {
-          font-size: 8px;
-          margin-bottom: 1mm;
+        .info {
+          font-size: 14px !important;
+          margin-bottom: 2mm !important;
+          line-height: 1.3 !important;
         }
         
-        .ticket-thanks {
-          font-size: 10px;
-          font-weight: bold;
-          margin: 2mm 0;
+        .thanks {
+          font-size: 18px !important;
+          font-weight: bold !important;
+          margin: 5mm 0 3mm 0 !important;
+          line-height: 1.3 !important;
         }
         
-        .ticket-brand {
-          font-size: 9px;
-          font-weight: bold;
-          margin-bottom: 1mm;
+        .brand {
+          font-size: 16px !important;
+          font-weight: bold !important;
+          margin-bottom: 2mm !important;
+          line-height: 1.3 !important;
         }
         
-        .ticket-note {
-          font-size: 7px;
-          font-style: italic;
+        .note {
+          font-size: 12px !important;
+          font-style: italic !important;
+          line-height: 1.3 !important;
+          margin-top: 3mm !important;
+        }
+        
+        .promo-note {
+          font-size: 14px !important;
+          font-weight: bold !important;
+          margin: 3mm 0 !important;
+          background: #f0f0f0 !important;
+          padding: 2mm !important;
+          line-height: 1.3 !important;
         }
       }
     </style>
   `
 
-    // Generar HTML de tickets
+    // Generar HTML de tickets sin marcos
     const ticketsHTML = allTickets
       .map(
         (ticket, index) => `
     <div class="ticket">
-      <div class="ticket-header">
-        <div class="ticket-logo">🐅</div>
-        <div class="ticket-title">SANCHEZ PARK</div>
-        <div class="ticket-subtitle">Ticket de ${ticket.type}</div>
-        <div class="ticket-number">#${ticket.ticketNumber}</div>
-        ${ticket.isFree ? '<div class="ticket-promo">🎁 PROMOCIÓN 10+1</div>' : ""}
+      <div class="header">
+        <div class="logo">🐅</div>
+        <div class="title">SANCHEZ PARK</div>
+        <div class="subtitle">${ticket.type}</div>
+        <div class="number">#${ticket.ticketNumber}</div>
+        ${ticket.isFree ? '<div class="promo-badge">🎁 PROMOCIÓN 10+1</div>' : ""}
       </div>
       
-      <div class="ticket-content">
-        <div class="ticket-row">
-          <span class="ticket-label">Producto:</span>
-          <span class="ticket-value">${ticket.productName}</span>
+      <div class="content">
+        <div class="row">
+          <span class="label">Producto:</span>
+          <span class="value">${ticket.productName.length > 25 ? ticket.productName.substring(0, 25) + "..." : ticket.productName}</span>
         </div>
-        <div class="ticket-row">
-          <span class="ticket-label">Cantidad:</span>
-          <span class="ticket-value">1 unidad</span>
+        <div class="row">
+          <span class="label">Cantidad:</span>
+          <span class="value">1 unidad</span>
         </div>
-        <div class="ticket-row">
-          <span class="ticket-label">Precio:</span>
-          <span class="ticket-value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
+        <div class="row">
+          <span class="label">Precio:</span>
+          <span class="value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
         </div>
-        <div class="ticket-total-section">
-          <div class="ticket-total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
+        <div class="total-section">
+          <div class="total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
         </div>
       </div>
       
-      <div class="ticket-footer">
-        <div class="ticket-info">Fecha: ${ticket.saleDate}</div>
-        <div class="ticket-info">Vendedor: ${ticket.seller}</div>
-        <div class="ticket-info">Pago: ${ticket.paymentMethod}</div>
-        <div class="ticket-info">Ticket: ${index + 1} de ${allTickets.length}</div>
-        ${ticket.isFree ? '<div class="ticket-info">¡Felicidades! Ticket de promoción 10+1</div>' : ""}
-        <div class="ticket-thanks">¡Gracias por su compra!</div>
-        <div class="ticket-brand">Sanchez Park</div>
-        <div class="ticket-note">Conserve este ticket</div>
+      <div class="footer">
+        <div class="info">${ticket.saleDate}</div>
+        <div class="info">${ticket.seller.length > 20 ? ticket.seller.substring(0, 20) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.paymentMethod}</div>
+        <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
+        ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
+        <div class="thanks">¡Gracias por su compra!</div>
+        <div class="brand">Sanchez Park</div>
+        <div class="note">Conserve este ticket</div>
       </div>
     </div>
   `,
@@ -644,16 +678,16 @@ export default function SalesPage({
     // Agregar al DOM
     document.body.appendChild(printContainer)
 
-    console.log(`✅ ${allTickets.length} tickets preparados para impresión`)
+    console.log(`✅ ${allTickets.length} tickets grandes sin marcos preparados para impresión`)
     console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
 
     // Imprimir después de un breve delay
     setTimeout(() => {
-      console.log("Iniciando impresión...")
+      console.log("Iniciando impresión de tickets grandes...")
 
       // Configurar título temporal
       const originalTitle = document.title
-      document.title = `Tickets-${Date.now()}`
+      document.title = `Tickets-Grandes-${Date.now()}`
 
       // Función de limpieza
       const cleanup = () => {
