@@ -437,7 +437,7 @@ export default function SalesPage({
     printContainer.id = "print-container"
     printContainer.style.display = "none"
 
-    // CSS con letras mucho más grandes y sin marcos
+    // CSS optimizado para ticket de 10cm de altura exacta
     const printStyles = `
     <style>
       @media screen {
@@ -459,8 +459,9 @@ export default function SalesPage({
           margin: 0 !important;
           padding: 0 !important;
           font-family: 'Courier New', monospace !important;
-          font-size: 24px !important;
-          line-height: 1.5 !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          line-height: 1.2 !important;
           color: #000 !important;
           background: white !important;
           -webkit-print-color-adjust: exact !important;
@@ -468,7 +469,7 @@ export default function SalesPage({
         }
         
         @page {
-          size: 100mm auto !important;
+          size: 100mm 100mm !important;
           margin: 0 !important;
           padding: 0 !important;
         }
@@ -487,163 +488,169 @@ export default function SalesPage({
         
         .ticket {
           width: 100mm !important;
+          height: 100mm !important;
           margin: 0 !important;
-          padding: 15mm !important;
+          padding: 8mm !important;
           background: white !important;
           page-break-after: always !important;
           page-break-inside: avoid !important;
-          min-height: auto !important;
-          display: block !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+          overflow: hidden !important;
         }
         
         .ticket:last-child {
           page-break-after: auto !important;
         }
         
-        /* Header sin marcos con letras gigantes */
+        /* Header compacto para 10cm */
         .header {
           text-align: center !important;
-          padding-bottom: 8mm !important;
-          margin-bottom: 8mm !important;
+          margin-bottom: 3mm !important;
         }
         
         .logo {
-          font-size: 48px !important;
-          margin-bottom: 5mm !important;
+          font-size: 24px !important;
+          font-weight: 900 !important;
+          margin-bottom: 1mm !important;
           line-height: 1 !important;
         }
         
         .title {
-          font-size: 36px !important;
-          font-weight: bold !important;
-          margin-bottom: 3mm !important;
+          font-size: 20px !important;
+          font-weight: 900 !important;
+          margin-bottom: 1mm !important;
           line-height: 1 !important;
         }
         
         .slogan {
-          font-size: 20px !important;
+          font-size: 12px !important;
+          font-weight: 900 !important;
           font-style: italic !important;
-          margin-bottom: 5mm !important;
-          line-height: 1.2 !important;
+          margin-bottom: 2mm !important;
+          line-height: 1 !important;
           color: #333 !important;
         }
         
         .subtitle {
-          font-size: 28px !important;
-          margin-bottom: 5mm !important;
+          font-size: 16px !important;
+          font-weight: bold !important;
+          margin-bottom: 1mm !important;
           line-height: 1 !important;
         }
         
         .number {
-          font-size: 32px !important;
+          font-size: 18px !important;
           font-weight: bold !important;
-          margin-bottom: 5mm !important;
+          margin-bottom: 2mm !important;
           line-height: 1 !important;
         }
         
         .promo-badge {
           background: #000 !important;
           color: white !important;
-          padding: 3mm 6mm !important;
-          font-size: 18px !important;
-          font-weight: bold !important;
+          padding: 1mm 2mm !important;
+          font-size: 10px !important;
+          font-weight: 900 !important;
           display: inline-block !important;
-          margin-top: 5mm !important;
+          margin-top: 1mm !important;
         }
         
-        /* Contenido sin marcos con letras grandes */
+        /* Contenido optimizado para 10cm */
         .content {
-          margin: 8mm 0 !important;
+          flex: 1 !important;
+          margin: 2mm 0 !important;
         }
         
         .row {
           display: flex !important;
           justify-content: space-between !important;
-          margin-bottom: 5mm !important;
-          font-size: 24px !important;
-          line-height: 1.5 !important;
+          margin-bottom: 2mm !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          line-height: 1.2 !important;
         }
         
         .label {
-          font-weight: bold !important;
+          font-weight: 900 !important;
           flex: 1 !important;
         }
         
         .value {
           text-align: right !important;
           flex: 1 !important;
+          font-weight: bold !important;
         }
         
         .total-section {
-          padding-top: 8mm !important;
-          margin-top: 8mm !important;
+          margin: 2mm 0 !important;
         }
         
         .total {
           text-align: center !important;
-          font-size: 28px !important;
-          font-weight: bold !important;
-          padding: 8mm !important;
+          font-size: 16px !important;
+          font-weight: 900 !important;
+          padding: 3mm !important;
           background: #f0f0f0 !important;
-          line-height: 1.5 !important;
+          line-height: 1.2 !important;
         }
         
-        /* Footer sin marcos con letras grandes */
+        /* Footer compacto para 10cm */
         .footer {
-          padding-top: 8mm !important;
-          margin-top: 8mm !important;
           text-align: center !important;
+          margin-top: 2mm !important;
         }
         
         .info {
-          font-size: 20px !important;
-          margin-bottom: 3mm !important;
-          line-height: 1.4 !important;
+          font-size: 11px !important;
+          font-weight: bold !important;
+          margin-bottom: 1mm !important;
+          line-height: 1.1 !important;
         }
         
         .thanks {
-          font-size: 26px !important;
-          font-weight: bold !important;
-          margin: 8mm 0 5mm 0 !important;
-          line-height: 1.4 !important;
+          font-size: 14px !important;
+          font-weight: 900 !important;
+          margin: 2mm 0 1mm 0 !important;
+          line-height: 1.1 !important;
         }
         
         .brand {
-          font-size: 22px !important;
+          font-size: 12px !important;
           font-weight: bold !important;
-          margin-bottom: 3mm !important;
-          line-height: 1.4 !important;
+          margin-bottom: 1mm !important;
+          line-height: 1.1 !important;
         }
         
         .note {
-          font-size: 18px !important;
-          font-style: italic !important;
-          line-height: 1.4 !important;
-          margin-top: 5mm !important;
+          font-size: 10px !important;
+          font-weight: bold !important;
+          line-height: 1.1 !important;
+          margin-top: 1mm !important;
         }
         
         .no-returns {
-          font-size: 16px !important;
+          font-size: 10px !important;
           font-weight: bold !important;
-          margin-top: 8mm !important;
-          padding-top: 5mm !important;
-          line-height: 1.3 !important;
+          margin-top: 2mm !important;
+          line-height: 1.1 !important;
           color: #666 !important;
         }
         
         .promo-note {
-          font-size: 20px !important;
-          font-weight: bold !important;
-          margin: 5mm 0 !important;
+          font-size: 11px !important;
+          font-weight: 900 !important;
+          margin: 1mm 0 !important;
           background: #f0f0f0 !important;
-          padding: 3mm !important;
-          line-height: 1.4 !important;
+          padding: 1mm !important;
+          line-height: 1.1 !important;
         }
       }
     </style>
   `
 
-    // Generar HTML de tickets con letras gigantes
+    // Generar HTML de tickets optimizado para 10cm
     const ticketsHTML = allTickets
       .map(
         (ticket, index) => `
@@ -660,7 +667,7 @@ export default function SalesPage({
       <div class="content">
         <div class="row">
           <span class="label">Producto:</span>
-          <span class="value">${ticket.productName.length > 20 ? ticket.productName.substring(0, 20) + "..." : ticket.productName}</span>
+          <span class="value">${ticket.productName.length > 18 ? ticket.productName.substring(0, 18) + "..." : ticket.productName}</span>
         </div>
         <div class="row">
           <span class="label">Cantidad:</span>
@@ -677,7 +684,7 @@ export default function SalesPage({
       
       <div class="footer">
         <div class="info">${ticket.saleDate}</div>
-        <div class="info">${ticket.seller.length > 15 ? ticket.seller.substring(0, 15) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.seller.length > 12 ? ticket.seller.substring(0, 12) + "..." : ticket.seller}</div>
         <div class="info">${ticket.paymentMethod}</div>
         <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
         ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
@@ -697,16 +704,16 @@ export default function SalesPage({
     // Agregar al DOM
     document.body.appendChild(printContainer)
 
-    console.log(`✅ ${allTickets.length} tickets con letras gigantes preparados para impresión`)
+    console.log(`✅ ${allTickets.length} tickets de 10cm preparados para impresión`)
     console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
 
     // Imprimir después de un breve delay
     setTimeout(() => {
-      console.log("Iniciando impresión de tickets con letras gigantes...")
+      console.log("Iniciando impresión de tickets de 10cm...")
 
       // Configurar título temporal
       const originalTitle = document.title
-      document.title = `Tickets-Gigantes-${Date.now()}`
+      document.title = `Tickets-10cm-${Date.now()}`
 
       // Función de limpieza
       const cleanup = () => {
