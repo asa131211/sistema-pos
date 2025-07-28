@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,6 @@ import {
   Search,
   Gift,
   Package,
-  Tag,
   Calculator,
   Unlock,
   Lock,
@@ -28,6 +27,8 @@ import {
   Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
+import { OptimizedProductGrid } from "@/components/optimized-product-grid"
+import { ConnectionMonitor } from "@/components/connection-monitor"
 import { useDebouncedSearch } from "@/hooks/use-debounced-search"
 import { useOptimizedProducts } from "@/hooks/use-optimized-products"
 import { usePerformanceMonitor } from "@/hooks/use-performance-monitor"
@@ -46,17 +47,17 @@ interface CartItem extends Product {
   paymentMethod: string
 }
 
-interface SalesPageProps {
+interface OptimizedSalesPageProps {
   sidebarCollapsed?: boolean
   cashRegisterStatus?: { isOpen: boolean; data: any }
   onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
 }
 
-export default function SalesPage({
+export default function OptimizedSalesPage({
   sidebarCollapsed = false,
   cashRegisterStatus,
   onCashRegisterChange,
-}: SalesPageProps) {
+}: OptimizedSalesPageProps) {
   const [user] = useAuthState(auth)
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -68,11 +69,11 @@ export default function SalesPage({
   const [isMobile, setIsMobile] = useState(false)
   const [showMobileCart, setShowMobileCart] = useState(false)
 
-  // Performance monitoring (interno, no visible)
-  usePerformanceMonitor("SalesPage")
+  // Performance monitoring
+  usePerformanceMonitor("OptimizedSalesPage")
   const performanceMonitor = PerformanceMonitor.getInstance()
 
-  // Optimized products loading (interno)
+  // Optimized products loading with pagination
   const {
     products,
     loading: productsLoading,
@@ -80,7 +81,7 @@ export default function SalesPage({
     loadMore,
   } = useOptimizedProducts(PERFORMANCE_CONFIG.MAX_PRODUCTS_PER_PAGE)
 
-  // Optimized search (interno)
+  // Optimized search with debouncing
   const { filteredProducts, isSearching } = useDebouncedSearch(
     products,
     searchTerm,
@@ -88,7 +89,7 @@ export default function SalesPage({
     PERFORMANCE_CONFIG.SEARCH_DEBOUNCE_MS,
   )
 
-  // Filter by category (optimizado internamente)
+  // Filter by category (memoized)
   const finalFilteredProducts = useMemo(() => {
     if (selectedCategory === "all") return filteredProducts
     return filteredProducts.filter((product) => product.category === selectedCategory)
@@ -120,6 +121,7 @@ export default function SalesPage({
     }
   }, [])
 
+  // Load shortcuts (optimized)
   useEffect(() => {
     const loadShortcuts = async () => {
       if (user) {
@@ -136,7 +138,7 @@ export default function SalesPage({
     loadShortcuts()
   }, [user])
 
-  // Calcular promoción 10+1 (optimizado)
+  // Calcular promoción 10+1 (memoized)
   const promotion = useMemo(() => {
     const totalItems = cart.reduce((total, item) => total + item.quantity, 0)
     const freeItems = Math.floor(totalItems / 10)
@@ -150,7 +152,7 @@ export default function SalesPage({
     }
   }, [cart])
 
-  // Optimized add to cart con rate limiting interno
+  // Optimized add to cart with rate limiting
   const addToCart = useCallback(
     (product: Product) => {
       if (!performanceMonitor.trackOperation("addToCart")) {
@@ -209,7 +211,7 @@ export default function SalesPage({
     setCart([])
   }, [])
 
-  // Total optimizado
+  // Memoized total calculation
   const totalAmount = useMemo(() => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
   }, [cart])
@@ -455,7 +457,7 @@ export default function SalesPage({
     generateAndPrintTickets,
   ])
 
-  // Componente del carrito (DISEÑO ORIGINAL)
+  // Componente del carrito optimizado
   const CartContent = useCallback(
     ({ isMobileView = false }) => (
       <Card
@@ -620,7 +622,7 @@ export default function SalesPage({
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
-        {/* Estado de caja - DISEÑO ORIGINAL */}
+        {/* Estado de caja - Compacto */}
         <Card className="border-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <div className="p-3 md:p-4">
             <div className="flex items-center justify-between">
@@ -648,9 +650,9 @@ export default function SalesPage({
         </Card>
 
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-          {/* Área de productos - DISEÑO ORIGINAL */}
+          {/* Área de productos */}
           <div className="flex-1">
-            {/* Barra de búsqueda - DISEÑO ORIGINAL */}
+            {/* Barra de búsqueda optimizada */}
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                 <div className="flex-1 relative">
@@ -661,6 +663,11 @@ export default function SalesPage({
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
+                  {isSearching && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                    </div>
+                  )}
                 </div>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
@@ -676,83 +683,55 @@ export default function SalesPage({
               </div>
             </div>
 
-            {/* Grid de productos - DISEÑO ORIGINAL pero optimizado internamente */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
-              {finalFilteredProducts.map((product) => {
-                const shortcut = shortcuts.find((s) => s.productId === product.id)
-                return (
-                  <Card
-                    key={product.id}
-                    className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
-                    onClick={() => addToCart(product)}
-                    data-product-shortcut={shortcut?.key}
-                  >
-                    <CardContent className="p-0">
-                      {/* Imagen del producto */}
-                      <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                        <img
-                          src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.src = "/placeholder.svg?height=300&width=300&text=Error"
-                          }}
-                        />
-                        {shortcut && (
-                          <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
-                            {shortcut.key.toUpperCase()}
-                          </Badge>
-                        )}
-                      </div>
+            {/* Grid de productos optimizado */}
+            {productsLoading && finalFilteredProducts.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-2xl aspect-square animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <>
+                <OptimizedProductGrid products={finalFilteredProducts} shortcuts={shortcuts} onAddToCart={addToCart} />
 
-                      {/* Información del producto */}
-                      <div className="p-3 md:p-4">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
-                          {product.name}
-                        </h3>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Tag className="h-4 w-4 text-gray-400" />
-                            <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">juegos</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm md:text-lg font-bold text-green-600">
-                              S/. {product.price.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+                {/* Botón cargar más */}
+                {hasMore && !isSearching && selectedCategory === "all" && (
+                  <div className="text-center mt-6">
+                    <Button
+                      onClick={loadMore}
+                      disabled={productsLoading}
+                      variant="outline"
+                      className="bg-white dark:bg-gray-800"
+                    >
+                      {productsLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Cargando...
+                        </>
+                      ) : (
+                        "Cargar más productos"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
 
-            {/* Botón cargar más (solo visible si hay más productos) */}
-            {hasMore && !isSearching && selectedCategory === "all" && (
-              <div className="text-center mt-6">
-                <Button
-                  onClick={loadMore}
-                  disabled={productsLoading}
-                  variant="outline"
-                  className="bg-white dark:bg-gray-800"
-                >
-                  {productsLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Cargando...
-                    </>
-                  ) : (
-                    "Cargar más productos"
-                  )}
-                </Button>
+            {/* Estado vacío */}
+            {!productsLoading && finalFilteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No hay productos</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {searchTerm || selectedCategory !== "all"
+                    ? "No se encontraron productos con los filtros aplicados"
+                    : "No hay productos disponibles"}
+                </p>
               </div>
             )}
           </div>
 
-          {/* Carrito de compras - Desktop (DISEÑO ORIGINAL) */}
+          {/* Carrito de compras - Desktop */}
           {!isMobile && (
             <div className="w-full lg:w-80">
               <CartContent />
@@ -760,7 +739,7 @@ export default function SalesPage({
           )}
         </div>
 
-        {/* Carrito flotante móvil - DISEÑO ORIGINAL */}
+        {/* Carrito flotante móvil */}
         {isMobile && (
           <>
             {/* Botón flotante */}
@@ -787,7 +766,7 @@ export default function SalesPage({
           </>
         )}
 
-        {/* Modal de confirmación - DISEÑO ORIGINAL */}
+        {/* Modal de confirmación optimizado */}
         <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
           <DialogContent className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl">
             <DialogHeader className="text-center pb-6">
@@ -884,7 +863,7 @@ export default function SalesPage({
                 >
                   {processing ? (
                     <div className="flex items-center space-x-2">
-                      <img src="/loading-wheel.gif" alt="Procesando..." className="w-5 h-5" />
+                      <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Procesando...</span>
                     </div>
                   ) : (
@@ -903,6 +882,9 @@ export default function SalesPage({
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Monitor de conexión */}
+        <ConnectionMonitor />
       </div>
     </div>
   )
