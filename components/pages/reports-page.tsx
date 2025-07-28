@@ -464,7 +464,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                       </div>
                     </div>
 
-                    {/* Detalle de ventas del vendedor */}
+                    {/* Detalle de ventas del vendedor con productos */}
                     <div className="mt-4">
                       <h5 className="font-medium text-gray-900 dark:text-white mb-2">Últimas Ventas</h5>
                       <div className="max-h-40 overflow-y-auto">
@@ -472,18 +472,29 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                           {seller.sales.slice(0, 5).map((sale: Sale) => (
                             <div
                               key={sale.id}
-                              className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded"
+                              className="flex justify-between items-start text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded"
                             >
-                              <div className="flex items-center space-x-2">
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
-                                </span>
-                                {sale.promotion?.hasPromotion && (
-                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
-                                    <Gift className="h-2 w-2 mr-1" />
-                                    Promoción
-                                  </Badge>
-                                )}
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-gray-600 dark:text-gray-400">
+                                    {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
+                                  </span>
+                                  {sale.promotion?.hasPromotion && (
+                                    <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                                      <Gift className="h-2 w-2 mr-1" />
+                                      Promoción
+                                    </Badge>
+                                  )}
+                                </div>
+                                {/* Mostrar productos */}
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {sale.items.map((item, index) => (
+                                    <span key={index}>
+                                      {item.name} x{item.quantity}
+                                      {index < sale.items.length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Badge

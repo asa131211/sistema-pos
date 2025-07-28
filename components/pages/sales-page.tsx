@@ -8,12 +8,24 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShoppingCart, Plus, Minus, Trash2, Search, Gift, Package, Tag, Calculator, Unlock, Lock } from "lucide-react"
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Gift,
+  Package,
+  Tag,
+  Calculator,
+  Unlock,
+  Lock,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 
 interface Product {
@@ -26,6 +38,7 @@ interface Product {
 
 interface CartItem extends Product {
   quantity: number
+  paymentMethod: string
 }
 
 interface SalesPageProps {
@@ -44,11 +57,23 @@ export default function SalesPage({
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [paymentMethod, setPaymentMethod] = useState("efectivo")
   const [showCheckout, setShowCheckout] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [shortcuts, setShortcuts] = useState<any[]>([])
   const [isOnline, setIsOnline] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showMobileCart, setShowMobileCart] = useState(false)
+
+  // Detectar tamaño de pantalla
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024) // lg breakpoint
+    }
+
+    checkScreenSize()
+    window.addEventListener("resize", checkScreenSize)
+    return () => window.removeEventListener("resize", checkScreenSize)
+  }, [])
 
   // Detectar estado de conexión
   useEffect(() => {
@@ -99,10 +124,10 @@ export default function SalesPage({
     return matchesSearch && matchesCategory
   })
 
-  // Calcular promoción 10+1
+  // Calcular promoción 10+1 CORREGIDA - cada 10 tickets
   const calculatePromotion = () => {
     const totalItems = cart.reduce((total, item) => total + item.quantity, 0)
-    const freeItems = Math.floor(totalItems / 10)
+    const freeItems = Math.floor(totalItems / 10) // Cada 10 tickets = 1 gratis
     const totalTickets = totalItems + freeItems
 
     return {
@@ -124,7 +149,7 @@ export default function SalesPage({
       if (existingItem) {
         return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
       }
-      return [...prev, { ...product, quantity: 1 }]
+      return [...prev, { ...product, quantity: 1, paymentMethod: "efectivo" }]
     })
   }
 
@@ -139,6 +164,12 @@ export default function SalesPage({
           return item
         })
         .filter((item) => item.quantity > 0)
+    })
+  }
+
+  const updatePaymentMethod = (id: string, paymentMethod: string) => {
+    setCart((prev) => {
+      return prev.map((item) => (item.id === id ? { ...item, paymentMethod } : item))
     })
   }
 
@@ -183,7 +214,7 @@ export default function SalesPage({
           productName: item.name,
           productPrice: item.price,
           saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+          paymentMethod: item.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
           seller: user?.displayName || user?.email || "Vendedor",
           isFree: false,
           type: "PAGADO",
@@ -215,11 +246,11 @@ export default function SalesPage({
       }
     }
 
-    // Generar HTML para impresión con logo del tigre
+    // Generar HTML para impresión mejorado
     const allTicketsHTML = allTickets
       .map(
         (ticket, index) => `
-    <div class="print-ticket" style="page-break-after: ${index === allTickets.length - 1 ? "auto" : "always"};">
+    <div class="print-ticket">
       <div class="ticket-header">
         <div class="ticket-logo">
           <img src="/tiger-logo-bw.png" alt="Sanchez Park" class="ticket-logo-img" />
@@ -263,18 +294,25 @@ export default function SalesPage({
       )
       .join("")
 
-    // Crear contenedor de impresión
-    let printContainer = document.getElementById("print-container")
-    if (!printContainer) {
-      printContainer = document.createElement("div")
-      printContainer.id = "print-container"
-      printContainer.className = "print-only"
-      document.body.appendChild(printContainer)
+    // Limpiar contenedor previo
+    const existingContainer = document.getElementById("print-container")
+    if (existingContainer) {
+      existingContainer.remove()
     }
 
+    // Crear nuevo contenedor de impresión
+    const printContainer = document.createElement("div")
+    printContainer.id = "print-container"
+    printContainer.className = "print-only"
     printContainer.innerHTML = allTicketsHTML
+    document.body.appendChild(printContainer)
+
     console.log(`✅ ${allTickets.length} tickets listos para impresión`)
-    window.print()
+
+    // Pequeño delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+      window.print()
+    }, 100)
   }
 
   const processSale = async () => {
@@ -291,10 +329,21 @@ export default function SalesPage({
     setProcessing(true)
     try {
       const promotion = calculatePromotion()
+
+      // Calcular totales por método de pago
+      const cashTotal = cart
+        .filter((item) => item.paymentMethod === "efectivo")
+        .reduce((total, item) => total + item.price * item.quantity, 0)
+
+      const transferTotal = cart
+        .filter((item) => item.paymentMethod === "transferencia")
+        .reduce((total, item) => total + item.price * item.quantity, 0)
+
       const saleData = {
         items: cart,
         total: getTotalAmount(),
-        paymentMethod,
+        cashTotal,
+        transferTotal,
         sellerId: user?.uid,
         sellerEmail: user?.email,
         timestamp: new Date(),
@@ -319,15 +368,12 @@ export default function SalesPage({
 
         if (cashRegDoc.exists()) {
           const currentData = cashRegDoc.data()
-          const saleAmount = getTotalAmount()
 
           const updatedData = {
-            totalSales: currentData.totalSales + saleAmount,
-            cashSales: paymentMethod === "efectivo" ? currentData.cashSales + saleAmount : currentData.cashSales,
-            transferSales:
-              paymentMethod === "transferencia" ? currentData.transferSales + saleAmount : currentData.transferSales,
-            currentAmount:
-              paymentMethod === "efectivo" ? currentData.currentAmount + saleAmount : currentData.currentAmount,
+            totalSales: currentData.totalSales + getTotalAmount(),
+            cashSales: currentData.cashSales + cashTotal,
+            transferSales: currentData.transferSales + transferTotal,
+            currentAmount: currentData.currentAmount + cashTotal,
           }
 
           await updateDoc(cashRegRef, updatedData)
@@ -350,6 +396,7 @@ export default function SalesPage({
 
       setCart([])
       setShowCheckout(false)
+      setShowMobileCart(false)
 
       if (promotion.hasPromotion) {
         toast.success(`🎉 Venta procesada! ${promotion.freeItems} tickets gratis por promoción 10+1`, {
@@ -369,6 +416,164 @@ export default function SalesPage({
   }
 
   const promotion = calculatePromotion()
+
+  // Componente del carrito
+  const CartContent = ({ isMobileView = false }) => (
+    <Card
+      className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm ${isMobileView ? "h-full" : ""}`}
+    >
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ShoppingCart className="h-5 w-5 text-purple-600" />
+            <h2 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Carrito de Compras</h2>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Badge variant="secondary" className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+              {cart.reduce((total, item) => total + item.quantity, 0)}
+            </Badge>
+            {isMobileView && (
+              <Button variant="ghost" size="sm" onClick={() => setShowMobileCart(false)} className="h-8 w-8 p-0">
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Agrega productos y procesa ventas rápidamente
+        </p>
+      </div>
+
+      {/* Promoción en el carrito */}
+      {promotion.hasPromotion && (
+        <div className="p-4 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
+          <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
+            <Gift className="h-4 w-4" />
+            <span className="font-bold text-sm">¡Promoción 10+1!</span>
+          </div>
+          <div className="text-xs text-green-600 dark:text-green-400 text-center space-y-1">
+            <p>
+              Tickets gratis: <span className="font-bold">{promotion.freeItems}</span>
+            </p>
+            <p className="font-bold">Total tickets: {promotion.totalTickets}</p>
+          </div>
+        </div>
+      )}
+
+      <ScrollArea className={`${isMobileView ? "h-64" : "h-48 md:h-64"} p-4`}>
+        {cart.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+            <p>Carrito vacío</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {cart.map((item) => (
+              <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl space-y-3">
+                {/* Información del producto */}
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
+                    alt={item.name}
+                    className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">
+                      {item.name}
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => removeFromCart(item.id)}
+                    className="h-6 w-6 p-0 rounded-full"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                {/* Controles de cantidad y método de pago */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateQuantity(item.id, -1)}
+                      className="h-6 w-6 p-0 rounded-full"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="text-xs md:text-sm font-medium w-6 text-center text-gray-900 dark:text-white">
+                      {item.quantity}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateQuantity(item.id, 1)}
+                      className="h-6 w-6 p-0 rounded-full"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+
+                  {/* Método de pago individual */}
+                  <Select value={item.paymentMethod} onValueChange={(value) => updatePaymentMethod(item.id, value)}>
+                    <SelectTrigger className="w-24 h-6 text-xs bg-white dark:bg-gray-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="efectivo">💵</SelectItem>
+                      <SelectItem value="transferencia">💳</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Subtotal del item */}
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
+                  <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+        {/* Total */}
+        <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
+            <span className="text-lg md:text-xl font-bold text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="space-y-2">
+          <Button
+            onClick={() => setShowCheckout(true)}
+            disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-10 md:h-12 rounded-xl font-medium text-sm md:text-base"
+            data-shortcut="process-sale"
+          >
+            <Package className="h-4 w-4 mr-2" />
+            Procesar
+          </Button>
+          <Button
+            onClick={clearCart}
+            variant="outline"
+            disabled={cart.length === 0}
+            className="w-full h-8 md:h-10 rounded-xl bg-transparent text-sm"
+            data-shortcut="clear-cart"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Limpiar
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
@@ -400,35 +605,35 @@ export default function SalesPage({
           </div>
         </Card>
 
-        {/* Barra de búsqueda y filtros */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                placeholder="Buscar productos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
-                <SelectValue placeholder="Todas las categorías" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                <SelectItem value="juegos">Juegos</SelectItem>
-                <SelectItem value="consolas">Consolas</SelectItem>
-                <SelectItem value="accesorios">Accesorios</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
           {/* Área de productos */}
           <div className="flex-1">
+            {/* Barra de búsqueda integrada */}
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    placeholder="Buscar productos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
+                    <SelectValue placeholder="Todas las categorías" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las categorías</SelectItem>
+                    <SelectItem value="juegos">Juegos</SelectItem>
+                    <SelectItem value="consolas">Consolas</SelectItem>
+                    <SelectItem value="accesorios">Accesorios</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
               {filteredProducts.map((product) => {
                 const shortcut = shortcuts.find((s) => s.productId === product.id)
@@ -482,156 +687,40 @@ export default function SalesPage({
             </div>
           </div>
 
-          {/* Carrito de compras - Sticky */}
-          <div className="w-full lg:w-80">
-            <div className="sticky top-20">
-              <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <ShoppingCart className="h-5 w-5 text-purple-600" />
-                      <h2 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">
-                        Carrito de Compras
-                      </h2>
-                    </div>
-                    <Badge variant="secondary" className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
-                      {cart.reduce((total, item) => total + item.quantity, 0)}
-                    </Badge>
-                  </div>
-                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Agrega productos y procesa ventas rápidamente
-                  </p>
-                </div>
-
-                {/* Promoción en el carrito */}
-                {promotion.hasPromotion && (
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
-                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
-                      <Gift className="h-4 w-4" />
-                      <span className="font-bold text-sm">¡Promoción 10+1!</span>
-                    </div>
-                    <div className="text-xs text-green-600 dark:text-green-400 text-center space-y-1">
-                      <p>
-                        Tickets gratis: <span className="font-bold">{promotion.freeItems}</span>
-                      </p>
-                      <p className="font-bold">Total tickets: {promotion.totalTickets}</p>
-                    </div>
-                  </div>
-                )}
-
-                <ScrollArea className="h-48 md:h-64 p-4">
-                  {cart.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                      <p>Carrito vacío</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {cart.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
-                        >
-                          <img
-                            src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
-                            alt={item.name}
-                            className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">
-                              {item.name}
-                            </h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
-                          </div>
-                          <div className="flex items-center space-x-1 md:space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="h-6 w-6 p-0 rounded-full"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="text-xs md:text-sm font-medium w-4 md:w-6 text-center text-gray-900 dark:text-white">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="h-6 w-6 p-0 rounded-full"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removeFromCart(item.id)}
-                              className="h-6 w-6 p-0 ml-1 md:ml-2 rounded-full"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                  {/* Método de pago */}
-                  <div className="space-y-2">
-                    <Label className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Método de Pago
-                    </Label>
-                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger className="w-full bg-white dark:bg-gray-700">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="efectivo">💵 Efectivo</SelectItem>
-                        <SelectItem value="transferencia">💳 Transferencia</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Total */}
-                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
-                      <span className="text-lg md:text-xl font-bold text-green-600">
-                        S/. {getTotalAmount().toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Botones */}
-                  <div className="space-y-2">
-                    <Button
-                      onClick={() => setShowCheckout(true)}
-                      disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white h-10 md:h-12 rounded-xl font-medium text-sm md:text-base"
-                      data-shortcut="process-sale"
-                    >
-                      <Package className="h-4 w-4 mr-2" />
-                      Procesar
-                    </Button>
-                    <Button
-                      onClick={clearCart}
-                      variant="outline"
-                      disabled={cart.length === 0}
-                      className="w-full h-8 md:h-10 rounded-xl bg-transparent text-sm"
-                      data-shortcut="clear-cart"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Limpiar
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+          {/* Carrito de compras - Desktop (NO sticky, hace scroll con la página) */}
+          {!isMobile && (
+            <div className="w-full lg:w-80">
+              <CartContent />
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Carrito flotante móvil */}
+        {isMobile && (
+          <>
+            {/* Botón flotante */}
+            <Button
+              onClick={() => setShowMobileCart(true)}
+              className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg z-40"
+            >
+              <div className="relative">
+                <ShoppingCart className="h-6 w-6" />
+                {cart.length > 0 && (
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center p-0">
+                    {cart.reduce((total, item) => total + item.quantity, 0)}
+                  </Badge>
+                )}
+              </div>
+            </Button>
+
+            {/* Modal del carrito móvil */}
+            <Dialog open={showMobileCart} onOpenChange={setShowMobileCart}>
+              <DialogContent className="max-w-sm w-full h-[80vh] bg-white dark:bg-gray-900 rounded-3xl p-0">
+                <CartContent isMobileView={true} />
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
 
         {/* Modal de confirmación */}
         <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
@@ -654,9 +743,14 @@ export default function SalesPage({
                     key={item.id}
                     className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
                   >
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {item.name} x{item.quantity}
-                    </span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {item.name} x{item.quantity}
+                      </span>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+                      </div>
+                    </div>
                     <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
@@ -684,18 +778,35 @@ export default function SalesPage({
 
               <Separator />
 
-              {/* Total y método de pago */}
+              {/* Total y resumen de pagos */}
               <div className="space-y-4">
                 <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
                   <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
                   <span className="text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
                 </div>
 
-                <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Método de Pago:</span>
-                  <span className="capitalize font-bold text-gray-900 dark:text-white">
-                    {paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
-                  </span>
+                {/* Desglose por método de pago */}
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-700 dark:text-gray-300">💵 Efectivo:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "efectivo")
+                        .reduce((total, item) => total + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-700 dark:text-gray-300">💳 Transferencia:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "transferencia")
+                        .reduce((total, item) => total + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -727,9 +838,6 @@ export default function SalesPage({
             </div>
           </DialogContent>
         </Dialog>
-
-        {/* Contenedor oculto para impresión */}
-        <div id="print-container" className="print-only"></div>
       </div>
     </div>
   )

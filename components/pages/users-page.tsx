@@ -3,43 +3,42 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore"
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Users, Shield, User } from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Users, Plus, Edit, Trash2, Mail, Shield, User } from "lucide-react"
 import { toast } from "sonner"
 
 interface UserData {
   id: string
-  name: string
   email: string
-  role: "admin" | "vendedor"
+  displayName?: string
+  role: string
   createdAt: any
+  shortcuts?: any[]
 }
 
-interface UsersPageProps {
-  sidebarCollapsed?: boolean
-}
-
-export default function UsersPage({ sidebarCollapsed = false }: UsersPageProps) {
+export default function UsersPage() {
   const [users, setUsers] = useState<UserData[]>([])
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [editingUser, setEditingUser] = useState<UserData | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    username: "",
-    password: "",
-    role: "vendedor" as "admin" | "vendedor",
-  })
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    displayName: "",
+    role: "employee",
+  })
 
   useEffect(() => {
     const unsubscribe = onSnapshot(query(collection(db, "users")), (snapshot) => {
@@ -53,267 +52,325 @@ export default function UsersPage({ sidebarCollapsed = false }: UsersPageProps) 
     return () => unsubscribe()
   }, [])
 
-  const validateUsername = (username: string) => {
-    // Solo letras, números y guiones bajos
-    const validPattern = /^[a-zA-Z0-9_]+$/
-    return validPattern.test(username) && username.length >= 3
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name || !formData.username || (!editingUser && !formData.password)) {
-      toast.error("Por favor completa todos los campos")
-      return
-    }
-
     setLoading(true)
+
     try {
-      if (editingUser) {
-        // Actualizar usuario existente
-        await updateDoc(doc(db, "users", editingUser.id), {
-          name: formData.name,
-          username: formData.username,
-          role: formData.role,
-        })
-        toast.success("Usuario actualizado exitosamente")
-      } else {
-        // Crear nuevo usuario - convertir username a email para Firebase Auth
-        const emailFormat = `${formData.username}@sistema-pos.local`
+      // Crear usuario en Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
+      const user = userCredential.user
 
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, emailFormat, formData.password)
+      // Crear documento en Firestore
+      await addDoc(collection(db, "users"), {
+        uid: user.uid,
+        email: formData.email,
+        displayName: formData.displayName || "",
+        role: formData.role,
+        createdAt: new Date(),
+        shortcuts: [],
+      })
 
-          // CORREGIDO: Usar setDoc en lugar de addDoc para usar el UID como ID del documento
-          await setDoc(doc(db, "users", userCredential.user.uid), {
-            uid: userCredential.user.uid,
-            name: formData.name,
-            username: formData.username,
-            email: emailFormat,
-            role: formData.role,
-            createdAt: new Date(),
-            shortcuts: [], // Inicializar array de shortcuts vacío
-            avatar: "", // Inicializar avatar vacío
-          })
+      toast.success("Usuario creado exitosamente")
+      setShowCreateDialog(false)
+      setFormData({ email: "", password: "", displayName: "", role: "employee" })
+    } catch (error: any) {
+      console.error("Error creating user:", error)
 
-          toast.success("Usuario creado exitosamente")
-        } catch (authError: any) {
-          if (authError.code === "auth/email-already-in-use") {
-            toast.error(`El usuario "${formData.username}" ya existe. Elige otro nombre de usuario.`)
-          } else if (authError.code === "auth/weak-password") {
-            toast.error("La contraseña debe tener al menos 6 caracteres")
-          } else if (authError.code === "auth/invalid-email") {
-            toast.error("Nombre de usuario inválido")
-          } else {
-            toast.error("Error al crear el usuario: " + authError.message)
-          }
-          return
-        }
+      let errorMessage = "Error al crear usuario"
+      switch (error.code) {
+        case "auth/email-already-in-use":
+          errorMessage = "El email ya está en uso"
+          break
+        case "auth/weak-password":
+          errorMessage = "La contraseña debe tener al menos 6 caracteres"
+          break
+        case "auth/invalid-email":
+          errorMessage = "Email inválido"
+          break
+        default:
+          errorMessage = "Error al crear usuario"
       }
 
-      resetForm()
-    } catch (error: any) {
-      console.error("Error saving user:", error)
-      toast.error("Error inesperado al guardar el usuario")
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este usuario?")) {
-      try {
-        await deleteDoc(doc(db, "users", id))
-        toast.success("Usuario eliminado exitosamente")
-      } catch (error) {
-        console.error("Error deleting user:", error)
-        toast.error("Error al eliminar el usuario")
-      }
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedUser) return
+
+    setLoading(true)
+    try {
+      await updateDoc(doc(db, "users", selectedUser.id), {
+        displayName: formData.displayName,
+        role: formData.role,
+      })
+
+      toast.success("Usuario actualizado exitosamente")
+      setShowEditDialog(false)
+      setSelectedUser(null)
+      setFormData({ email: "", password: "", displayName: "", role: "employee" })
+    } catch (error) {
+      console.error("Error updating user:", error)
+      toast.error("Error al actualizar usuario")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const resetForm = () => {
-    setFormData({ name: "", username: "", password: "", role: "vendedor" })
-    setEditingUser(null)
-    setShowAddDialog(false)
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("¿Estás seguro de que quieres eliminar este usuario?")) return
+
+    try {
+      await deleteDoc(doc(db, "users", userId))
+      toast.success("Usuario eliminado exitosamente")
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      toast.error("Error al eliminar usuario")
+    }
   }
 
-  const startEdit = (user: UserData) => {
-    setEditingUser(user)
+  const openEditDialog = (user: UserData) => {
+    setSelectedUser(user)
     setFormData({
-      name: user.name,
-      username: user.email,
+      email: user.email,
       password: "",
+      displayName: user.displayName || "",
       role: user.role,
     })
-    setShowAddDialog(true)
+    setShowEditDialog(true)
+  }
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <Badge className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">Administrador</Badge>
+      case "manager":
+        return <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">Gerente</Badge>
+      case "employee":
+        return <Badge className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">Empleado</Badge>
+      default:
+        return <Badge variant="secondary">Usuario</Badge>
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
-            <p className="text-gray-600 dark:text-gray-400">Gestiona los usuarios del sistema</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Gestión de Usuarios</h1>
+            <p className="text-gray-600 dark:text-gray-400">Administra los usuarios del sistema</p>
           </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setEditingUser(null)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar Usuario
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-white dark:bg-gray-900">
-              <DialogHeader>
-                <DialogTitle className="text-gray-900 dark:text-white">
-                  {editingUser ? "Editar Usuario" : "Agregar Usuario"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">
-                    Nombre
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Nombre completo"
-                    required
-                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-gray-700 dark:text-gray-300">
-                    Nombre de Usuario
-                  </Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => {
-                      const value = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, "")
-                      setFormData({ ...formData, username: value })
-                    }}
-                    placeholder="nombre_usuario"
-                    required
-                    minLength={3}
-                    maxLength={20}
-                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Solo letras, números y guiones bajos. Mínimo 3 caracteres.
-                  </p>
-                </div>
-                {!editingUser && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                      Contraseña
-                    </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="••••••••"
-                      required
-                      className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-gray-700 dark:text-gray-300">
-                    Rol
-                  </Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value: "admin" | "vendedor") => setFormData({ ...formData, role: value })}
-                  >
-                    <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="vendedor">Vendedor</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex space-x-2">
-                  <Button type="submit" disabled={loading} className="flex-1">
-                    {loading ? "Guardando..." : editingUser ? "Actualizar" : "Crear Usuario"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancelar
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setShowCreateDialog(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Usuario
+          </Button>
         </div>
 
-        <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        {/* Lista de usuarios */}
+        <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="flex items-center text-gray-900 dark:text-white">
-              <Users className="mr-2 h-5 w-5" />
-              Lista de Usuarios ({users.length})
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-purple-600" />
+                <span>Usuarios del Sistema</span>
+              </div>
+              <Badge variant="secondary">{users.length} usuarios</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-gray-900 dark:text-white">Nombre</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Usuario</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Rol</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Fecha de Creación</TableHead>
-                  <TableHead className="text-right text-gray-900 dark:text-white">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium text-gray-900 dark:text-white">{user.name}</TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">{user.username}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                        {user.role === "admin" ? (
-                          <>
-                            <Shield className="mr-1 h-3 w-3" />
-                            Administrador
-                          </>
-                        ) : (
-                          <>
-                            <User className="mr-1 h-3 w-3" />
-                            Vendedor
-                          </>
-                        )}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">
-                      {user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString("es-ES") : "N/A"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => startEdit(user)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+            <ScrollArea className="h-96">
+              {users.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                  <p>No hay usuarios registrados</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {users.map((user) => (
+                    <div key={user.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+                            <User className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {user.displayName || "Sin nombre"}
+                            </h3>
+                            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                              <Mail className="h-3 w-3" />
+                              <span>{user.email}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Shield className="h-3 w-3 text-gray-400" />
+                              {getRoleBadge(user.role)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} className="h-8">
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="h-8"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {users.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      No hay usuarios registrados
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
           </CardContent>
         </Card>
+
+        {/* Dialog para crear usuario */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="max-w-md bg-white dark:bg-gray-900">
+            <DialogHeader>
+              <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Correo Electrónico</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="usuario@email.com"
+                  required
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Nombre Completo</Label>
+                <Input
+                  id="displayName"
+                  type="text"
+                  value={formData.displayName}
+                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  placeholder="Nombre del usuario"
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Rol</Label>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <SelectTrigger className="bg-white dark:bg-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">Empleado</SelectItem>
+                    <SelectItem value="manager">Gerente</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Alert>
+                <AlertDescription className="text-sm">
+                  El usuario recibirá un correo para verificar su cuenta.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex space-x-2 pt-4">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {loading ? "Creando..." : "Crear Usuario"}
+                </Button>
+                <Button type="button" onClick={() => setShowCreateDialog(false)} variant="outline" className="flex-1">
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para editar usuario */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-md bg-white dark:bg-gray-900">
+            <DialogHeader>
+              <DialogTitle>Editar Usuario</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditUser} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Correo Electrónico</Label>
+                <Input value={formData.email} disabled className="bg-gray-100 dark:bg-gray-800 text-gray-500" />
+                <p className="text-xs text-gray-500 dark:text-gray-400">El email no se puede modificar</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editDisplayName">Nombre Completo</Label>
+                <Input
+                  id="editDisplayName"
+                  type="text"
+                  value={formData.displayName}
+                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  placeholder="Nombre del usuario"
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editRole">Rol</Label>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <SelectTrigger className="bg-white dark:bg-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">Empleado</SelectItem>
+                    <SelectItem value="manager">Gerente</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex space-x-2 pt-4">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {loading ? "Guardando..." : "Guardar Cambios"}
+                </Button>
+                <Button type="button" onClick={() => setShowEditDialog(false)} variant="outline" className="flex-1">
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
