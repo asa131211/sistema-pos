@@ -437,7 +437,7 @@ export default function SalesPage({
     printContainer.id = "print-container"
     printContainer.style.display = "none"
 
-    // CSS sin marcos y con letras más grandes
+    // CSS actualizado para tickets de ancho completo y 13cm de largo con texto más negrita
     const printStyles = `
     <style>
       @media screen {
@@ -454,21 +454,22 @@ export default function SalesPage({
         }
         
         html, body {
-          width: 100mm !important;
+          width: 100% !important;
           height: auto !important;
           margin: 0 !important;
           padding: 0 !important;
           font-family: 'Courier New', monospace !important;
-          font-size: 16px !important;
+          font-size: 14px !important;
           line-height: 1.4 !important;
           color: #000 !important;
           background: white !important;
+          font-weight: bold !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
         
         @page {
-          size: 100mm auto !important;
+          size: 100% 13cm !important;
           margin: 0 !important;
           padding: 0 !important;
         }
@@ -480,153 +481,183 @@ export default function SalesPage({
         #print-container {
           display: block !important;
           visibility: visible !important;
-          width: 100mm !important;
+          width: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
         }
         
         .ticket {
-          width: 100mm !important;
+          width: 100% !important;
+          height: 13cm !important;
           margin: 0 !important;
-          padding: 10mm !important;
+          padding: 12px !important;
           background: white !important;
           page-break-after: always !important;
           page-break-inside: avoid !important;
-          min-height: auto !important;
-          display: block !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+          font-weight: bold !important;
+          border: 2px solid #000 !important;
         }
         
         .ticket:last-child {
           page-break-after: auto !important;
         }
         
-        /* Header sin marcos */
+        /* Header con bordes y texto más negrita */
         .header {
           text-align: center !important;
-          padding-bottom: 5mm !important;
-          margin-bottom: 5mm !important;
+          border-bottom: 2px solid #000 !important;
+          padding-bottom: 10px !important;
+          margin-bottom: 10px !important;
+          flex-shrink: 0 !important;
         }
         
         .logo {
           font-size: 32px !important;
-          margin-bottom: 3mm !important;
+          margin-bottom: 6px !important;
           line-height: 1 !important;
+          font-weight: 900 !important;
         }
         
         .title {
           font-size: 24px !important;
-          font-weight: bold !important;
-          margin-bottom: 3mm !important;
+          font-weight: 900 !important;
+          margin-bottom: 4px !important;
           line-height: 1 !important;
+          letter-spacing: 2px !important;
         }
         
         .subtitle {
-          font-size: 18px !important;
-          margin-bottom: 3mm !important;
+          font-size: 16px !important;
+          margin-bottom: 4px !important;
           line-height: 1 !important;
+          font-weight: bold !important;
         }
         
         .number {
           font-size: 20px !important;
-          font-weight: bold !important;
-          margin-bottom: 3mm !important;
+          font-weight: 900 !important;
+          margin-bottom: 6px !important;
           line-height: 1 !important;
+          letter-spacing: 1px !important;
         }
         
         .promo-badge {
           background: #000 !important;
           color: white !important;
-          padding: 2mm 4mm !important;
-          font-size: 14px !important;
-          font-weight: bold !important;
+          padding: 4px 8px !important;
+          font-size: 12px !important;
+          font-weight: 900 !important;
           display: inline-block !important;
-          margin-top: 3mm !important;
+          margin-top: 4px !important;
+          letter-spacing: 1px !important;
         }
         
-        /* Contenido sin marcos */
+        /* Contenido con distribución vertical */
         .content {
-          margin: 5mm 0 !important;
+          margin: 12px 0 !important;
+          flex-grow: 1 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: center !important;
         }
         
         .row {
           display: flex !important;
           justify-content: space-between !important;
-          margin-bottom: 3mm !important;
+          margin-bottom: 8px !important;
           font-size: 16px !important;
           line-height: 1.4 !important;
+          font-weight: bold !important;
+          padding: 2px 0 !important;
         }
         
         .label {
-          font-weight: bold !important;
+          font-weight: 900 !important;
           flex: 1 !important;
+          letter-spacing: 0.5px !important;
         }
         
         .value {
           text-align: right !important;
           flex: 1 !important;
+          font-weight: bold !important;
         }
         
         .total-section {
-          padding-top: 5mm !important;
-          margin-top: 5mm !important;
+          border-top: 2px solid #000 !important;
+          padding-top: 8px !important;
+          margin-top: 12px !important;
+          flex-shrink: 0 !important;
         }
         
         .total {
           text-align: center !important;
-          font-size: 18px !important;
-          font-weight: bold !important;
-          padding: 5mm !important;
+          font-size: 20px !important;
+          font-weight: 900 !important;
+          padding: 8px !important;
           background: #f0f0f0 !important;
           line-height: 1.4 !important;
+          border: 2px solid #000 !important;
+          letter-spacing: 1px !important;
         }
         
-        /* Footer sin marcos */
+        /* Footer con bordes y texto más negrita */
         .footer {
-          padding-top: 5mm !important;
-          margin-top: 5mm !important;
+          border-top: 2px solid #000 !important;
+          padding-top: 10px !important;
+          margin-top: 10px !important;
           text-align: center !important;
+          flex-shrink: 0 !important;
         }
         
         .info {
           font-size: 14px !important;
-          margin-bottom: 2mm !important;
+          margin-bottom: 4px !important;
           line-height: 1.3 !important;
+          font-weight: bold !important;
         }
         
         .thanks {
           font-size: 18px !important;
-          font-weight: bold !important;
-          margin: 5mm 0 3mm 0 !important;
+          font-weight: 900 !important;
+          margin: 8px 0 6px 0 !important;
           line-height: 1.3 !important;
+          letter-spacing: 1px !important;
         }
         
         .brand {
           font-size: 16px !important;
-          font-weight: bold !important;
-          margin-bottom: 2mm !important;
+          font-weight: 900 !important;
+          margin-bottom: 4px !important;
           line-height: 1.3 !important;
+          letter-spacing: 1px !important;
         }
         
         .note {
           font-size: 12px !important;
           font-style: italic !important;
           line-height: 1.3 !important;
-          margin-top: 3mm !important;
+          margin-top: 4px !important;
+          font-weight: bold !important;
         }
         
         .promo-note {
-          font-size: 14px !important;
-          font-weight: bold !important;
-          margin: 3mm 0 !important;
+          font-size: 12px !important;
+          font-weight: 900 !important;
+          margin: 4px 0 !important;
           background: #f0f0f0 !important;
-          padding: 2mm !important;
+          padding: 2px !important;
           line-height: 1.3 !important;
+          border: 1px solid #000 !important;
         }
       }
     </style>
   `
 
-    // Generar HTML de tickets sin marcos
+    // Generar HTML de tickets con nuevo formato
     const ticketsHTML = allTickets
       .map(
         (ticket, index) => `
@@ -642,7 +673,7 @@ export default function SalesPage({
       <div class="content">
         <div class="row">
           <span class="label">Producto:</span>
-          <span class="value">${ticket.productName.length > 25 ? ticket.productName.substring(0, 25) + "..." : ticket.productName}</span>
+          <span class="value">${ticket.productName.length > 30 ? ticket.productName.substring(0, 30) + "..." : ticket.productName}</span>
         </div>
         <div class="row">
           <span class="label">Cantidad:</span>
@@ -659,7 +690,7 @@ export default function SalesPage({
       
       <div class="footer">
         <div class="info">${ticket.saleDate}</div>
-        <div class="info">${ticket.seller.length > 20 ? ticket.seller.substring(0, 20) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.seller.length > 25 ? ticket.seller.substring(0, 25) + "..." : ticket.seller}</div>
         <div class="info">${ticket.paymentMethod}</div>
         <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
         ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
@@ -678,7 +709,7 @@ export default function SalesPage({
     // Agregar al DOM
     document.body.appendChild(printContainer)
 
-    console.log(`✅ ${allTickets.length} tickets grandes sin marcos preparados para impresión`)
+    console.log(`✅ ${allTickets.length} tickets grandes (100% ancho x 13cm) preparados para impresión`)
     console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
 
     // Imprimir después de un breve delay
