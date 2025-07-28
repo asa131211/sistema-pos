@@ -41,6 +41,33 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
     }
   }, [user])
 
+  // Auto-close at midnight
+  useEffect(() => {
+    const checkMidnightClose = () => {
+      const now = new Date()
+      const midnight = new Date()
+      midnight.setHours(24, 0, 0, 0) // Next midnight
+
+      const timeUntilMidnight = midnight.getTime() - now.getTime()
+
+      const midnightTimeout = setTimeout(() => {
+        if (cashRegister?.isOpen) {
+          console.log("🕛 Auto-cerrando caja a las 12:00 AM")
+          closeCashRegister(true) // true = auto close
+        }
+        // Set up next midnight check
+        checkMidnightClose()
+      }, timeUntilMidnight)
+
+      return () => clearTimeout(midnightTimeout)
+    }
+
+    if (cashRegister?.isOpen) {
+      const cleanup = checkMidnightClose()
+      return cleanup
+    }
+  }, [cashRegister])
+
   const checkCashRegisterStatus = async () => {
     if (!user) return
 
@@ -58,7 +85,6 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
       }
     } catch (error) {
       console.error("Error checking cash register:", error)
-      // No mostrar toast de error, solo log
       setCashRegister(null)
       onStatusChange(false)
     }
@@ -88,7 +114,6 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
 
       await setDoc(doc(db, "cash-registers", cashRegData.id), cashRegData)
 
-      // Registrar movimiento solo si la caja se creó exitosamente
       try {
         await addDoc(collection(db, "cash-movements"), {
           cashRegisterId: cashRegData.id,
@@ -113,7 +138,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
     }
   }
 
-  const closeCashRegister = async () => {
+  const closeCashRegister = async (autoClose = false) => {
     if (!user || !cashRegister) return
 
     setLoading(true)
@@ -123,12 +148,11 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
         closedAt: serverTimestamp(),
       })
 
-      // Registrar movimiento
       await addDoc(collection(db, "cash-movements"), {
         cashRegisterId: cashRegister.id,
         type: "closing",
         amount: cashRegister.currentAmount,
-        description: "Cierre de caja automático",
+        description: autoClose ? "Cierre automático a las 12:00 AM" : "Cierre manual de caja",
         userId: user.uid,
         timestamp: serverTimestamp(),
       })
@@ -136,7 +160,12 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
       setCashRegister({ ...cashRegister, isOpen: false })
       onStatusChange(false)
       setShowCloseDialog(false)
-      toast.success("Caja cerrada exitosamente")
+
+      if (autoClose) {
+        toast.success("🕛 Caja cerrada automáticamente a las 12:00 AM")
+      } else {
+        toast.success("Caja cerrada exitosamente")
+      }
     } catch (error) {
       console.error("Error closing cash register:", error)
       toast.error("Error al cerrar la caja")
@@ -183,7 +212,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
         </CardHeader>
       </Card>
 
-      {/* Dialog para cerrar caja - Sin confirmación de monto */}
+      {/* Dialog para cerrar caja */}
       <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -207,8 +236,18 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
                 </div>
               </div>
             </div>
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <p className="text-sm text-yellow-700 text-center">
+                ⏰ <strong>Nota:</strong> La caja se cerrará automáticamente a las 12:00 AM
+              </p>
+            </div>
             <div className="flex space-x-2">
-              <Button onClick={closeCashRegister} disabled={loading} variant="destructive" className="flex-1">
+              <Button
+                onClick={() => closeCashRegister(false)}
+                disabled={loading}
+                variant="destructive"
+                className="flex-1"
+              >
                 {loading ? "Cerrando..." : "✅ Cerrar Caja"}
               </Button>
               <Button onClick={() => setShowCloseDialog(false)} variant="outline" className="flex-1">

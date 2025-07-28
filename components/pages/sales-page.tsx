@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ShoppingCart, Plus, Minus, Trash2, Search, Gift, Package, Keyboard, Tag } from "lucide-react"
 import { toast } from "sonner"
+import CashRegister from "@/components/cash-register"
 
 interface Product {
   id: string
@@ -358,6 +359,9 @@ export default function SalesPage({ sidebarCollapsed = false }: SalesPageProps) 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-50 ml-16">
       <div className="p-6 space-y-6">
+        {/* Cash Register Component */}
+        <CashRegister onStatusChange={setCashRegisterOpen} />
+
         {/* Barra de búsqueda y filtros */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
           <div className="flex items-center space-x-4">

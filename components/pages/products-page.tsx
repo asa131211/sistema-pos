@@ -13,10 +13,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Package, Plus, Search, Edit, Trash2, Tag, DollarSign, Save, X } from "lucide-react"
+import { Package, Plus, Search, Edit, Trash2, Tag, Save, X, Upload, Camera } from "lucide-react"
 import { toast } from "sonner"
-import ImageUpload from "@/components/image-upload"
 
 interface Product {
   id: string
@@ -41,15 +39,12 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(false)
+  const [imagePreview, setImagePreview] = useState("")
 
   const [formData, setFormData] = useState({
     name: "",
     price: "",
-    category: "juegos",
-    description: "",
-    stock: "",
     image: "",
-    active: true,
   })
 
   useEffect(() => {
@@ -74,13 +69,28 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
     setFormData({
       name: "",
       price: "",
-      category: "juegos",
-      description: "",
-      stock: "",
       image: "",
-      active: true,
     })
+    setImagePreview("")
     setEditingProduct(null)
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("La imagen debe ser menor a 5MB")
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        setImagePreview(result)
+        setFormData({ ...formData, image: result })
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -95,11 +105,9 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
       const productData = {
         name: formData.name,
         price: Number.parseFloat(formData.price),
-        category: formData.category,
-        description: formData.description,
-        stock: formData.stock ? Number.parseInt(formData.stock) : 0,
         image: formData.image,
-        active: formData.active,
+        category: "juegos", // Categoría por defecto
+        active: true,
         updatedAt: new Date(),
       }
 
@@ -129,12 +137,9 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
     setFormData({
       name: product.name,
       price: product.price.toString(),
-      category: product.category,
-      description: product.description || "",
-      stock: product.stock?.toString() || "",
       image: product.image,
-      active: product.active,
     })
+    setImagePreview(product.image)
     setShowAddDialog(true)
   }
 
@@ -149,13 +154,6 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
       toast.error("Error al eliminar producto")
     }
   }
-
-  const categories = [
-    { value: "juegos", label: "Juegos" },
-    { value: "consolas", label: "Consolas" },
-    { value: "accesorios", label: "Accesorios" },
-    { value: "otros", label: "Otros" },
-  ]
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-50 ml-16">
@@ -183,147 +181,144 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
                   Nuevo Producto
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl bg-white rounded-3xl">
+              <DialogContent className="max-w-md bg-white rounded-3xl">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold text-gray-900">
+                  <DialogTitle className="text-xl font-bold text-gray-900 text-center">
                     {editingProduct ? "Editar Producto" : "Nuevo Producto"}
                   </DialogTitle>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                        Nombre del Producto *
-                      </Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Ej: FIFA 24"
-                        required
-                        className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="price" className="text-sm font-medium text-gray-700">
-                        Precio *
-                      </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          id="price"
-                          type="number"
-                          step="0.01"
-                          value={formData.price}
-                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                          placeholder="0.00"
-                          required
-                          className="pl-10 h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="category" className="text-sm font-medium text-gray-700">
-                        Categoría
-                      </Label>
-                      <Select
-                        value={formData.category}
-                        onValueChange={(value) => setFormData({ ...formData, category: value })}
-                      >
-                        <SelectTrigger className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.value} value={category.value}>
-                              {category.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="stock" className="text-sm font-medium text-gray-700">
-                        Stock
-                      </Label>
-                      <Input
-                        id="stock"
-                        type="number"
-                        value={formData.stock}
-                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                        placeholder="0"
-                        className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
-                      />
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+                      Nombre del Producto *
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ej: FIFA 24"
+                      required
+                      className="h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-lg"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-                      Descripción
+                    <Label htmlFor="price" className="text-sm font-medium text-gray-700">
+                      Precio (S/.) *
                     </Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Descripción del producto..."
-                      rows={3}
-                      className="border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                        S/.
+                      </span>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        placeholder="0.00"
+                        required
+                        className="pl-10 h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 rounded-lg"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Imagen del Producto</Label>
-                    <ImageUpload
-                      value={formData.image}
-                      onChange={(url) => setFormData({ ...formData, image: url })}
-                      onRemove={() => setFormData({ ...formData, image: "" })}
-                    />
+                    <div className="space-y-3">
+                      {imagePreview ? (
+                        <div className="relative">
+                          <img
+                            src={imagePreview || "/placeholder.svg"}
+                            alt="Preview"
+                            className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full"
+                            onClick={() => {
+                              setImagePreview("")
+                              setFormData({ ...formData, image: "" })
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                          <Package className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm text-gray-600 mb-3">Selecciona una imagen</p>
+                          <div className="flex justify-center space-x-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => document.getElementById("file-upload")?.click()}
+                              className="bg-transparent"
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              Archivo
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => document.getElementById("camera-upload")?.click()}
+                              className="bg-transparent"
+                            >
+                              <Camera className="h-3 w-3 mr-1" />
+                              Cámara
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      <input
+                        id="file-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                      <input
+                        id="camera-upload"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="active"
-                        checked={formData.active}
-                        onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <Label htmlFor="active" className="text-sm font-medium text-gray-700">
-                        Producto activo
-                      </Label>
-                    </div>
-
-                    <div className="flex space-x-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          resetForm()
-                          setShowAddDialog(false)
-                        }}
-                        className="h-12 px-6 border-2 rounded-xl font-medium"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        className="h-12 px-6 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium"
-                      >
-                        {loading ? (
-                          <img src="/loading-wheel.gif" alt="Guardando..." className="w-4 h-4 mr-2" />
-                        ) : (
-                          <Save className="h-4 w-4 mr-2" />
-                        )}
-                        {editingProduct ? "Actualizar" : "Guardar"}
-                      </Button>
-                    </div>
+                  <div className="flex space-x-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        resetForm()
+                        setShowAddDialog(false)
+                      }}
+                      className="flex-1 h-10 border-2 rounded-lg font-medium"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium"
+                    >
+                      {loading ? (
+                        <img src="/loading-wheel.gif" alt="Guardando..." className="w-4 h-4 mr-2" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {editingProduct ? "Actualizar" : "Guardar"}
+                    </Button>
                   </div>
                 </form>
               </DialogContent>
@@ -349,11 +344,9 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="juegos">Juegos</SelectItem>
+                <SelectItem value="consolas">Consolas</SelectItem>
+                <SelectItem value="accesorios">Accesorios</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -412,12 +405,7 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
                     <div className="text-lg font-bold text-green-600">S/. {product.price.toFixed(2)}</div>
                   </div>
 
-                  {product.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-                  )}
-
                   <div className="flex items-center justify-between text-sm text-gray-500">
-                    <span>Stock: {product.stock || 0}</span>
                     <span>ID: {product.id.slice(-6)}</span>
                   </div>
                 </div>

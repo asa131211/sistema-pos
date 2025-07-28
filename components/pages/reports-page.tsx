@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore"
+import { collection, query, onSnapshot, orderBy, getDocs } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,18 +54,29 @@ interface ReportsPageProps {
 export default function ReportsPage({ sidebarCollapsed = false }: ReportsPageProps) {
   const [user] = useAuthState(auth)
   const [sales, setSales] = useState<Sale[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState("today")
   const [paymentFilter, setPaymentFilter] = useState("all")
   const [sellerFilter, setSellerFilter] = useState("all")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [specificDate, setSpecificDate] = useState("")
 
   useEffect(() => {
     console.log("🔍 Iniciando carga de reportes...")
     setLoading(true)
 
     try {
+      // Cargar usuarios para el filtro
+      const loadUsers = async () => {
+        const usersSnapshot = await getDocs(collection(db, "users"))
+        const usersData = usersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        setUsers(usersData)
+      }
+      loadUsers()
+
       // Crear consulta base sin filtros complejos primero
       const salesQuery = query(collection(db, "sales"), orderBy("timestamp", "desc"))
 
@@ -78,12 +89,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
 
           const salesData = snapshot.docs.map((doc) => {
             const data = doc.data()
-            console.log("📋 Datos de venta:", {
-              id: doc.id,
-              total: data.total,
-              date: data.date,
-              timestamp: data.timestamp,
-            })
             return {
               id: doc.id,
               ...data,
@@ -97,7 +102,11 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           if (dateFilter === "today") {
             const today = new Date().toISOString().split("T")[0]
             filteredSales = filteredSales.filter((sale) => sale.date === today)
-            console.log(`📅 Filtro hoy (${today}): ${filteredSales.length} ventas`)
+          } else if (dateFilter === "yesterday") {
+            const yesterday = new Date()
+            yesterday.setDate(yesterday.getDate() - 1)
+            const yesterdayStr = yesterday.toISOString().split("T")[0]
+            filteredSales = filteredSales.filter((sale) => sale.date === yesterdayStr)
           } else if (dateFilter === "week") {
             const weekAgo = new Date()
             weekAgo.setDate(weekAgo.getDate() - 7)
@@ -105,7 +114,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
               const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp)
               return saleDate >= weekAgo
             })
-            console.log(`📅 Filtro semana: ${filteredSales.length} ventas`)
           } else if (dateFilter === "month") {
             const monthAgo = new Date()
             monthAgo.setMonth(monthAgo.getMonth() - 1)
@@ -113,19 +121,18 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
               const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp)
               return saleDate >= monthAgo
             })
-            console.log(`📅 Filtro mes: ${filteredSales.length} ventas`)
+          } else if (dateFilter === "specific" && specificDate) {
+            filteredSales = filteredSales.filter((sale) => sale.date === specificDate)
           }
 
           // Filtro de método de pago
           if (paymentFilter !== "all") {
             filteredSales = filteredSales.filter((sale) => sale.paymentMethod === paymentFilter)
-            console.log(`💳 Filtro pago (${paymentFilter}): ${filteredSales.length} ventas`)
           }
 
           // Filtro de vendedor
           if (sellerFilter !== "all") {
             filteredSales = filteredSales.filter((sale) => sale.sellerId === sellerFilter)
-            console.log(`👤 Filtro vendedor: ${filteredSales.length} ventas`)
           }
 
           console.log(`✅ Total ventas filtradas: ${filteredSales.length}`)
@@ -145,7 +152,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       toast.error("Error al configurar los reportes")
       setLoading(false)
     }
-  }, [dateFilter, paymentFilter, sellerFilter])
+  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
 
   // Calcular estadísticas
   const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
@@ -221,7 +228,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             <Filter className="h-5 w-5 text-purple-600" />
             <h3 className="font-semibold text-gray-900">Filtros</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-2 block">Período</Label>
               <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -230,12 +237,27 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">Hoy</SelectItem>
+                  <SelectItem value="yesterday">Ayer</SelectItem>
                   <SelectItem value="week">Última semana</SelectItem>
                   <SelectItem value="month">Último mes</SelectItem>
+                  <SelectItem value="specific">Fecha específica</SelectItem>
                   <SelectItem value="all">Todos los tiempos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {dateFilter === "specific" && (
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">Fecha Específica</Label>
+                <Input
+                  type="date"
+                  value={specificDate}
+                  onChange={(e) => setSpecificDate(e.target.value)}
+                  className="border-gray-200"
+                />
+              </div>
+            )}
+
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-2 block">Método de Pago</Label>
               <Select value={paymentFilter} onValueChange={setPaymentFilter}>
@@ -249,23 +271,22 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                 </SelectContent>
               </Select>
             </div>
+
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Fecha Inicio</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="border-gray-200"
-              />
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Fecha Fin</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="border-gray-200"
-              />
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Vendedor</Label>
+              <Select value={sellerFilter} onValueChange={setSellerFilter}>
+                <SelectTrigger className="border-gray-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los vendedores</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
