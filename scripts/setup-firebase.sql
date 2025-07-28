@@ -1,47 +1,37 @@
--- Este archivo contiene las instrucciones para configurar Firebase
--- No es un archivo SQL ejecutable, sino una guía de configuración
+-- Este archivo contiene las reglas de Firestore para el sistema POS
+-- Copiar estas reglas en la consola de Firebase
 
--- 1. Crear proyecto en Firebase Console
--- 2. Habilitar Authentication con Email/Password
--- 3. Crear Firestore Database
--- 4. Configurar Storage para imágenes
--- 5. Configurar reglas de seguridad
-
--- Reglas de Firestore:
-/*
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Usuarios solo pueden leer/escribir sus propios datos
+    // Reglas para usuarios
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null;
     }
     
-    // Productos - solo admins pueden escribir, todos pueden leer
+    // Reglas para productos
     match /products/{productId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'administrador' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.hasAny(['all', 'products_write']));
     }
     
-    // Ventas - todos los usuarios autenticados pueden leer/escribir
+    // Reglas para ventas
     match /sales/{saleId} {
       allow read, write: if request.auth != null;
     }
-  }
-}
-*/
-
--- Reglas de Storage:
-/*
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /products/{allPaths=**} {
+    
+    // Reglas para caja registradora
+    match /cash-registers/{registerId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para configuración
+    match /settings/{settingId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && 
-        request.resource.size < 10 * 1024 * 1024; // 10MB max
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'administrador';
     }
   }
 }
-*/
