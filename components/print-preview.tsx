@@ -23,126 +23,99 @@ export function PrintPreview({ ticketData, onPrint, showSettings = false }: Prin
           <title>Ticket - ${ticketData.id}</title>
           <style>
             @page {
-              size: 100% 13cm;
+              size: 100mm auto;
               margin: 0;
             }
             @media print {
-              body { margin: 0; padding: 0; font-weight: bold; }
+              body { margin: 0; padding: 0; }
               * { -webkit-print-color-adjust: exact; }
             }
             body {
               margin: 0;
               padding: 0;
               font-family: 'Courier New', monospace;
-              font-weight: bold;
             }
             .ticket-container {
-              width: 100%;
-              height: 13cm;
-              padding: 12px;
+              width: 100mm;
+              padding: 8mm;
               background: white;
               color: black;
-              font-size: 14px;
-              line-height: 1.4;
-              font-weight: bold;
-              border: 2px solid #000;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
+              font-size: 12px;
+              line-height: 1.3;
             }
             .ticket-header {
               text-align: center;
-              margin-bottom: 10px;
-              border-bottom: 2px solid #000;
-              padding-bottom: 10px;
-              flex-shrink: 0;
+              margin-bottom: 4mm;
+              border-bottom: 2px dashed #000;
+              padding-bottom: 4mm;
             }
             .ticket-title {
-              font-weight: 900;
-              font-size: 24px;
-              margin-bottom: 4px;
-              letter-spacing: 2px;
+              font-weight: bold;
+              font-size: 18px;
+              margin-bottom: 2mm;
             }
             .ticket-info {
-              font-size: 16px;
-              margin-bottom: 4px;
-              font-weight: bold;
+              font-size: 12px;
+              margin-bottom: 1mm;
             }
             .ticket-items {
-              margin-bottom: 10px;
-              flex-grow: 1;
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
+              margin-bottom: 4mm;
             }
             .ticket-item {
-              margin-bottom: 8px;
+              margin-bottom: 2mm;
             }
             .item-line {
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              margin-bottom: 4px;
-              font-size: 16px;
-              font-weight: bold;
-              padding: 2px 0;
+              margin-bottom: 1mm;
             }
             .item-name {
               flex: 1;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
-              font-weight: 900;
-              letter-spacing: 0.5px;
+              max-width: 70mm;
             }
             .item-price {
-              margin-left: 8px;
+              margin-left: 4mm;
               white-space: nowrap;
               font-weight: bold;
             }
             .item-details {
-              font-size: 14px;
-              color: #333;
-              font-weight: bold;
+              font-size: 10px;
+              color: #666;
             }
             .ticket-totals {
-              border-top: 2px solid #000;
-              padding-top: 8px;
-              margin-bottom: 10px;
-              flex-shrink: 0;
+              border-top: 2px dashed #000;
+              padding-top: 4mm;
+              margin-bottom: 4mm;
             }
             .total-line {
               display: flex;
               justify-content: space-between;
-              margin-bottom: 4px;
-              font-size: 16px;
-              font-weight: bold;
+              margin-bottom: 1mm;
             }
             .total-main {
-              font-weight: 900;
-              font-size: 20px;
-              padding: 8px;
+              font-weight: bold;
+              font-size: 14px;
+              padding: 4mm;
               background: #f0f0f0;
               text-align: center;
-              border: 2px solid #000;
-              letter-spacing: 1px;
             }
             .ticket-footer {
               text-align: center;
-              font-size: 14px;
-              border-top: 2px solid #000;
-              padding-top: 10px;
-              flex-shrink: 0;
+              font-size: 10px;
+              border-top: 2px dashed #000;
+              padding-top: 4mm;
             }
             .footer-info {
-              margin-bottom: 4px;
-              font-weight: bold;
+              margin-bottom: 1mm;
             }
             .footer-thanks {
-              font-size: 18px;
-              font-weight: 900;
-              margin: 8px 0 6px 0;
-              letter-spacing: 1px;
+              font-size: 12px;
+              font-weight: bold;
+              margin: 4mm 0 2mm 0;
             }
           </style>
         </head>
@@ -258,15 +231,8 @@ export function PrintPreview({ ticketData, onPrint, showSettings = false }: Prin
         <CardContent className="space-y-4">
           {/* Optimized Preview */}
           <div
-            className="bg-white rounded-lg p-4 mx-auto shadow-sm border-2 border-gray-800"
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              height: "13cm",
-              fontSize: "14px",
-              fontFamily: "monospace",
-              fontWeight: "bold",
-            }}
+            className="bg-white rounded-lg p-4 mx-auto shadow-sm"
+            style={{ width: "100mm", fontSize: "12px", fontFamily: "monospace" }}
           >
             {/* Header */}
             <div className="text-center mb-4 border-b-2 border-dashed border-gray-400 pb-4">

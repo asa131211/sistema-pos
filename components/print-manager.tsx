@@ -38,43 +38,39 @@ export const PrintManager = ({ onPrintComplete, onPrintError }: PrintManagerProp
             }
             
             html {
-              width: 100% !important;
+              width: 80mm !important;
               height: auto !important;
             }
             
             body {
-              width: 100% !important;
+              width: 80mm !important;
               height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
               font-family: 'Courier New', monospace !important;
-              font-size: 14px !important;
-              line-height: 1.4 !important;
+              font-size: 11px !important;
+              line-height: 1.2 !important;
               color: #000 !important;
               background: white !important;
-              font-weight: bold !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
             
             @page {
-              size: 100% 13cm !important;
+              size: 80mm auto !important;
               margin: 0 !important;
             }
             
             .ticket {
-              width: 100% !important;
-              height: 13cm !important;
+              width: 80mm !important;
               margin: 0 !important;
-              padding: 12px !important;
-              border: 2px solid #000 !important;
+              padding: 8px !important;
+              border: 1px solid #000 !important;
               background: white !important;
               page-break-after: always !important;
               page-break-inside: avoid !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: space-between !important;
-              font-weight: bold !important;
+              display: block !important;
+              min-height: 120mm !important;
             }
             
             .ticket:last-child {
@@ -83,125 +79,102 @@ export const PrintManager = ({ onPrintComplete, onPrintError }: PrintManagerProp
             
             .header {
               text-align: center !important;
-              border-bottom: 2px solid #000 !important;
-              padding-bottom: 10px !important;
-              margin-bottom: 10px !important;
-              flex-shrink: 0 !important;
+              border-bottom: 1px dashed #000 !important;
+              padding-bottom: 8px !important;
+              margin-bottom: 8px !important;
             }
             
             .logo {
-              font-size: 32px !important;
-              margin-bottom: 6px !important;
-              font-weight: 900 !important;
+              font-size: 24px !important;
+              margin-bottom: 4px !important;
             }
             
             .title {
-              font-size: 24px !important;
-              font-weight: 900 !important;
-              margin-bottom: 4px !important;
-              letter-spacing: 2px !important;
+              font-size: 16px !important;
+              font-weight: bold !important;
+              margin-bottom: 2px !important;
             }
             
             .subtitle {
-              font-size: 16px !important;
+              font-size: 12px !important;
               margin-bottom: 4px !important;
-              font-weight: bold !important;
             }
             
             .number {
-              font-size: 20px !important;
-              font-weight: 900 !important;
-              margin-bottom: 6px !important;
-              letter-spacing: 1px !important;
+              font-size: 14px !important;
+              font-weight: bold !important;
+              margin-bottom: 4px !important;
             }
             
             .promo-badge {
               background: #000 !important;
               color: white !important;
-              padding: 4px 8px !important;
-              font-size: 12px !important;
-              font-weight: 900 !important;
+              padding: 2px 4px !important;
+              font-size: 10px !important;
+              font-weight: bold !important;
               display: inline-block !important;
-              letter-spacing: 1px !important;
             }
             
             .content {
-              margin: 12px 0 !important;
-              flex-grow: 1 !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: center !important;
+              margin: 8px 0 !important;
             }
             
             .row {
               display: flex !important;
               justify-content: space-between !important;
-              margin-bottom: 8px !important;
-              font-size: 16px !important;
-              font-weight: bold !important;
-              padding: 2px 0 !important;
+              margin-bottom: 4px !important;
+              font-size: 11px !important;
             }
             
             .label {
-              font-weight: 900 !important;
-              letter-spacing: 0.5px !important;
+              font-weight: bold !important;
             }
             
             .value {
               text-align: right !important;
-              font-weight: bold !important;
             }
             
             .total-section {
-              border-top: 2px solid #000 !important;
-              padding-top: 8px !important;
-              margin-top: 12px !important;
-              flex-shrink: 0 !important;
+              border-top: 1px dashed #000 !important;
+              padding-top: 4px !important;
+              margin-top: 8px !important;
             }
             
             .total {
               text-align: center !important;
-              font-size: 20px !important;
-              font-weight: 900 !important;
-              padding: 8px !important;
-              border: 2px solid #000 !important;
-              background: #f0f0f0 !important;
-              letter-spacing: 1px !important;
+              font-size: 14px !important;
+              font-weight: bold !important;
+              padding: 4px !important;
+              border: 1px solid #000 !important;
             }
             
             .footer {
-              border-top: 2px solid #000 !important;
-              padding-top: 10px !important;
-              margin-top: 10px !important;
+              border-top: 1px dashed #000 !important;
+              padding-top: 8px !important;
+              margin-top: 8px !important;
               text-align: center !important;
-              flex-shrink: 0 !important;
             }
             
             .info {
-              font-size: 14px !important;
-              margin-bottom: 4px !important;
-              font-weight: bold !important;
+              font-size: 10px !important;
+              margin-bottom: 2px !important;
             }
             
             .thanks {
-              font-size: 18px !important;
-              font-weight: 900 !important;
-              margin: 8px 0 6px !important;
-              letter-spacing: 1px !important;
+              font-size: 12px !important;
+              font-weight: bold !important;
+              margin: 6px 0 4px !important;
             }
             
             .brand {
-              font-size: 16px !important;
-              font-weight: 900 !important;
-              margin-bottom: 4px !important;
-              letter-spacing: 1px !important;
+              font-size: 11px !important;
+              font-weight: bold !important;
+              margin-bottom: 2px !important;
             }
             
             .note {
-              font-size: 12px !important;
+              font-size: 9px !important;
               font-style: italic !important;
-              font-weight: bold !important;
-              margin-top: 4px !important;
             }
             
             /* Ocultar todo excepto tickets */

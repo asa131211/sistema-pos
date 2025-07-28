@@ -86,175 +86,148 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
       // CSS específico para tickets más grandes sin marcos
       const ticketCSS = `
         <style>
-  @media print {
-    .ticket {
-      width: 100% !important;
-      height: 13cm !important;
-      margin: 0 auto !important;
-      padding: 12px !important;
-      background: white !important;
-      page-break-after: always !important;
-      page-break-inside: avoid !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-      font-size: 14px !important;
-      line-height: 1.4 !important;
-      font-weight: bold !important;
-      border: 2px solid #000 !important;
-    }
-    
-    .ticket:last-child {
-      page-break-after: auto !important;
-    }
-    
-    .header {
-      text-align: center !important;
-      border-bottom: 2px solid #000 !important;
-      padding-bottom: 10px !important;
-      margin-bottom: 10px !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .logo {
-      font-size: 32px !important;
-      margin-bottom: 6px !important;
-      line-height: 1 !important;
-      font-weight: 900 !important;
-    }
-    
-    .title {
-      font-size: 24px !important;
-      font-weight: 900 !important;
-      margin-bottom: 4px !important;
-      line-height: 1 !important;
-      letter-spacing: 2px !important;
-    }
-    
-    .subtitle {
-      font-size: 16px !important;
-      margin-bottom: 4px !important;
-      line-height: 1 !important;
-      font-weight: bold !important;
-    }
-    
-    .number {
-      font-size: 20px !important;
-      font-weight: 900 !important;
-      margin-bottom: 6px !important;
-      line-height: 1 !important;
-      letter-spacing: 1px !important;
-    }
-    
-    .promo {
-      background: #000 !important;
-      color: white !important;
-      padding: 4px 8px !important;
-      font-size: 12px !important;
-      font-weight: 900 !important;
-      display: inline-block !important;
-      margin-top: 4px !important;
-      letter-spacing: 1px !important;
-    }
-    
-    .content {
-      margin: 12px 0 !important;
-      flex-grow: 1 !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: center !important;
-    }
-    
-    .row {
-      display: flex !important;
-      justify-content: space-between !important;
-      margin-bottom: 8px !important;
-      font-size: 16px !important;
-      line-height: 1.4 !important;
-      font-weight: bold !important;
-      padding: 2px 0 !important;
-    }
-    
-    .label {
-      font-weight: 900 !important;
-      flex: 1 !important;
-      letter-spacing: 0.5px !important;
-    }
-    
-    .value {
-      text-align: right !important;
-      flex: 1 !important;
-      font-weight: bold !important;
-    }
-    
-    .total-section {
-      border-top: 2px solid #000 !important;
-      padding-top: 8px !important;
-      margin-top: 12px !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .total {
-      text-align: center !important;
-      font-size: 20px !important;
-      font-weight: 900 !important;
-      padding: 8px !important;
-      background: #f0f0f0 !important;
-      line-height: 1.4 !important;
-      border: 2px solid #000 !important;
-      letter-spacing: 1px !important;
-    }
-    
-    .footer {
-      border-top: 2px solid #000 !important;
-      padding-top: 10px !important;
-      margin-top: 10px !important;
-      text-align: center !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .info {
-      font-size: 14px !important;
-      margin-bottom: 4px !important;
-      line-height: 1.3 !important;
-      font-weight: bold !important;
-    }
-    
-    .thanks {
-      font-size: 18px !important;
-      font-weight: 900 !important;
-      margin: 8px 0 6px 0 !important;
-      line-height: 1.3 !important;
-      letter-spacing: 1px !important;
-    }
-    
-    .brand {
-      font-size: 16px !important;
-      font-weight: 900 !important;
-      margin-bottom: 4px !important;
-      line-height: 1.3 !important;
-      letter-spacing: 1px !important;
-    }
-    
-    .note {
-      font-size: 12px !important;
-      font-style: italic !important;
-      line-height: 1.3 !important;
-      margin-top: 4px !important;
-      font-weight: bold !important;
-    }
-    
-    .promo-note {
-      font-size: 12px !important;
-      font-weight: 900 !important;
-      margin: 4px 0 !important;
-      background: #f0f0f0 !important;
-      padding: 2px !important;
-      line-height: 1.3 !important;
-      border: 1px solid #000 !important;
-    }
-  }
-</style>
+          @media print {
+            .ticket {
+              width: 100mm !important;
+              margin: 0 auto !important;
+              padding: 8mm !important;
+              background: white !important;
+              page-break-after: always !important;
+              page-break-inside: avoid !important;
+              min-height: auto !important;
+              display: block !important;
+              font-size: 12px !important;
+              line-height: 1.3 !important;
+            }
+            
+            .ticket:last-child {
+              page-break-after: auto !important;
+            }
+            
+            .header {
+              text-align: center !important;
+              border-bottom: 2px dashed #000 !important;
+              padding-bottom: 4mm !important;
+              margin-bottom: 4mm !important;
+            }
+            
+            .logo {
+              font-size: 24px !important;
+              margin-bottom: 2mm !important;
+              line-height: 1 !important;
+            }
+            
+            .title {
+              font-size: 18px !important;
+              font-weight: bold !important;
+              margin-bottom: 2mm !important;
+              line-height: 1 !important;
+            }
+            
+            .subtitle {
+              font-size: 12px !important;
+              margin-bottom: 2mm !important;
+              line-height: 1 !important;
+            }
+            
+            .number {
+              font-size: 16px !important;
+              font-weight: bold !important;
+              margin-bottom: 2mm !important;
+              line-height: 1 !important;
+            }
+            
+            .promo {
+              background: #000 !important;
+              color: white !important;
+              padding: 2mm 4mm !important;
+              font-size: 10px !important;
+              font-weight: bold !important;
+              display: inline-block !important;
+              margin-top: 2mm !important;
+            }
+            
+            .content {
+              margin: 4mm 0 !important;
+            }
+            
+            .row {
+              display: flex !important;
+              justify-content: space-between !important;
+              margin-bottom: 2mm !important;
+              font-size: 12px !important;
+              line-height: 1.3 !important;
+            }
+            
+            .label {
+              font-weight: bold !important;
+              flex: 1 !important;
+            }
+            
+            .value {
+              text-align: right !important;
+              flex: 1 !important;
+            }
+            
+            .total-section {
+              border-top: 2px dashed #000 !important;
+              padding-top: 4mm !important;
+              margin-top: 4mm !important;
+            }
+            
+            .total {
+              text-align: center !important;
+              font-size: 14px !important;
+              font-weight: bold !important;
+              padding: 4mm !important;
+              background: #f0f0f0 !important;
+              line-height: 1.3 !important;
+            }
+            
+            .footer {
+              border-top: 2px dashed #000 !important;
+              padding-top: 4mm !important;
+              margin-top: 4mm !important;
+              text-align: center !important;
+            }
+            
+            .info {
+              font-size: 10px !important;
+              margin-bottom: 1mm !important;
+              line-height: 1.2 !important;
+            }
+            
+            .thanks {
+              font-size: 12px !important;
+              font-weight: bold !important;
+              margin: 4mm 0 2mm 0 !important;
+              line-height: 1.2 !important;
+            }
+            
+            .brand {
+              font-size: 10px !important;
+              font-weight: bold !important;
+              margin-bottom: 1mm !important;
+              line-height: 1.2 !important;
+            }
+            
+            .note {
+              font-size: 8px !important;
+              font-style: italic !important;
+              line-height: 1.2 !important;
+              margin-top: 2mm !important;
+            }
+            
+            .promo-note {
+              font-size: 8px !important;
+              font-weight: bold !important;
+              margin: 2mm 0 !important;
+              background: #f0f0f0 !important;
+              padding: 1mm !important;
+              line-height: 1.2 !important;
+            }
+          }
+        </style>
       `
 
       const fullContent = ticketCSS + ticketsHTML
