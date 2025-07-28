@@ -1,14 +1,10 @@
+// Script para crear usuario de prueba
 import { initializeApp } from "firebase/app"
-import { getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth"
 import { getFirestore, doc, setDoc } from "firebase/firestore"
 
 const firebaseConfig = {
-  apiKey: "demo-api-key",
-  authDomain: "demo-project.firebaseapp.com",
-  projectId: "demo-project",
-  storageBucket: "demo-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "demo-app-id",
+  // Tu configuración aquí
 }
 
 const app = initializeApp(firebaseConfig)
@@ -17,50 +13,21 @@ const db = getFirestore(app)
 
 async function createTestUser() {
   try {
-    console.log("🚀 Creando usuario de prueba...")
+    // Crear usuario en Authentication
+    const userCredential = await createUserWithEmailAndPassword(auth, "vendedor@test.com", "vendedor123")
 
-    // Crear usuario administrador
-    const adminCredential = await createUserWithEmailAndPassword(auth, "admin@sanchezpark.com", "123456")
-
-    await updateProfile(adminCredential.user, {
-      displayName: "Administrador",
-    })
-
-    await setDoc(doc(db, "users", adminCredential.user.uid), {
-      email: "admin@sanchezpark.com",
-      username: "admin",
-      displayName: "Administrador",
-      role: "administrador",
-      permissions: ["all"],
-      isActive: true,
-      createdAt: new Date(),
-      shortcuts: [],
-    })
-
-    console.log("✅ Usuario administrador creado: admin / 123456")
-
-    // Crear usuario vendedor
-    const vendorCredential = await createUserWithEmailAndPassword(auth, "vendedor@sanchezpark.com", "123456")
-
-    await updateProfile(vendorCredential.user, {
-      displayName: "Vendedor",
-    })
-
-    await setDoc(doc(db, "users", vendorCredential.user.uid), {
-      email: "vendedor@sanchezpark.com",
-      username: "vendedor",
-      displayName: "Vendedor",
+    // Crear documento en Firestore
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      name: "Vendedor Test",
+      email: "vendedor@test.com",
       role: "vendedor",
-      permissions: ["sales", "products_read"],
-      isActive: true,
       createdAt: new Date(),
       shortcuts: [],
     })
 
-    console.log("✅ Usuario vendedor creado: vendedor / 123456")
-    console.log("🎉 ¡Usuarios de prueba creados exitosamente!")
+    console.log("Usuario vendedor creado exitosamente")
   } catch (error) {
-    console.error("❌ Error:", error)
+    console.error("Error:", error)
   }
 }
 

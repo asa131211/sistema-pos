@@ -359,31 +359,6 @@ export default function ReportsPage() {
                         <p className="font-bold text-gray-900 dark:text-white">{stat.salesCount}</p>
                       </div>
                     </div>
-
-                    {/* Mostrar productos en las ventas del vendedor */}
-                    <div className="mt-4">
-                      <h4 className="font-medium text-gray-700 dark:text-gray-300 text-sm mb-2">Últimas ventas:</h4>
-                      <div className="space-y-2 max-h-32 overflow-y-auto">
-                        {stat.sales.slice(0, 3).map((sale) => (
-                          <div key={sale.id} className="text-xs bg-white dark:bg-gray-600 p-2 rounded">
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                {new Date(sale.timestamp?.toDate()).toLocaleDateString("es-ES")}
-                              </span>
-                              <span className="font-bold text-green-600">S/. {sale.total.toFixed(2)}</span>
-                            </div>
-                            <div className="text-gray-500 dark:text-gray-400">
-                              {sale.items.map((item, index) => (
-                                <span key={index}>
-                                  {item.name} x{item.quantity}
-                                  {index < sale.items.length - 1 && ", "}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 ))}
               </div>

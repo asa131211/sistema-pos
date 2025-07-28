@@ -390,208 +390,173 @@
   background: #1e293b;
 }
 
-/* Estilos para impresión de tickets - MEJORADOS Y ARREGLADOS */
+/* Estilos para impresión de tickets - Mejorados */
+/* Estilos para impresión de tickets - MEJORADOS Y MÁS GRANDES */
 .print-only {
   display: none;
 }
 
 @media print {
-  /* Resetear todo para impresión */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-    color: black !important;
-  }
-
   /* Ocultar todo excepto los tickets */
-  body > *:not(#print-container) {
-    display: none !important;
+  body * {
+    visibility: hidden;
+  }
+
+  /* Mostrar solo el contenedor de impresión */
+  #print-container,
+  #print-container * {
+    visibility: visible;
   }
 
   #print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
     display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
   }
 
-  /* Configuración de página para tickets MÁS ANCHOS Y MENOS LARGOS */
+  /* Configuración de página para tickets MÁS GRANDES */
   @page {
-    size: 80mm auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    size: 100mm auto;
+    margin: 8mm;
   }
 
-  /* Estilos de tickets MEJORADOS - MÁS ANCHOS Y MENOS LARGOS */
+  /* Estilos de tickets MEJORADOS Y MÁS GRANDES */
   .print-ticket {
-    width: 80mm !important;
-    max-width: 80mm !important;
-    min-height: 120mm !important;
-    font-family: "Courier New", monospace !important;
-    font-size: 11px !important;
-    line-height: 1.3 !important;
-    text-align: center !important;
-    padding: 8mm !important;
-    border: none !important;
-    margin: 0 auto !important;
-    background: white !important;
-    color: black !important;
-    page-break-after: always !important;
-    page-break-inside: avoid !important;
-    box-shadow: none !important;
-  }
-
-  .print-ticket:last-child {
-    page-break-after: auto !important;
+    width: 85mm;
+    font-family: "Courier New", monospace;
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: center;
+    padding: 12px;
+    border: 3px dashed #000;
+    margin: 0 auto 15px auto;
+    background: white;
+    page-break-inside: avoid;
   }
 
   .ticket-header {
-    border-bottom: 2px solid black !important;
-    padding-bottom: 6px !important;
-    margin-bottom: 8px !important;
-    text-align: center !important;
+    border-bottom: 2px dashed #000;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
   }
 
   .ticket-logo {
-    margin-bottom: 4px !important;
+    margin-bottom: 8px;
   }
 
   .ticket-logo-img {
-    width: 40px !important;
-    height: 40px !important;
-    margin: 0 auto !important;
-    display: block !important;
-    filter: contrast(1.2) !important;
+    width: 60px;
+    height: 60px;
+    margin: 0 auto;
+    display: block;
+    filter: contrast(1.2);
   }
 
   .ticket-title {
-    font-size: 16px !important;
-    font-weight: bold !important;
-    margin-bottom: 2px !important;
-    letter-spacing: 1px !important;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 4px;
+    letter-spacing: 2px;
   }
 
   .ticket-subtitle {
-    font-size: 12px !important;
-    font-weight: bold !important;
-    margin-bottom: 2px !important;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 6px;
   }
 
   .ticket-number {
-    font-size: 14px !important;
-    font-weight: bold !important;
-    letter-spacing: 1px !important;
-    background: black !important;
-    color: white !important;
-    padding: 2px 8px !important;
-    display: inline-block !important;
-    margin: 2px 0 !important;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
   }
 
   .ticket-promo {
-    font-size: 10px !important;
-    font-weight: bold !important;
-    background: #f0f0f0 !important;
-    color: black !important;
-    padding: 2px 6px !important;
-    margin: 2px 0 !important;
-    border: 1px solid black !important;
+    font-size: 14px;
+    font-weight: bold;
+    background: #000;
+    color: white;
+    padding: 4px 8px;
+    margin: 6px 0;
+    border-radius: 4px;
   }
 
   .ticket-content {
-    text-align: left !important;
-    margin-bottom: 8px !important;
-    font-size: 11px !important;
-    padding: 6px 0 !important;
-    border-bottom: 1px solid black !important;
+    text-align: left;
+    margin-bottom: 12px;
+    font-size: 16px;
   }
 
   .ticket-row {
-    margin-bottom: 3px !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    padding: 2px 0 !important;
-    font-weight: bold !important;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
   }
 
   .ticket-label {
-    font-weight: bold !important;
-    font-size: 11px !important;
-    flex: 1 !important;
+    font-weight: bold;
+    font-size: 16px;
   }
 
   .ticket-value {
-    text-align: right !important;
-    font-size: 11px !important;
-    font-weight: bold !important;
-    flex: 1 !important;
+    text-align: right;
+    font-size: 16px;
   }
 
   .ticket-total-section {
-    border-top: 2px solid black !important;
-    border-bottom: 2px solid black !important;
-    padding: 4px 0 !important;
-    margin: 6px 0 !important;
-    text-align: center !important;
+    border-top: 2px dashed #000;
+    padding-top: 8px;
+    margin-top: 8px;
+    text-align: center;
   }
 
   .ticket-total {
-    font-size: 14px !important;
-    font-weight: bold !important;
-    letter-spacing: 1px !important;
-    padding: 2px 0 !important;
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 1px;
   }
 
   .ticket-footer {
-    border-top: 2px solid black !important;
-    padding-top: 8px !important;
-    margin-top: 8px !important;
-    font-size: 9px !important;
-    text-align: center !important;
+    border-top: 2px dashed #000;
+    padding-top: 12px;
+    margin-top: 12px;
+    font-size: 14px;
+    text-align: center;
   }
 
   .ticket-info {
-    margin-bottom: 2px !important;
-    font-size: 9px !important;
-    font-weight: bold !important;
+    margin-bottom: 3px;
+    font-size: 14px;
   }
 
   .ticket-promo-note {
-    font-weight: bold !important;
-    margin: 4px 0 !important;
-    font-size: 10px !important;
-    color: black !important;
-    padding: 2px !important;
-    border: 1px solid black !important;
-    background: #f0f0f0 !important;
+    font-weight: bold;
+    margin: 8px 0 6px 0;
+    font-size: 13px;
+    color: #006600;
   }
 
   .ticket-thanks {
-    font-weight: bold !important;
-    margin: 4px 0 !important;
-    font-size: 12px !important;
-    letter-spacing: 1px !important;
-    text-transform: uppercase !important;
+    font-weight: bold;
+    margin: 8px 0 6px 0;
+    font-size: 16px;
+    letter-spacing: 1px;
   }
 
   .ticket-brand {
-    font-weight: bold !important;
-    margin-bottom: 2px !important;
-    font-size: 11px !important;
-    letter-spacing: 1px !important;
-    text-transform: uppercase !important;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 18px;
+    letter-spacing: 2px;
   }
 
   .ticket-note {
-    font-size: 8px !important;
-    margin-top: 2px !important;
-    font-style: italic !important;
+    font-size: 12px;
+    color: #666;
+    margin-top: 6px;
   }
 }
 
