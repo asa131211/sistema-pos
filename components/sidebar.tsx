@@ -1,72 +1,59 @@
 "use client"
 
-import { Home, ShoppingCart, Package, BarChart3, Users, Settings, LogOut } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { signOut } from "firebase/auth"
-import { auth } from "@/lib/firebase"
-import { toast } from "sonner"
+import { Home, ShoppingCart, Package, Users, BarChart3, Settings } from "lucide-react"
 
 interface SidebarProps {
   currentPage: string
-  onPageChange: (page: string) => void
-  userRole?: string
+  setCurrentPage: (page: string) => void
+  userRole: "admin" | "vendedor" | null
+  isCollapsed: boolean
+  setIsCollapsed: (collapsed: boolean) => void
 }
 
-export default function Sidebar({ currentPage, onPageChange, userRole }: SidebarProps) {
-  const handleLogout = async () => {
-    try {
-      await signOut(auth)
-      toast.success("Sesión cerrada correctamente")
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error)
-      toast.error("Error al cerrar sesión")
-    }
-  }
-
-  const menuItems = [
-    { id: "home", label: "Inicio", icon: Home, roles: ["administrador", "vendedor"] },
-    { id: "sales", label: "Ventas", icon: ShoppingCart, roles: ["administrador", "vendedor"] },
-    { id: "products", label: "Productos", icon: Package, roles: ["administrador", "vendedor"] },
-    { id: "reports", label: "Reportes", icon: BarChart3, roles: ["administrador", "vendedor"] },
-    { id: "users", label: "Usuarios", icon: Users, roles: ["administrador"] },
-    { id: "settings", label: "Configuración", icon: Settings, roles: ["administrador"] },
+export default function Sidebar({ currentPage, setCurrentPage, userRole, isCollapsed, setIsCollapsed }: SidebarProps) {
+  const adminMenuItems = [
+    { id: "inicio", label: "Dashboard", icon: Home },
+    { id: "ventas", label: "Punto de Venta", icon: ShoppingCart },
+    { id: "productos", label: "Productos", icon: Package },
+    { id: "usuarios", label: "Usuarios", icon: Users },
+    { id: "reportes", label: "Reportes", icon: BarChart3 },
+    { id: "configuracion", label: "Configuración", icon: Settings },
   ]
 
-  const filteredMenuItems = menuItems.filter((item) => item.roles.includes(userRole || ""))
+  const vendedorMenuItems = [
+    { id: "ventas", label: "Punto de Venta", icon: ShoppingCart },
+    { id: "configuracion", label: "Configuración", icon: Settings },
+  ]
+
+  const menuItems = userRole === "admin" ? adminMenuItems : vendedorMenuItems
 
   return (
-    <div className="bg-white w-64 shadow-lg flex flex-col">
-      <div className="p-6 border-b">
-        <h1 className="text-xl font-bold text-gray-800">Sanchez Park</h1>
-        <p className="text-sm text-gray-600">Sistema POS</p>
-      </div>
-
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {filteredMenuItems.map((item) => {
-            const Icon = item.icon
-            return (
-              <li key={item.id}>
-                <Button
-                  variant={currentPage === item.id ? "default" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => onPageChange(item.id)}
-                >
-                  <Icon className="mr-3 h-4 w-4" />
-                  {item.label}
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
+    <div className="sticky top-16 h-[calc(100vh-64px)] w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      {/* Navegación */}
+      <nav className="flex-1 p-2 space-y-2">
+        {menuItems.map((item) => {
+          const Icon = item.icon
+          const isActive = currentPage === item.id
+          return (
+            <Button
+              key={item.id}
+              variant="ghost"
+              className={cn(
+                "w-12 h-12 p-0 rounded-xl transition-all duration-200",
+                isActive
+                  ? "bg-purple-600 text-white shadow-lg hover:bg-purple-700"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800",
+              )}
+              onClick={() => setCurrentPage(item.id)}
+              title={item.label}
+            >
+              <Icon className="h-5 w-5" />
+            </Button>
+          )
+        })}
       </nav>
-
-      <div className="p-4 border-t">
-        <Button variant="outline" className="w-full justify-start bg-transparent" onClick={handleLogout}>
-          <LogOut className="mr-3 h-4 w-4" />
-          Cerrar Sesión
-        </Button>
-      </div>
     </div>
   )
 }
