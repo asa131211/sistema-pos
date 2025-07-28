@@ -1,561 +1,1116 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { collection, addDoc, getDocs } from "firebase/firestore"
+import { useState, useEffect, useMemo, useCallback, memo } from "react"
+import { collection, query, onSnapshot, addDoc, doc, updateDoc, getDoc, limit, orderBy } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Plus, Minus, ShoppingCart, Trash2, CreditCard, Banknote, Smartphone, Receipt } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Gift,
+  Package,
+  Tag,
+  Calculator,
+  Unlock,
+  Lock,
+  Loader2,
+} from "lucide-react"
 import { toast } from "sonner"
 
-export default function SalesPage() {
-  const [user] = useAuthState(auth)
-  const [products, setProducts] = useState([])
-  const [cart, setCart] = useState([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [loading, setLoading] = useState(false)
+interface Product {
+  id: string
+  name: string
+  price: number
+  image: string
+  category?: string
+}
+
+interface CartItem extends Product {
+  quantity: number
+}
+
+interface SalesPageProps {
+  sidebarCollapsed?: boolean
+  cashRegisterStatus?: { isOpen: boolean; data: any }
+  onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
+}
+
+// Debounce hook para optimizar búsquedas
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
 
   useEffect(() => {
-    fetchProducts()
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// Componente optimizado para productos individuales
+const ProductCard = memo(
+  ({
+    product,
+    onAddToCart,
+    shortcut,
+  }: {
+    product: Product
+    onAddToCart: (product: Product) => void
+    shortcut?: any
+  }) => {
+    const handleClick = useCallback(() => {
+      onAddToCart(product)
+    }, [product, onAddToCart])
+
+    return (
+      <Card
+        className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
+        onClick={handleClick}
+        data-product-shortcut={shortcut?.key}
+      >
+        <CardContent className="p-0">
+          <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <img
+              src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.src = "/placeholder.svg?height=300&width=300&text=Error"
+              }}
+            />
+            {shortcut && (
+              <Badge className="absolute top-3 left-3 bg-blue-600 text-white">{shortcut.key.toUpperCase()}</Badge>
+            )}
+          </div>
+
+          <div className="p-3 md:p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
+              {product.name}
+            </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Tag className="h-4 w-4 text-gray-400" />
+                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  {product.category || "juegos"}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-sm md:text-lg font-bold text-green-600">S/. {product.price.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  },
+)
+
+ProductCard.displayName = "ProductCard"
+
+// Componente optimizado para items del carrito
+const CartItem = memo(
+  ({
+    item,
+    onUpdateQuantity,
+    onRemove,
+  }: {
+    item: CartItem
+    onUpdateQuantity: (id: string, change: number) => void
+    onRemove: (id: string) => void
+  }) => {
+    const handleIncrease = useCallback(() => onUpdateQuantity(item.id, 1), [item.id, onUpdateQuantity])
+    const handleDecrease = useCallback(() => onUpdateQuantity(item.id, -1), [item.id, onUpdateQuantity])
+    const handleRemove = useCallback(() => onRemove(item.id), [item.id, onRemove])
+
+    return (
+      <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+        <img
+          src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
+          alt={item.name}
+          className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
+          loading="lazy"
+        />
+        <div className="flex-1 min-w-0">
+          <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">{item.name}</h4>
+          <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
+        </div>
+        <div className="flex items-center space-x-1 md:space-x-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDecrease}
+            className="h-6 w-6 p-0 rounded-full bg-transparent"
+          >
+            <Minus className="h-3 w-3" />
+          </Button>
+          <span className="text-xs md:text-sm font-medium w-4 md:w-6 text-center text-gray-900 dark:text-white">
+            {item.quantity}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleIncrease}
+            className="h-6 w-6 p-0 rounded-full bg-transparent"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleRemove}
+            className="h-6 w-6 p-0 ml-1 md:ml-2 rounded-full"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  },
+)
+
+CartItem.displayName = "CartItem"
+
+export default function SalesPage({
+  sidebarCollapsed = false,
+  cashRegisterStatus,
+  onCashRegisterChange,
+}: SalesPageProps) {
+  const [user] = useAuthState(auth)
+  const [products, setProducts] = useState<Product[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [paymentMethod, setPaymentMethod] = useState("efectivo")
+  const [showCheckout, setShowCheckout] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [shortcuts, setShortcuts] = useState<any[]>([])
+  const [isOnline, setIsOnline] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+
+  // Debounced search term para optimizar búsquedas
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+  // Detectar estado de conexión
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    setIsOnline(navigator.onLine)
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
   }, [])
 
-  const fetchProducts = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "products"))
-      const productsData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      setProducts(productsData)
-    } catch (error) {
-      console.error("Error fetching products:", error)
-      toast.error("Error al cargar productos")
+  // Optimized Firebase listener con límite
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined
+
+    const setupListener = async () => {
+      try {
+        setLoading(true)
+
+        // Usar query con límite para mejor rendimiento
+        const productsQuery = query(
+          collection(db, "products"),
+          orderBy("name"),
+          limit(50), // Limitar productos iniciales
+        )
+
+        unsubscribe = onSnapshot(
+          productsQuery,
+          (snapshot) => {
+            const productsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Product[]
+
+            setProducts(productsData)
+            setLoading(false)
+          },
+          (error) => {
+            console.error("Error loading products:", error)
+            toast.error("Error al cargar productos")
+            setLoading(false)
+          },
+        )
+      } catch (error) {
+        console.error("Error setting up listener:", error)
+        setLoading(false)
+      }
     }
-  }
 
-  const filteredProducts = products.filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    setupListener()
 
-  const addToCart = (product) => {
-    const existingItem = cart.find((item) => item.id === product.id)
-    if (existingItem) {
-      setCart(cart.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)))
-    } else {
-      setCart([...cart, { ...product, quantity: 1, paymentMethod: "efectivo" }])
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
     }
-    toast.success(`${product.name} agregado al carrito`)
-  }
+  }, [])
 
-  const updateQuantity = (id, newQuantity) => {
-    if (newQuantity <= 0) {
-      removeFromCart(id)
-      return
+  // Cargar shortcuts de forma optimizada
+  useEffect(() => {
+    const loadShortcuts = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists()) {
+            setShortcuts(userDoc.data().shortcuts || [])
+          }
+        } catch (error) {
+          console.error("Error loading shortcuts:", error)
+        }
+      }
     }
-    setCart(cart.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)))
-  }
+    loadShortcuts()
+  }, [user])
 
-  const updatePaymentMethod = (id, paymentMethod) => {
-    setCart(cart.map((item) => (item.id === id ? { ...item, paymentMethod } : item)))
-  }
+  // Memoized filtered products para evitar recálculos innecesarios
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+      return matchesSearch && matchesCategory
+    })
+  }, [products, debouncedSearchTerm, selectedCategory])
 
-  const removeFromCart = (id) => {
-    setCart(cart.filter((item) => item.id !== id))
-  }
+  // Memoized categories para evitar recálculos
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(products.map((p) => p.category).filter(Boolean))]
+    return uniqueCategories
+  }, [products])
 
-  const clearCart = () => {
+  // Calcular promoción optimizado
+  const promotion = useMemo(() => {
+    const totalItems = cart.reduce((total, item) => total + item.quantity, 0)
+    const freeItems = Math.floor(totalItems / 10)
+    const totalTickets = totalItems + freeItems
+
+    return {
+      totalItems,
+      freeItems,
+      totalTickets,
+      hasPromotion: freeItems > 0,
+    }
+  }, [cart])
+
+  // Optimized add to cart function
+  const addToCart = useCallback(
+    (product: Product) => {
+      if (!cashRegisterStatus?.isOpen) {
+        toast.error("Debes abrir la caja antes de realizar ventas")
+        return
+      }
+
+      setCart((prev) => {
+        const existingItem = prev.find((item) => item.id === product.id)
+        if (existingItem) {
+          return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+        }
+        return [...prev, { ...product, quantity: 1 }]
+      })
+    },
+    [cashRegisterStatus?.isOpen],
+  )
+
+  // Optimized quantity update
+  const updateQuantity = useCallback((id: string, change: number) => {
+    setCart((prev) => {
+      return prev
+        .map((item) => {
+          if (item.id === id) {
+            const newQuantity = item.quantity + change
+            return newQuantity > 0 ? { ...item, quantity: newQuantity } : item
+          }
+          return item
+        })
+        .filter((item) => item.quantity > 0)
+    })
+  }, [])
+
+  const removeFromCart = useCallback((id: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const clearCart = useCallback(() => {
     setCart([])
-  }
+  }, [])
 
-  const calculateTotal = () => {
+  // Memoized total calculation
+  const totalAmount = useMemo(() => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
+  }, [cart])
 
-  const calculatePaymentMethods = () => {
-    const methods = { efectivo: 0, tarjeta: 0, yape: 0 }
+  const saveOfflineSale = useCallback((saleData: any) => {
+    try {
+      const offlineData = {
+        sales: [saleData],
+        timestamp: Date.now(),
+      }
+      localStorage.setItem("offline_sales", JSON.stringify(offlineData))
+      toast.success("💾 Venta guardada offline - Se sincronizará cuando vuelva la conexión")
+      return true
+    } catch (error) {
+      console.error("Error saving offline sale:", error)
+      toast.error("Error al guardar venta offline")
+      return false
+    }
+  }, [])
+
+  const generateAndPrintTickets = useCallback(() => {
+    const allTickets = []
+    let ticketCounter = 1
+
+    // Crear tickets pagados
     cart.forEach((item) => {
-      methods[item.paymentMethod] += item.price * item.quantity
-    })
-    return methods
-  }
-
-  const applyPromotion = (items) => {
-    // Promoción 10+1: Por cada 10 productos, 1 gratis
-    const promotedItems = []
-
-    items.forEach((item) => {
-      const freeItems = Math.floor(item.quantity / 10)
-      promotedItems.push({
-        ...item,
-        originalQuantity: item.quantity,
-        freeQuantity: freeItems,
-        finalQuantity: item.quantity + freeItems,
-      })
-    })
-
-    return promotedItems
-  }
-
-  // Función de impresión optimizada sin páginas en blanco
-  const printTicket = (items, total, paymentMethods) => {
-    const ticketNumber = Date.now().toString().slice(-6)
-    const currentDate = new Date().toLocaleString("es-PE")
-
-    // Crear contenido del ticket de forma más compacta
-    let ticketContent = `
-🎠 SANCHEZ PARK 🎠
-¡A un paso de la diversión!
-================================
-Fecha: ${currentDate}
-Ticket: #${ticketNumber}
-Vendedor: ${user?.displayName || user?.email || "Usuario"}
-================================
-
-PRODUCTOS:
-`
-
-    // Agregar productos de forma compacta
-    items.forEach((item) => {
-      const subtotal = item.price * item.originalQuantity
-      ticketContent += `
-${item.name}
-${item.originalQuantity} x S/. ${item.price.toFixed(2)} = S/. ${subtotal.toFixed(2)}`
-
-      if (item.freeQuantity > 0) {
-        ticketContent += `
-¡${item.freeQuantity} GRATIS! 🎁`
-      }
-
-      ticketContent += `
-Pago: ${item.paymentMethod.toUpperCase()}
---------------------------------`
-    })
-
-    // Agregar métodos de pago
-    ticketContent += `
-
-MÉTODOS DE PAGO:`
-    Object.entries(paymentMethods).forEach(([method, amount]) => {
-      if (amount > 0) {
-        ticketContent += `
-${method.toUpperCase()}: S/. ${amount.toFixed(2)}`
+      for (let i = 0; i < item.quantity; i++) {
+        allTickets.push({
+          ticketNumber: String(ticketCounter).padStart(3, "0"),
+          productName: item.name,
+          productPrice: item.price,
+          saleDate: new Date().toLocaleString("es-ES"),
+          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+          seller: user?.displayName || user?.email || "Vendedor",
+          isFree: false,
+          type: "PAGADO",
+        })
+        ticketCounter++
       }
     })
 
-    ticketContent += `
-================================
-TOTAL: S/. ${total.toFixed(2)}
-================================
-No se aceptan devoluciones
-¡Gracias por su compra!
-Promoción: 10 productos = 1 GRATIS
-www.sanchezpark.com
+    // Agregar tickets gratis
+    if (promotion.hasPromotion) {
+      const productsInCart = cart.filter((item) => item.quantity > 0)
+      const freeTicketsToDistribute = promotion.freeItems
 
-================================`
+      for (let i = 0; i < freeTicketsToDistribute; i++) {
+        const productIndex = i % productsInCart.length
+        const selectedProduct = productsInCart[productIndex]
 
-    // Crear ventana de impresión optimizada
-    const printWindow = window.open("", "_blank", "width=300,height=600")
-    if (!printWindow) {
-      toast.error("No se pudo abrir la ventana de impresión")
-      return
+        allTickets.push({
+          ticketNumber: String(ticketCounter).padStart(3, "0"),
+          productName: selectedProduct.name,
+          productPrice: 0,
+          saleDate: new Date().toLocaleString("es-ES"),
+          paymentMethod: "PROMOCIÓN 10+1",
+          seller: user?.displayName || user?.email || "Vendedor",
+          isFree: true,
+          type: "GRATIS",
+        })
+        ticketCounter++
+      }
     }
 
-    const ticketHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Ticket #${ticketNumber}</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    // Limpiar cualquier contenedor de impresión existente
+    const existingContainer = document.getElementById("print-container")
+    if (existingContainer) {
+      existingContainer.remove()
     }
-    
-    body {
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      line-height: 1.2;
-      color: #000;
-      background: #fff;
-      width: 58mm;
-      max-width: 58mm;
-      margin: 0;
-      padding: 2mm;
-    }
-    
-    .ticket {
-      width: 100%;
-      max-width: 54mm;
-    }
-    
-    .center {
-      text-align: center;
-    }
-    
-    .bold {
-      font-weight: bold;
-    }
-    
-    .line {
-      border-top: 1px solid #000;
-      margin: 2px 0;
-    }
-    
-    .double-line {
-      border-top: 2px solid #000;
-      margin: 3px 0;
-    }
-    
-    .small {
-      font-size: 9px;
-    }
-    
-    .promotion {
-      color: #000;
-      font-weight: bold;
-    }
-    
-    @media print {
-      body {
-        margin: 0 !important;
-        padding: 1mm !important;
-        width: 58mm !important;
-        max-width: 58mm !important;
+
+    // Crear nuevo contenedor
+    const printContainer = document.createElement("div")
+    printContainer.id = "print-container"
+    printContainer.style.display = "none"
+
+    // CSS sin marcos y con letras más grandes
+    const printStyles = `
+    <style>
+      @media screen {
+        #print-container {
+          display: none !important;
+        }
       }
       
-      .ticket {
-        page-break-inside: avoid;
-        width: 100% !important;
-        max-width: 54mm !important;
+      @media print {
+        * {
+          margin: 0 !important;
+          padding: 0 !important;
+          box-sizing: border-box !important;
+        }
+        
+        html, body {
+          width: 100mm !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          font-family: 'Courier New', monospace !important;
+          font-size: 16px !important;
+          line-height: 1.4 !important;
+          color: #000 !important;
+          background: white !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        @page {
+          size: 100mm auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        body > *:not(#print-container) {
+          display: none !important;
+        }
+        
+        #print-container {
+          display: block !important;
+          visibility: visible !important;
+          width: 100mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        .ticket {
+          width: 100mm !important;
+          margin: 0 !important;
+          padding: 10mm !important;
+          background: white !important;
+          page-break-after: always !important;
+          page-break-inside: avoid !important;
+          min-height: auto !important;
+          display: block !important;
+        }
+        
+        .ticket:last-child {
+          page-break-after: auto !important;
+        }
+        
+        /* Header sin marcos */
+        .header {
+          text-align: center !important;
+          padding-bottom: 5mm !important;
+          margin-bottom: 5mm !important;
+        }
+        
+        .logo {
+          font-size: 32px !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
+        }
+        
+        .title {
+          font-size: 24px !important;
+          font-weight: bold !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
+        }
+        
+        .subtitle {
+          font-size: 18px !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
+        }
+        
+        .number {
+          font-size: 20px !important;
+          font-weight: bold !important;
+          margin-bottom: 3mm !important;
+          line-height: 1 !important;
+        }
+        
+        .promo-badge {
+          background: #000 !important;
+          color: white !important;
+          padding: 2mm 4mm !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          display: inline-block !important;
+          margin-top: 3mm !important;
+        }
+        
+        /* Contenido sin marcos */
+        .content {
+          margin: 5mm 0 !important;
+        }
+        
+        .row {
+          display: flex !important;
+          justify-content: space-between !important;
+          margin-bottom: 3mm !important;
+          font-size: 16px !important;
+          line-height: 1.4 !important;
+        }
+        
+        .label {
+          font-weight: bold !important;
+          flex: 1 !important;
+        }
+        
+        .value {
+          text-align: right !important;
+          flex: 1 !important;
+        }
+        
+        .total-section {
+          padding-top: 5mm !important;
+          margin-top: 5mm !important;
+        }
+        
+        .total {
+          text-align: center !important;
+          font-size: 18px !important;
+          font-weight: bold !important;
+          padding: 5mm !important;
+          background: #f0f0f0 !important;
+          line-height: 1.4 !important;
+        }
+        
+        /* Footer sin marcos */
+        .footer {
+          padding-top: 5mm !important;
+          margin-top: 5mm !important;
+          text-align: center !important;
+        }
+        
+        .info {
+          font-size: 14px !important;
+          margin-bottom: 2mm !important;
+          line-height: 1.3 !important;
+        }
+        
+        .thanks {
+          font-size: 18px !important;
+          font-weight: bold !important;
+          margin: 5mm 0 3mm 0 !important;
+          line-height: 1.3 !important;
+        }
+        
+        .brand {
+          font-size: 16px !important;
+          font-weight: bold !important;
+          margin-bottom: 2mm !important;
+          line-height: 1.3 !important;
+        }
+        
+        .note {
+          font-size: 12px !important;
+          font-style: italic !important;
+          line-height: 1.3 !important;
+          margin-top: 3mm !important;
+        }
+        
+        .promo-note {
+          font-size: 14px !important;
+          font-weight: bold !important;
+          margin: 3mm 0 !important;
+          background: #f0f0f0 !important;
+          padding: 2mm !important;
+          line-height: 1.3 !important;
+        }
       }
+    </style>
+  `
+
+    // Generar HTML de tickets sin marcos
+    const ticketsHTML = allTickets
+      .map(
+        (ticket, index) => `
+    <div class="ticket">
+      <div class="header">
+        <div class="logo">🐅</div>
+        <div class="title">SANCHEZ PARK</div>
+        <div class="subtitle">${ticket.type}</div>
+        <div class="number">#${ticket.ticketNumber}</div>
+        ${ticket.isFree ? '<div class="promo-badge">🎁 PROMOCIÓN 10+1</div>' : ""}
+      </div>
       
-      @page {
-        size: 58mm auto;
-        margin: 0;
-        padding: 0;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="ticket">
-    <div class="center bold">🎠 SANCHEZ PARK 🎠</div>
-    <div class="center small">Sistema de Ventas</div>
-    <div class="double-line"></div>
-    
-    <div class="small">
-      <div>Fecha: ${currentDate}</div>
-      <div>Ticket: #${ticketNumber}</div>
-      <div>Vendedor: ${user?.displayName || user?.email || "Usuario"}</div>
-    </div>
-    <div class="double-line"></div>
-    
-    <div class="bold">PRODUCTOS:</div>
-    <div class="line"></div>
-    
-    ${items
-      .map((item) => {
-        const subtotal = item.price * item.originalQuantity
-        return `
-        <div>
-          <div class="bold">${item.name}</div>
-          <div>${item.originalQuantity} x S/. ${item.price.toFixed(2)} = S/. ${subtotal.toFixed(2)}</div>
-          ${item.freeQuantity > 0 ? `<div class="promotion">¡${item.freeQuantity} GRATIS! 🎁</div>` : ""}
-          <div class="small">Pago: ${item.paymentMethod.toUpperCase()}</div>
-          <div class="line"></div>
+      <div class="content">
+        <div class="row">
+          <span class="label">Producto:</span>
+          <span class="value">${ticket.productName.length > 25 ? ticket.productName.substring(0, 25) + "..." : ticket.productName}</span>
         </div>
-      `
-      })
-      .join("")}
-    
-    <div class="bold">MÉTODOS DE PAGO:</div>
-    ${Object.entries(paymentMethods)
-      .map(([method, amount]) => (amount > 0 ? `<div>${method.toUpperCase()}: S/. ${amount.toFixed(2)}</div>` : ""))
-      .join("")}
-    
-    <div class="double-line"></div>
-    <div class="center bold" style="font-size: 13px;">TOTAL: S/. ${total.toFixed(2)}</div>
-    <div class="double-line"></div>
-    
-    <div class="center small">
-      <div>¡Gracias por su compra!</div>
-      <div>Promoción: 10 productos = 1 GRATIS</div>
-      <div>www.sanchezpark.com</div>
+        <div class="row">
+          <span class="label">Cantidad:</span>
+          <span class="value">1 unidad</span>
+        </div>
+        <div class="row">
+          <span class="label">Precio:</span>
+          <span class="value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
+        </div>
+        <div class="total-section">
+          <div class="total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <div class="info">${ticket.saleDate}</div>
+        <div class="info">${ticket.seller.length > 20 ? ticket.seller.substring(0, 20) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.paymentMethod}</div>
+        <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
+        ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
+        <div class="thanks">¡Gracias por su compra!</div>
+        <div class="brand">Sanchez Park</div>
+        <div class="note">Conserve este ticket</div>
+      </div>
     </div>
-  </div>
-</body>
-</html>`
+  `,
+      )
+      .join("")
 
-    printWindow.document.write(ticketHTML)
-    printWindow.document.close()
+    // Agregar contenido al contenedor
+    printContainer.innerHTML = printStyles + ticketsHTML
 
-    // Esperar a que cargue y luego imprimir
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print()
-        printWindow.close()
-      }, 250)
-    }
-  }
+    // Agregar al DOM
+    document.body.appendChild(printContainer)
 
-  const processSale = async () => {
+    console.log(`✅ ${allTickets.length} tickets grandes sin marcos preparados para impresión`)
+    console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
+
+    // Imprimir después de un breve delay
+    setTimeout(() => {
+      console.log("Iniciando impresión de tickets grandes...")
+
+      // Configurar título temporal
+      const originalTitle = document.title
+      document.title = `Tickets-Grandes-${Date.now()}`
+
+      // Función de limpieza
+      const cleanup = () => {
+        document.title = originalTitle
+        const container = document.getElementById("print-container")
+        if (container) {
+          container.remove()
+          console.log("Contenedor de impresión limpiado")
+        }
+      }
+
+      // Event listener para después de imprimir
+      const handleAfterPrint = () => {
+        cleanup()
+        window.removeEventListener("afterprint", handleAfterPrint)
+      }
+
+      window.addEventListener("afterprint", handleAfterPrint)
+
+      // Iniciar impresión
+      try {
+        window.print()
+      } catch (error) {
+        console.error("Error al imprimir:", error)
+        cleanup()
+      }
+
+      // Limpieza de respaldo después de 10 segundos
+      setTimeout(cleanup, 10000)
+    }, 300)
+  }, [cart, promotion, paymentMethod, user])
+
+  const processSale = useCallback(async () => {
     if (cart.length === 0) {
       toast.error("El carrito está vacío")
       return
     }
 
-    setLoading(true)
+    if (!cashRegisterStatus?.isOpen) {
+      toast.error("Debes abrir la caja antes de procesar ventas")
+      return
+    }
+
+    setProcessing(true)
     try {
-      const promotedItems = applyPromotion(cart)
-      const paymentMethods = calculatePaymentMethods()
-
       const saleData = {
-        items: promotedItems,
-        total: calculateTotal(),
-        paymentMethods,
+        items: cart,
+        total: totalAmount,
+        paymentMethod,
+        sellerId: user?.uid,
+        sellerEmail: user?.email,
         timestamp: new Date(),
-        userName: user?.displayName || "Usuario",
-        userId: user?.uid,
-        promotion: "10+1 aplicada",
+        date: new Date().toISOString().split("T")[0],
+        promotion: {
+          totalItems: promotion.totalItems,
+          freeItems: promotion.freeItems,
+          totalTickets: promotion.totalTickets,
+          hasPromotion: promotion.hasPromotion,
+        },
       }
 
-      await addDoc(collection(db, "sales"), saleData)
+      if (isOnline) {
+        // Usar batch para operaciones atómicas
+        const batch = db.batch ? db.batch() : null
 
-      // Imprimir ticket optimizado
-      printTicket(promotedItems, calculateTotal(), paymentMethods)
+        // Modo online
+        await addDoc(collection(db, "sales"), saleData)
 
-      // Mostrar resumen de promoción
-      const totalFreeItems = promotedItems.reduce((sum, item) => sum + item.freeQuantity, 0)
-      if (totalFreeItems > 0) {
-        toast.success(`¡Venta completada! ${totalFreeItems} productos gratis por promoción 10+1`)
+        // Actualizar caja registradora
+        const today = new Date().toISOString().split("T")[0]
+        const cashRegId = `${user?.uid}-${today}`
+        const cashRegRef = doc(db, "cash-registers", cashRegId)
+        const cashRegDoc = await getDoc(cashRegRef)
+
+        if (cashRegDoc.exists()) {
+          const currentData = cashRegDoc.data()
+          const saleAmount = totalAmount
+
+          const updatedData = {
+            totalSales: currentData.totalSales + saleAmount,
+            cashSales: paymentMethod === "efectivo" ? currentData.cashSales + saleAmount : currentData.cashSales,
+            transferSales:
+              paymentMethod === "transferencia" ? currentData.transferSales + saleAmount : currentData.transferSales,
+            currentAmount:
+              paymentMethod === "efectivo" ? currentData.currentAmount + saleAmount : currentData.currentAmount,
+          }
+
+          await updateDoc(cashRegRef, updatedData)
+
+          // Actualizar estado local inmediatamente
+          if (onCashRegisterChange) {
+            onCashRegisterChange({
+              isOpen: true,
+              data: { ...currentData, ...updatedData },
+            })
+          }
+        }
       } else {
-        toast.success("¡Venta completada exitosamente!")
+        // Modo offline
+        saveOfflineSale(saleData)
       }
 
-      clearCart()
+      // Generar e imprimir tickets
+      generateAndPrintTickets()
+
+      setCart([])
+      setShowCheckout(false)
+
+      if (promotion.hasPromotion) {
+        toast.success(`🎉 Venta procesada! ${promotion.freeItems} tickets gratis por promoción 10+1`, {
+          duration: 4000,
+        })
+      } else {
+        toast.success("Venta procesada exitosamente", {
+          duration: 2000,
+        })
+      }
     } catch (error) {
       console.error("Error processing sale:", error)
       toast.error("Error al procesar la venta")
     } finally {
-      setLoading(false)
+      setProcessing(false)
     }
-  }
+  }, [
+    cart,
+    totalAmount,
+    paymentMethod,
+    user,
+    promotion,
+    isOnline,
+    cashRegisterStatus,
+    onCashRegisterChange,
+    generateAndPrintTickets,
+    saveOfflineSale,
+  ])
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("es-PE", {
-      style: "currency",
-      currency: "PEN",
-    }).format(amount)
-  }
-
-  const getPaymentIcon = (method) => {
-    switch (method) {
-      case "efectivo":
-        return <Banknote className="h-4 w-4" />
-      case "tarjeta":
-        return <CreditCard className="h-4 w-4" />
-      case "yape":
-        return <Smartphone className="h-4 w-4" />
-      default:
-        return <CreditCard className="h-4 w-4" />
-    }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
+          <p className="text-gray-600 dark:text-gray-400">Cargando productos...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-      {/* Panel de productos */}
-      <div className="lg:col-span-2 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Productos</h1>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Buscar productos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
+      <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+        {/* Estado de caja - Compacto */}
+        <Card className="border-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <div className="p-3 md:p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <Calculator className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
+                  Caja Registradora
+                </span>
+              </div>
+              <Badge variant={cashRegisterStatus?.isOpen ? "default" : "secondary"} className="text-xs">
+                {cashRegisterStatus?.isOpen ? (
+                  <>
+                    <Unlock className="mr-1 h-3 w-3" />
+                    Abierta
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-1 h-3 w-3" />
+                    Cerrada
+                  </>
+                )}
+              </Badge>
+            </div>
+          </div>
+        </Card>
+
+        {/* Barra de búsqueda y filtros */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="Buscar productos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-64 h-10 md:h-12 border-gray-200 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 rounded-xl bg-white dark:bg-gray-700">
+                <SelectValue placeholder="Todas las categorías" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
-                    {product.image ? (
-                      <img
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    ) : (
-                      <div className="text-gray-400 text-4xl">📦</div>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-sm mb-2">{product.name}</h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-green-600">{formatCurrency(product.price)}</span>
-                    <Button size="sm" onClick={() => addToCart(product)} className="h-8">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          {/* Área de productos */}
+          <div className="flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              {filteredProducts.map((product) => {
+                const shortcut = shortcuts.find((s) => s.productId === product.id)
+                return <ProductCard key={product.id} product={product} onAddToCart={addToCart} shortcut={shortcut} />
+              })}
+            </div>
           </div>
-        </ScrollArea>
-      </div>
 
-      {/* Panel del carrito */}
-      <div className="space-y-4">
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Carrito ({cart.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {cart.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">Carrito vacío</p>
-            ) : (
-              <>
-                <ScrollArea className="h-64">
-                  <div className="space-y-3">
-                    {cart.map((item) => (
-                      <div key={item.id} className="border rounded-lg p-3 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-sm">{item.name}</h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFromCart(item.id)}
-                            className="h-6 w-6 p-0 text-red-500"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-8 text-center text-sm">{item.quantity}</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <span className="font-semibold text-sm">{formatCurrency(item.price * item.quantity)}</span>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-xs">Método de pago:</Label>
-                          <RadioGroup
-                            value={item.paymentMethod}
-                            onValueChange={(value) => updatePaymentMethod(item.id, value)}
-                            className="flex space-x-4"
-                          >
-                            <div className="flex items-center space-x-1">
-                              <RadioGroupItem value="efectivo" id={`efectivo-${item.id}`} className="h-3 w-3" />
-                              <Label htmlFor={`efectivo-${item.id}`} className="text-xs flex items-center">
-                                <Banknote className="h-3 w-3 mr-1" />
-                                Efectivo
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <RadioGroupItem value="tarjeta" id={`tarjeta-${item.id}`} className="h-3 w-3" />
-                              <Label htmlFor={`tarjeta-${item.id}`} className="text-xs flex items-center">
-                                <CreditCard className="h-3 w-3 mr-1" />
-                                Tarjeta
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <RadioGroupItem value="yape" id={`yape-${item.id}`} className="h-3 w-3" />
-                              <Label htmlFor={`yape-${item.id}`} className="text-xs flex items-center">
-                                <Smartphone className="h-3 w-3 mr-1" />
-                                Yape
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
-                      </div>
-                    ))}
+          {/* Carrito de compras - Sticky */}
+          <div className="w-full lg:w-80">
+            <div className="sticky top-20">
+              <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ShoppingCart className="h-5 w-5 text-purple-600" />
+                      <h2 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">
+                        Carrito de Compras
+                      </h2>
+                    </div>
+                    <Badge variant="secondary" className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                      {cart.reduce((total, item) => total + item.quantity, 0)}
+                    </Badge>
                   </div>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Agrega productos y procesa ventas rápidamente
+                  </p>
+                </div>
+
+                {/* Promoción en el carrito */}
+                {promotion.hasPromotion && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
+                      <Gift className="h-4 w-4" />
+                      <span className="font-bold text-sm">¡Promoción 10+1!</span>
+                    </div>
+                    <div className="text-xs text-green-600 dark:text-green-400 text-center space-y-1">
+                      <p>
+                        Tickets gratis: <span className="font-bold">{promotion.freeItems}</span>
+                      </p>
+                      <p className="font-bold">Total tickets: {promotion.totalTickets}</p>
+                    </div>
+                  </div>
+                )}
+
+                <ScrollArea className="h-48 md:h-64 p-4">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                      <p>Carrito vacío</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {cart.map((item) => (
+                        <CartItem
+                          key={item.id}
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeFromCart}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </ScrollArea>
 
-                <Separator />
-
-                {/* Resumen de métodos de pago */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Resumen de pagos:</h4>
-                  {Object.entries(calculatePaymentMethods()).map(
-                    ([method, amount]) =>
-                      amount > 0 && (
-                        <div key={method} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center">
-                            {getPaymentIcon(method)}
-                            <span className="ml-2 capitalize">{method}</span>
-                          </div>
-                          <span>{formatCurrency(amount)}</span>
-                        </div>
-                      ),
-                  )}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span>{formatCurrency(calculateTotal())}</span>
-                  </div>
-
-                  <Badge variant="secondary" className="w-full justify-center">
-                    🎁 Promoción 10+1 activa
-                  </Badge>
-
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                  {/* Método de pago */}
                   <div className="space-y-2">
-                    <Button onClick={processSale} disabled={loading} className="w-full">
-                      {loading ? (
-                        "Procesando..."
-                      ) : (
-                        <>
-                          <Receipt className="mr-2 h-4 w-4" />
-                          Procesar Venta
-                        </>
-                      )}
-                    </Button>
+                    <Label className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Método de Pago
+                    </Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger className="w-full bg-white dark:bg-gray-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="efectivo">💵 Efectivo</SelectItem>
+                        <SelectItem value="transferencia">💳 Transferencia</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                    <Button variant="outline" onClick={clearCart} className="w-full bg-transparent">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Limpiar Carrito
+                  {/* Total */}
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
+                      <span className="text-lg md:text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Botones */}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => setShowCheckout(true)}
+                      disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-10 md:h-12 rounded-xl font-medium text-sm md:text-base"
+                      data-shortcut="process-sale"
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Procesar
+                    </Button>
+                    <Button
+                      onClick={clearCart}
+                      variant="outline"
+                      disabled={cart.length === 0}
+                      className="w-full h-8 md:h-10 rounded-xl bg-transparent text-sm"
+                      data-shortcut="clear-cart"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Limpiar
                     </Button>
                   </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal de confirmación */}
+        <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+          <DialogContent className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl">
+            <DialogHeader className="text-center pb-6">
+              <DialogTitle className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                Confirmar Venta
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Lista de productos */}
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                <h4 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                  <Package className="h-4 w-4" />
+                  <span>Productos:</span>
+                </h4>
+                {cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {item.name} x{item.quantity}
+                    </span>
+                    <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Promoción en el modal */}
+              {promotion.hasPromotion && (
+                <div className="bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-3">
+                    <Gift className="h-5 w-5" />
+                    <span className="font-bold text-lg">¡Promoción 10+1!</span>
+                  </div>
+                  <div className="text-sm text-green-600 dark:text-green-400 text-center space-y-1">
+                    <p>
+                      Tickets pagados: <span className="font-bold">{promotion.totalItems}</span>
+                    </p>
+                    <p>
+                      Tickets gratis:{" "}
+                      <span className="font-bold text-green-700 dark:text-green-300">{promotion.freeItems}</span>
+                    </p>
+                    <p className="font-bold text-lg">Total tickets: {promotion.totalTickets}</p>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Total y método de pago */}
+              <div className="space-y-4">
+                <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
+                  <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
+                  <span className="text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Método de Pago:</span>
+                  <span className="capitalize font-bold text-gray-900 dark:text-white">
+                    {paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  onClick={processSale}
+                  disabled={processing}
+                  className="flex-1 h-12 md:h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-sm md:text-lg"
+                >
+                  {processing ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Procesando...</span>
+                    </div>
+                  ) : (
+                    "✅ Confirmar Venta"
+                  )}
+                </Button>
+
+                <Button
+                  onClick={() => setShowCheckout(false)}
+                  variant="outline"
+                  className="flex-1 h-12 md:h-14 border-2 rounded-2xl font-bold"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Contenedor oculto para impresión */}
+        <div id="print-container" className="print-only"></div>
       </div>
     </div>
   )
