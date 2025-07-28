@@ -437,7 +437,7 @@ export default function SalesPage({
     printContainer.id = "print-container"
     printContainer.style.display = "none"
 
-    // CSS sin marcos y con letras más grandes
+    // CSS con letras mucho más grandes y sin marcos
     const printStyles = `
     <style>
       @media screen {
@@ -459,8 +459,8 @@ export default function SalesPage({
           margin: 0 !important;
           padding: 0 !important;
           font-family: 'Courier New', monospace !important;
-          font-size: 16px !important;
-          line-height: 1.4 !important;
+          font-size: 24px !important;
+          line-height: 1.5 !important;
           color: #000 !important;
           background: white !important;
           -webkit-print-color-adjust: exact !important;
@@ -488,7 +488,7 @@ export default function SalesPage({
         .ticket {
           width: 100mm !important;
           margin: 0 !important;
-          padding: 10mm !important;
+          padding: 15mm !important;
           background: white !important;
           page-break-after: always !important;
           page-break-inside: avoid !important;
@@ -500,60 +500,68 @@ export default function SalesPage({
           page-break-after: auto !important;
         }
         
-        /* Header sin marcos */
+        /* Header sin marcos con letras gigantes */
         .header {
           text-align: center !important;
-          padding-bottom: 5mm !important;
-          margin-bottom: 5mm !important;
+          padding-bottom: 8mm !important;
+          margin-bottom: 8mm !important;
         }
         
         .logo {
-          font-size: 32px !important;
-          margin-bottom: 3mm !important;
+          font-size: 48px !important;
+          margin-bottom: 5mm !important;
           line-height: 1 !important;
         }
         
         .title {
-          font-size: 24px !important;
+          font-size: 36px !important;
           font-weight: bold !important;
           margin-bottom: 3mm !important;
           line-height: 1 !important;
         }
         
+        .slogan {
+          font-size: 20px !important;
+          font-style: italic !important;
+          margin-bottom: 5mm !important;
+          line-height: 1.2 !important;
+          color: #333 !important;
+        }
+        
         .subtitle {
-          font-size: 18px !important;
-          margin-bottom: 3mm !important;
+          font-size: 28px !important;
+          margin-bottom: 5mm !important;
           line-height: 1 !important;
         }
         
         .number {
-          font-size: 20px !important;
+          font-size: 32px !important;
           font-weight: bold !important;
-          margin-bottom: 3mm !important;
+          margin-bottom: 5mm !important;
           line-height: 1 !important;
         }
         
         .promo-badge {
           background: #000 !important;
           color: white !important;
-          padding: 2mm 4mm !important;
-          font-size: 14px !important;
+          padding: 3mm 6mm !important;
+          font-size: 18px !important;
           font-weight: bold !important;
           display: inline-block !important;
-          margin-top: 3mm !important;
+          margin-top: 5mm !important;
         }
         
-        /* Contenido sin marcos */
+        /* Contenido sin marcos con letras grandes */
         .content {
-          margin: 5mm 0 !important;
+          margin: 8mm 0 !important;
         }
         
         .row {
           display: flex !important;
           justify-content: space-between !important;
-          margin-bottom: 3mm !important;
-          font-size: 16px !important;
-          line-height: 1.4 !important;
+          margin-bottom: 5mm !important;
+          font-size: 24px !important;
+          line-height: 1.5 !important;
         }
         
         .label {
@@ -567,66 +575,75 @@ export default function SalesPage({
         }
         
         .total-section {
-          padding-top: 5mm !important;
-          margin-top: 5mm !important;
+          padding-top: 8mm !important;
+          margin-top: 8mm !important;
         }
         
         .total {
           text-align: center !important;
-          font-size: 18px !important;
+          font-size: 28px !important;
           font-weight: bold !important;
-          padding: 5mm !important;
+          padding: 8mm !important;
           background: #f0f0f0 !important;
-          line-height: 1.4 !important;
+          line-height: 1.5 !important;
         }
         
-        /* Footer sin marcos */
+        /* Footer sin marcos con letras grandes */
         .footer {
-          padding-top: 5mm !important;
-          margin-top: 5mm !important;
+          padding-top: 8mm !important;
+          margin-top: 8mm !important;
           text-align: center !important;
         }
         
         .info {
-          font-size: 14px !important;
-          margin-bottom: 2mm !important;
-          line-height: 1.3 !important;
+          font-size: 20px !important;
+          margin-bottom: 3mm !important;
+          line-height: 1.4 !important;
         }
         
         .thanks {
-          font-size: 18px !important;
+          font-size: 26px !important;
           font-weight: bold !important;
-          margin: 5mm 0 3mm 0 !important;
-          line-height: 1.3 !important;
+          margin: 8mm 0 5mm 0 !important;
+          line-height: 1.4 !important;
         }
         
         .brand {
-          font-size: 16px !important;
+          font-size: 22px !important;
           font-weight: bold !important;
-          margin-bottom: 2mm !important;
-          line-height: 1.3 !important;
+          margin-bottom: 3mm !important;
+          line-height: 1.4 !important;
         }
         
         .note {
-          font-size: 12px !important;
+          font-size: 18px !important;
           font-style: italic !important;
+          line-height: 1.4 !important;
+          margin-top: 5mm !important;
+        }
+        
+        .no-returns {
+          font-size: 16px !important;
+          font-weight: bold !important;
+          margin-top: 8mm !important;
+          padding-top: 5mm !important;
           line-height: 1.3 !important;
-          margin-top: 3mm !important;
+          color: #666 !important;
         }
         
         .promo-note {
-          font-size: 14px !important;
+          font-size: 20px !important;
           font-weight: bold !important;
-          margin: 3mm 0 !important;
+          margin: 5mm 0 !important;
           background: #f0f0f0 !important;
-          padding: 2mm !important;
-          line-height: 1.3 !important;
+          padding: 3mm !important;
+          line-height: 1.4 !important;
         }
       }
     </style>
   `
 
-    // Generar HTML de tickets sin marcos
+    // Generar HTML de tickets con letras gigantes
     const ticketsHTML = allTickets
       .map(
         (ticket, index) => `
@@ -634,6 +651,7 @@ export default function SalesPage({
       <div class="header">
         <div class="logo">🐅</div>
         <div class="title">SANCHEZ PARK</div>
+        <div class="slogan">¡A un paso de la diversión!</div>
         <div class="subtitle">${ticket.type}</div>
         <div class="number">#${ticket.ticketNumber}</div>
         ${ticket.isFree ? '<div class="promo-badge">🎁 PROMOCIÓN 10+1</div>' : ""}
@@ -642,7 +660,7 @@ export default function SalesPage({
       <div class="content">
         <div class="row">
           <span class="label">Producto:</span>
-          <span class="value">${ticket.productName.length > 25 ? ticket.productName.substring(0, 25) + "..." : ticket.productName}</span>
+          <span class="value">${ticket.productName.length > 20 ? ticket.productName.substring(0, 20) + "..." : ticket.productName}</span>
         </div>
         <div class="row">
           <span class="label">Cantidad:</span>
@@ -659,13 +677,14 @@ export default function SalesPage({
       
       <div class="footer">
         <div class="info">${ticket.saleDate}</div>
-        <div class="info">${ticket.seller.length > 20 ? ticket.seller.substring(0, 20) + "..." : ticket.seller}</div>
+        <div class="info">${ticket.seller.length > 15 ? ticket.seller.substring(0, 15) + "..." : ticket.seller}</div>
         <div class="info">${ticket.paymentMethod}</div>
         <div class="info">Ticket ${index + 1} de ${allTickets.length}</div>
         ${ticket.isFree ? '<div class="promo-note">¡Promoción 10+1!</div>' : ""}
         <div class="thanks">¡Gracias por su compra!</div>
         <div class="brand">Sanchez Park</div>
         <div class="note">Conserve este ticket</div>
+        <div class="no-returns">No se aceptan devoluciones</div>
       </div>
     </div>
   `,
@@ -678,16 +697,16 @@ export default function SalesPage({
     // Agregar al DOM
     document.body.appendChild(printContainer)
 
-    console.log(`✅ ${allTickets.length} tickets grandes sin marcos preparados para impresión`)
+    console.log(`✅ ${allTickets.length} tickets con letras gigantes preparados para impresión`)
     console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
 
     // Imprimir después de un breve delay
     setTimeout(() => {
-      console.log("Iniciando impresión de tickets grandes...")
+      console.log("Iniciando impresión de tickets con letras gigantes...")
 
       // Configurar título temporal
       const originalTitle = document.title
-      document.title = `Tickets-Grandes-${Date.now()}`
+      document.title = `Tickets-Gigantes-${Date.now()}`
 
       // Función de limpieza
       const cleanup = () => {
