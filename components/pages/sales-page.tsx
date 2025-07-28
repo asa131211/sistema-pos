@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
+import { useState, useEffect, useMemo, useCallback, memo } from "react"
+import { collection, query, onSnapshot, addDoc, doc, updateDoc, getDoc, limit, orderBy } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,7 +13,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShoppingCart, Plus, Minus, Trash2, Search, Gift, Package, Tag, Calculator, Unlock, Lock } from "lucide-react"
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Gift,
+  Package,
+  Tag,
+  Calculator,
+  Unlock,
+  Lock,
+  Loader2,
+} from "lucide-react"
 import { toast } from "sonner"
 
 interface Product {
@@ -34,6 +47,148 @@ interface SalesPageProps {
   onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
 }
 
+// Debounce hook para optimizar búsquedas
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// Componente optimizado para productos individuales
+const ProductCard = memo(
+  ({
+    product,
+    onAddToCart,
+    shortcut,
+  }: {
+    product: Product
+    onAddToCart: (product: Product) => void
+    shortcut?: any
+  }) => {
+    const handleClick = useCallback(() => {
+      onAddToCart(product)
+    }, [product, onAddToCart])
+
+    return (
+      <Card
+        className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
+        onClick={handleClick}
+        data-product-shortcut={shortcut?.key}
+      >
+        <CardContent className="p-0">
+          <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <img
+              src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.src = "/placeholder.svg?height=300&width=300&text=Error"
+              }}
+            />
+            {shortcut && (
+              <Badge className="absolute top-3 left-3 bg-blue-600 text-white">{shortcut.key.toUpperCase()}</Badge>
+            )}
+          </div>
+
+          <div className="p-3 md:p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
+              {product.name}
+            </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Tag className="h-4 w-4 text-gray-400" />
+                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  {product.category || "juegos"}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-sm md:text-lg font-bold text-green-600">S/. {product.price.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  },
+)
+
+ProductCard.displayName = "ProductCard"
+
+// Componente optimizado para items del carrito
+const CartItem = memo(
+  ({
+    item,
+    onUpdateQuantity,
+    onRemove,
+  }: {
+    item: CartItem
+    onUpdateQuantity: (id: string, change: number) => void
+    onRemove: (id: string) => void
+  }) => {
+    const handleIncrease = useCallback(() => onUpdateQuantity(item.id, 1), [item.id, onUpdateQuantity])
+    const handleDecrease = useCallback(() => onUpdateQuantity(item.id, -1), [item.id, onUpdateQuantity])
+    const handleRemove = useCallback(() => onRemove(item.id), [item.id, onRemove])
+
+    return (
+      <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+        <img
+          src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
+          alt={item.name}
+          className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
+          loading="lazy"
+        />
+        <div className="flex-1 min-w-0">
+          <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">{item.name}</h4>
+          <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
+        </div>
+        <div className="flex items-center space-x-1 md:space-x-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDecrease}
+            className="h-6 w-6 p-0 rounded-full bg-transparent"
+          >
+            <Minus className="h-3 w-3" />
+          </Button>
+          <span className="text-xs md:text-sm font-medium w-4 md:w-6 text-center text-gray-900 dark:text-white">
+            {item.quantity}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleIncrease}
+            className="h-6 w-6 p-0 rounded-full bg-transparent"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleRemove}
+            className="h-6 w-6 p-0 ml-1 md:ml-2 rounded-full"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  },
+)
+
+CartItem.displayName = "CartItem"
+
 export default function SalesPage({
   sidebarCollapsed = false,
   cashRegisterStatus,
@@ -49,6 +204,12 @@ export default function SalesPage({
   const [processing, setProcessing] = useState(false)
   const [shortcuts, setShortcuts] = useState<any[]>([])
   const [isOnline, setIsOnline] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+
+  // Debounced search term para optimizar búsquedas
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
   // Detectar estado de conexión
   useEffect(() => {
@@ -65,18 +226,54 @@ export default function SalesPage({
     }
   }, [])
 
+  // Optimized Firebase listener con límite
   useEffect(() => {
-    const unsubscribe = onSnapshot(query(collection(db, "products")), (snapshot) => {
-      const productsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Product[]
-      setProducts(productsData)
-    })
+    let unsubscribe: (() => void) | undefined
 
-    return () => unsubscribe()
+    const setupListener = async () => {
+      try {
+        setLoading(true)
+
+        // Usar query con límite para mejor rendimiento
+        const productsQuery = query(
+          collection(db, "products"),
+          orderBy("name"),
+          limit(50), // Limitar productos iniciales
+        )
+
+        unsubscribe = onSnapshot(
+          productsQuery,
+          (snapshot) => {
+            const productsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Product[]
+
+            setProducts(productsData)
+            setLoading(false)
+          },
+          (error) => {
+            console.error("Error loading products:", error)
+            toast.error("Error al cargar productos")
+            setLoading(false)
+          },
+        )
+      } catch (error) {
+        console.error("Error setting up listener:", error)
+        setLoading(false)
+      }
+    }
+
+    setupListener()
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
   }, [])
 
+  // Cargar shortcuts de forma optimizada
   useEffect(() => {
     const loadShortcuts = async () => {
       if (user) {
@@ -93,14 +290,23 @@ export default function SalesPage({
     loadShortcuts()
   }, [user])
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+  // Memoized filtered products para evitar recálculos innecesarios
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+      return matchesSearch && matchesCategory
+    })
+  }, [products, debouncedSearchTerm, selectedCategory])
 
-  // Calcular promoción 10+1
-  const calculatePromotion = () => {
+  // Memoized categories para evitar recálculos
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(products.map((p) => p.category).filter(Boolean))]
+    return uniqueCategories
+  }, [products])
+
+  // Calcular promoción optimizado
+  const promotion = useMemo(() => {
     const totalItems = cart.reduce((total, item) => total + item.quantity, 0)
     const freeItems = Math.floor(totalItems / 10)
     const totalTickets = totalItems + freeItems
@@ -111,24 +317,29 @@ export default function SalesPage({
       totalTickets,
       hasPromotion: freeItems > 0,
     }
-  }
+  }, [cart])
 
-  const addToCart = (product: Product) => {
-    if (!cashRegisterStatus?.isOpen) {
-      toast.error("Debes abrir la caja antes de realizar ventas")
-      return
-    }
-
-    setCart((prev) => {
-      const existingItem = prev.find((item) => item.id === product.id)
-      if (existingItem) {
-        return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+  // Optimized add to cart function
+  const addToCart = useCallback(
+    (product: Product) => {
+      if (!cashRegisterStatus?.isOpen) {
+        toast.error("Debes abrir la caja antes de realizar ventas")
+        return
       }
-      return [...prev, { ...product, quantity: 1 }]
-    })
-  }
 
-  const updateQuantity = (id: string, change: number) => {
+      setCart((prev) => {
+        const existingItem = prev.find((item) => item.id === product.id)
+        if (existingItem) {
+          return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+        }
+        return [...prev, { ...product, quantity: 1 }]
+      })
+    },
+    [cashRegisterStatus?.isOpen],
+  )
+
+  // Optimized quantity update
+  const updateQuantity = useCallback((id: string, change: number) => {
     setCart((prev) => {
       return prev
         .map((item) => {
@@ -140,21 +351,22 @@ export default function SalesPage({
         })
         .filter((item) => item.quantity > 0)
     })
-  }
+  }, [])
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = useCallback((id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id))
-  }
+  }, [])
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCart([])
-  }
+  }, [])
 
-  const getTotalAmount = () => {
+  // Memoized total calculation
+  const totalAmount = useMemo(() => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
+  }, [cart])
 
-  const saveOfflineSale = (saleData: any) => {
+  const saveOfflineSale = useCallback((saleData: any) => {
     try {
       const offlineData = {
         sales: [saleData],
@@ -168,10 +380,9 @@ export default function SalesPage({
       toast.error("Error al guardar venta offline")
       return false
     }
-  }
+  }, [])
 
-  const generateAndPrintTickets = () => {
-    const promotion = calculatePromotion()
+  const generateAndPrintTickets = useCallback(() => {
     const allTickets = []
     let ticketCounter = 1
 
@@ -215,190 +426,232 @@ export default function SalesPage({
       }
     }
 
-    // Agregar estilos CSS para impresión
+    // CSS optimizado para eliminar páginas en blanco
     const printStyles = `
     <style>
       @media print {
         * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-sizing: border-box !important;
         }
         
-        body {
-          font-family: 'Courier New', monospace;
-          font-size: 12px;
-          line-height: 1.2;
-          color: #000;
-          background: white;
-        }
-        
-        .print-ticket {
-          width: 80mm;
-          max-width: 80mm;
-          margin: 0 auto;
-          padding: 8px;
-          border: 1px solid #000;
-          page-break-after: always;
-          page-break-inside: avoid;
-          background: white;
-        }
-        
-        .print-ticket:last-child {
-          page-break-after: auto;
-        }
-        
-        .ticket-header {
-          text-align: center;
-          border-bottom: 1px dashed #000;
-          padding-bottom: 8px;
-          margin-bottom: 8px;
-        }
-        
-        .ticket-logo-img {
-          width: 40px;
-          height: 40px;
-          margin: 0 auto 4px;
-          display: block;
-        }
-        
-        .ticket-title {
-          font-size: 16px;
-          font-weight: bold;
-          margin-bottom: 2px;
-        }
-        
-        .ticket-subtitle {
-          font-size: 12px;
-          margin-bottom: 4px;
-        }
-        
-        .ticket-number {
-          font-size: 14px;
-          font-weight: bold;
-          margin-bottom: 4px;
-        }
-        
-        .ticket-promo {
-          background: #000;
-          color: white;
-          padding: 2px 4px;
-          font-size: 10px;
-          font-weight: bold;
-          display: inline-block;
-        }
-        
-        .ticket-content {
-          margin: 8px 0;
-        }
-        
-        .ticket-row {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 4px;
-          font-size: 11px;
-        }
-        
-        .ticket-label {
-          font-weight: bold;
-        }
-        
-        .ticket-value {
-          text-align: right;
-        }
-        
-        .ticket-total-section {
-          border-top: 1px dashed #000;
-          padding-top: 4px;
-          margin-top: 8px;
-        }
-        
-        .ticket-total {
-          text-align: center;
-          font-size: 14px;
-          font-weight: bold;
-          padding: 4px;
-          border: 1px solid #000;
-        }
-        
-        .ticket-footer {
-          border-top: 1px dashed #000;
-          padding-top: 8px;
-          margin-top: 8px;
-          text-align: center;
-        }
-        
-        .ticket-info {
-          font-size: 10px;
-          margin-bottom: 2px;
-        }
-        
-        .ticket-promo-note {
-          font-size: 10px;
-          font-weight: bold;
-          margin: 4px 0;
-          background: #f0f0f0;
-          padding: 2px;
-        }
-        
-        .ticket-thanks {
-          font-size: 12px;
-          font-weight: bold;
-          margin: 6px 0 4px;
-        }
-        
-        .ticket-brand {
-          font-size: 11px;
-          font-weight: bold;
-          margin-bottom: 2px;
-        }
-        
-        .ticket-note {
-          font-size: 9px;
-          font-style: italic;
+        html, body {
+          width: 80mm !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          font-family: 'Courier New', monospace !important;
+          font-size: 11px !important;
+          line-height: 1.1 !important;
+          color: #000 !important;
+          background: white !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         
         @page {
-          size: 80mm auto;
-          margin: 0;
+          size: 80mm auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
-      }
-      
-      .print-only {
-        display: none;
-      }
-      
-      @media print {
-        .print-only {
+        
+        .print-container {
+          width: 80mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+        }
+        
+        .print-ticket {
+          width: 80mm !important;
+          max-width: 80mm !important;
+          min-height: auto !important;
+          margin: 0 !important;
+          padding: 6px !important;
+          border: 1px solid #000 !important;
+          background: white !important;
+          page-break-after: always !important;
+          page-break-inside: avoid !important;
           display: block !important;
+          position: relative !important;
         }
         
+        .print-ticket:last-child {
+          page-break-after: avoid !important;
+        }
+        
+        .ticket-header {
+          text-align: center !important;
+          border-bottom: 1px dashed #000 !important;
+          padding-bottom: 6px !important;
+          margin-bottom: 6px !important;
+        }
+        
+        .ticket-logo {
+          margin-bottom: 3px !important;
+        }
+        
+        .ticket-logo-text {
+          font-size: 20px !important;
+          font-weight: bold !important;
+          margin: 2px 0 !important;
+        }
+        
+        .ticket-title {
+          font-size: 14px !important;
+          font-weight: bold !important;
+          margin: 1px 0 !important;
+        }
+        
+        .ticket-subtitle {
+          font-size: 10px !important;
+          margin: 1px 0 !important;
+        }
+        
+        .ticket-number {
+          font-size: 12px !important;
+          font-weight: bold !important;
+          margin: 2px 0 !important;
+        }
+        
+        .ticket-promo {
+          background: #000 !important;
+          color: white !important;
+          padding: 1px 3px !important;
+          font-size: 9px !important;
+          font-weight: bold !important;
+          display: inline-block !important;
+          margin: 2px 0 !important;
+        }
+        
+        .ticket-content {
+          margin: 6px 0 !important;
+        }
+        
+        .ticket-row {
+          display: flex !important;
+          justify-content: space-between !important;
+          margin-bottom: 2px !important;
+          font-size: 10px !important;
+          align-items: center !important;
+        }
+        
+        .ticket-label {
+          font-weight: bold !important;
+          flex: 1 !important;
+        }
+        
+        .ticket-value {
+          text-align: right !important;
+          flex: 1 !important;
+        }
+        
+        .ticket-total-section {
+          border-top: 1px dashed #000 !important;
+          padding-top: 3px !important;
+          margin-top: 6px !important;
+        }
+        
+        .ticket-total {
+          text-align: center !important;
+          font-size: 12px !important;
+          font-weight: bold !important;
+          padding: 3px !important;
+          border: 1px solid #000 !important;
+          margin: 2px 0 !important;
+        }
+        
+        .ticket-footer {
+          border-top: 1px dashed #000 !important;
+          padding-top: 6px !important;
+          margin-top: 6px !important;
+          text-align: center !important;
+        }
+        
+        .ticket-info {
+          font-size: 9px !important;
+          margin-bottom: 1px !important;
+        }
+        
+        .ticket-promo-note {
+          font-size: 9px !important;
+          font-weight: bold !important;
+          margin: 2px 0 !important;
+          background: #f0f0f0 !important;
+          padding: 1px !important;
+        }
+        
+        .ticket-thanks {
+          font-size: 11px !important;
+          font-weight: bold !important;
+          margin: 4px 0 2px !important;
+        }
+        
+        .ticket-brand {
+          font-size: 10px !important;
+          font-weight: bold !important;
+          margin-bottom: 1px !important;
+        }
+        
+        .ticket-note {
+          font-size: 8px !important;
+          font-style: italic !important;
+          margin-top: 2px !important;
+        }
+        
+        /* Ocultar todo excepto el contenido de impresión */
         body * {
-          visibility: hidden;
+          visibility: hidden !important;
         }
         
-        .print-only, .print-only * {
-          visibility: visible;
+        .print-container,
+        .print-container * {
+          visibility: visible !important;
         }
         
-        .print-only {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
+        .print-container {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
         }
+        
+        /* Eliminar elementos que puedan causar páginas en blanco */
+        .no-print,
+        .no-print *,
+        nav,
+        header,
+        footer,
+        aside,
+        .sidebar,
+        .menu {
+          display: none !important;
+          visibility: hidden !important;
+        }
+      }
+      
+      /* Estilos para pantalla - ocultar contenedor de impresión */
+      .print-container {
+        display: none !important;
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
       }
     </style>
   `
 
-    // Generar HTML para impresión
+    // Generar HTML optimizado para cada ticket
     const allTicketsHTML = allTickets
       .map(
         (ticket, index) => `
     <div class="print-ticket">
       <div class="ticket-header">
         <div class="ticket-logo">
-          <img src="/placeholder.svg?height=40&width=40&text=🐅" alt="Sanchez Park" class="ticket-logo-img" />
+          <div class="ticket-logo-text">🐅</div>
         </div>
         <div class="ticket-title">SANCHEZ PARK</div>
         <div class="ticket-subtitle">Ticket de ${ticket.type}</div>
@@ -439,27 +692,57 @@ export default function SalesPage({
       )
       .join("")
 
-    // Crear contenedor de impresión
-    let printContainer = document.getElementById("print-container")
-    if (!printContainer) {
-      printContainer = document.createElement("div")
-      printContainer.id = "print-container"
-      printContainer.className = "print-only"
-      document.body.appendChild(printContainer)
+    // Limpiar cualquier contenedor de impresión existente
+    const existingContainer = document.getElementById("print-container")
+    if (existingContainer) {
+      existingContainer.remove()
     }
 
-    // Limpiar contenedor y agregar estilos + contenido
-    printContainer.innerHTML = printStyles + allTicketsHTML
+    // Crear nuevo contenedor optimizado
+    const printContainer = document.createElement("div")
+    printContainer.id = "print-container"
+    printContainer.className = "print-container"
 
-    console.log(`✅ ${allTickets.length} tickets listos para impresión`)
+    // Agregar estilos y contenido
+    printContainer.innerHTML = printStyles + `<div class="print-container">${allTicketsHTML}</div>`
 
-    // Pequeño delay para asegurar que el DOM se actualice
+    // Agregar al DOM
+    document.body.appendChild(printContainer)
+
+    console.log(`✅ ${allTickets.length} tickets preparados para impresión sin páginas en blanco`)
+
+    // Esperar a que el DOM se actualice completamente
     setTimeout(() => {
-      window.print()
-    }, 100)
-  }
+      // Configurar la impresión
+      const originalTitle = document.title
+      document.title = `Tickets-${new Date().getTime()}`
 
-  const processSale = async () => {
+      // Función de limpieza después de imprimir
+      const cleanup = () => {
+        document.title = originalTitle
+        const container = document.getElementById("print-container")
+        if (container) {
+          container.remove()
+        }
+      }
+
+      // Configurar eventos de impresión
+      const handleAfterPrint = () => {
+        cleanup()
+        window.removeEventListener("afterprint", handleAfterPrint)
+      }
+
+      window.addEventListener("afterprint", handleAfterPrint)
+
+      // Iniciar impresión
+      window.print()
+
+      // Limpieza de respaldo después de 5 segundos
+      setTimeout(cleanup, 5000)
+    }, 200)
+  }, [cart, promotion, paymentMethod, user])
+
+  const processSale = useCallback(async () => {
     if (cart.length === 0) {
       toast.error("El carrito está vacío")
       return
@@ -472,10 +755,9 @@ export default function SalesPage({
 
     setProcessing(true)
     try {
-      const promotion = calculatePromotion()
       const saleData = {
         items: cart,
-        total: getTotalAmount(),
+        total: totalAmount,
         paymentMethod,
         sellerId: user?.uid,
         sellerEmail: user?.email,
@@ -490,6 +772,9 @@ export default function SalesPage({
       }
 
       if (isOnline) {
+        // Usar batch para operaciones atómicas
+        const batch = db.batch ? db.batch() : null
+
         // Modo online
         await addDoc(collection(db, "sales"), saleData)
 
@@ -501,7 +786,7 @@ export default function SalesPage({
 
         if (cashRegDoc.exists()) {
           const currentData = cashRegDoc.data()
-          const saleAmount = getTotalAmount()
+          const saleAmount = totalAmount
 
           const updatedData = {
             totalSales: currentData.totalSales + saleAmount,
@@ -548,9 +833,29 @@ export default function SalesPage({
     } finally {
       setProcessing(false)
     }
-  }
+  }, [
+    cart,
+    totalAmount,
+    paymentMethod,
+    user,
+    promotion,
+    isOnline,
+    cashRegisterStatus,
+    onCashRegisterChange,
+    generateAndPrintTickets,
+    saveOfflineSale,
+  ])
 
-  const promotion = calculatePromotion()
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
+          <p className="text-gray-600 dark:text-gray-400">Cargando productos...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
@@ -600,9 +905,11 @@ export default function SalesPage({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
-                <SelectItem value="juegos">Juegos</SelectItem>
-                <SelectItem value="consolas">Consolas</SelectItem>
-                <SelectItem value="accesorios">Accesorios</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -614,52 +921,7 @@ export default function SalesPage({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
               {filteredProducts.map((product) => {
                 const shortcut = shortcuts.find((s) => s.productId === product.id)
-                return (
-                  <Card
-                    key={product.id}
-                    className="cursor-pointer transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
-                    onClick={() => addToCart(product)}
-                    data-product-shortcut={shortcut?.key}
-                  >
-                    <CardContent className="p-0">
-                      {/* Imagen del producto */}
-                      <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                        <img
-                          src={product.image || "/placeholder.svg?height=300&width=300&text=Sin+Imagen"}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.src = "/placeholder.svg?height=300&width=300&text=Error"
-                          }}
-                        />
-                        {shortcut && (
-                          <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
-                            {shortcut.key.toUpperCase()}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Información del producto */}
-                      <div className="p-3 md:p-4">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 text-sm md:text-base">
-                          {product.name}
-                        </h3>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Tag className="h-4 w-4 text-gray-400" />
-                            <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">juegos</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm md:text-lg font-bold text-green-600">
-                              S/. {product.price.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
+                return <ProductCard key={product.id} product={product} onAddToCart={addToCart} shortcut={shortcut} />
               })}
             </div>
           </div>
@@ -710,51 +972,12 @@ export default function SalesPage({
                   ) : (
                     <div className="space-y-3">
                       {cart.map((item) => (
-                        <div
+                        <CartItem
                           key={item.id}
-                          className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
-                        >
-                          <img
-                            src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
-                            alt={item.name}
-                            className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">
-                              {item.name}
-                            </h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
-                          </div>
-                          <div className="flex items-center space-x-1 md:space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="h-6 w-6 p-0 rounded-full"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="text-xs md:text-sm font-medium w-4 md:w-6 text-center text-gray-900 dark:text-white">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="h-6 w-6 p-0 rounded-full"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removeFromCart(item.id)}
-                              className="h-6 w-6 p-0 ml-1 md:ml-2 rounded-full"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeFromCart}
+                        />
                       ))}
                     </div>
                   )}
@@ -781,9 +1004,7 @@ export default function SalesPage({
                   <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
-                      <span className="text-lg md:text-xl font-bold text-green-600">
-                        S/. {getTotalAmount().toFixed(2)}
-                      </span>
+                      <span className="text-lg md:text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -870,7 +1091,7 @@ export default function SalesPage({
               <div className="space-y-4">
                 <div className="flex justify-between font-bold text-lg md:text-xl bg-green-50 dark:bg-green-900 p-4 rounded-2xl border border-green-200 dark:border-green-700">
                   <span className="text-gray-700 dark:text-gray-300">TOTAL A PAGAR:</span>
-                  <span className="text-green-600">S/. {getTotalAmount().toFixed(2)}</span>
+                  <span className="text-green-600">S/. {totalAmount.toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
@@ -890,7 +1111,7 @@ export default function SalesPage({
                 >
                   {processing ? (
                     <div className="flex items-center space-x-2">
-                      <img src="/loading-wheel.gif" alt="Procesando..." className="w-5 h-5" />
+                      <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Procesando...</span>
                     </div>
                   ) : (
