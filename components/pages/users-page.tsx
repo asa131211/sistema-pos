@@ -1,320 +1,343 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore"
-import { createUserWithEmailAndPassword } from "firebase/auth"
+import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore"
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Users, Shield, User } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Users, Plus, Search, Edit, UserCheck, UserX, Mail, User } from "lucide-react"
 import { toast } from "sonner"
 
-interface UserData {
-  id: string
-  name: string
-  email: string
-  role: "admin" | "vendedor"
-  createdAt: any
-}
-
-interface UsersPageProps {
-  sidebarCollapsed?: boolean
-}
-
-export default function UsersPage({ sidebarCollapsed = false }: UsersPageProps) {
-  const [users, setUsers] = useState<UserData[]>([])
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [editingUser, setEditingUser] = useState<UserData | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    username: "",
-    password: "",
-    role: "vendedor" as "admin" | "vendedor",
-  })
+export default function UsersPage() {
+  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [newUser, setNewUser] = useState({
+    email: "",
+    username: "",
+    displayName: "",
+    password: "",
+    role: "vendedor",
+    isActive: true,
+  })
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(query(collection(db, "users")), (snapshot) => {
-      const usersData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as UserData[]
-      setUsers(usersData)
-    })
-
-    return () => unsubscribe()
+    fetchUsers()
   }, [])
 
-  const validateUsername = (username: string) => {
-    // Solo letras, números y guiones bajos
-    const validPattern = /^[a-zA-Z0-9_]+$/
-    return validPattern.test(username) && username.length >= 3
+  const fetchUsers = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "users"))
+      const usersData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      setUsers(usersData)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast.error("Error al cargar usuarios")
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name || !formData.username || (!editingUser && !formData.password)) {
-      toast.error("Por favor completa todos los campos")
+  const createUser = async () => {
+    if (!newUser.email || !newUser.username || !newUser.displayName || !newUser.password) {
+      toast.error("Todos los campos son obligatorios")
+      return
+    }
+
+    // Verificar que el username sea único
+    const existingUser = users.find((user) => user.username === newUser.username)
+    if (existingUser) {
+      toast.error("El nombre de usuario ya existe")
       return
     }
 
     setLoading(true)
     try {
-      if (editingUser) {
-        // Actualizar usuario existente
-        await updateDoc(doc(db, "users", editingUser.id), {
-          name: formData.name,
-          username: formData.username,
-          role: formData.role,
-        })
-        toast.success("Usuario actualizado exitosamente")
+      // Crear usuario en Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, newUser.password)
+
+      // Actualizar perfil
+      await updateProfile(userCredential.user, {
+        displayName: newUser.displayName,
+      })
+
+      // Crear documento en Firestore
+      await addDoc(collection(db, "users"), {
+        email: newUser.email,
+        username: newUser.username,
+        displayName: newUser.displayName,
+        role: newUser.role,
+        isActive: newUser.isActive,
+        createdAt: new Date(),
+        permissions: newUser.role === "administrador" ? ["all"] : ["sales", "products_read"],
+      })
+
+      toast.success("Usuario creado exitosamente")
+      setShowCreateDialog(false)
+      setNewUser({
+        email: "",
+        username: "",
+        displayName: "",
+        password: "",
+        role: "vendedor",
+        isActive: true,
+      })
+      fetchUsers()
+    } catch (error) {
+      console.error("Error creating user:", error)
+      if (error.code === "auth/email-already-in-use") {
+        toast.error("El email ya está en uso")
+      } else if (error.code === "auth/weak-password") {
+        toast.error("La contraseña debe tener al menos 6 caracteres")
       } else {
-        // Crear nuevo usuario - convertir username a email para Firebase Auth
-        const emailFormat = `${formData.username}@sistema-pos.local`
-
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, emailFormat, formData.password)
-
-          // CORREGIDO: Usar setDoc en lugar de addDoc para usar el UID como ID del documento
-          await setDoc(doc(db, "users", userCredential.user.uid), {
-            uid: userCredential.user.uid,
-            name: formData.name,
-            username: formData.username,
-            email: emailFormat,
-            role: formData.role,
-            createdAt: new Date(),
-            shortcuts: [], // Inicializar array de shortcuts vacío
-            avatar: "", // Inicializar avatar vacío
-          })
-
-          toast.success("Usuario creado exitosamente")
-        } catch (authError: any) {
-          if (authError.code === "auth/email-already-in-use") {
-            toast.error(`El usuario "${formData.username}" ya existe. Elige otro nombre de usuario.`)
-          } else if (authError.code === "auth/weak-password") {
-            toast.error("La contraseña debe tener al menos 6 caracteres")
-          } else if (authError.code === "auth/invalid-email") {
-            toast.error("Nombre de usuario inválido")
-          } else {
-            toast.error("Error al crear el usuario: " + authError.message)
-          }
-          return
-        }
+        toast.error("Error al crear usuario")
       }
-
-      resetForm()
-    } catch (error: any) {
-      console.error("Error saving user:", error)
-      toast.error("Error inesperado al guardar el usuario")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este usuario?")) {
-      try {
-        await deleteDoc(doc(db, "users", id))
-        toast.success("Usuario eliminado exitosamente")
-      } catch (error) {
-        console.error("Error deleting user:", error)
-        toast.error("Error al eliminar el usuario")
-      }
+  const updateUser = async (userId, updates) => {
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        ...updates,
+        updatedAt: new Date(),
+      })
+      toast.success("Usuario actualizado")
+      fetchUsers()
+    } catch (error) {
+      console.error("Error updating user:", error)
+      toast.error("Error al actualizar usuario")
     }
   }
 
-  const resetForm = () => {
-    setFormData({ name: "", username: "", password: "", role: "vendedor" })
-    setEditingUser(null)
-    setShowAddDialog(false)
+  const toggleUserStatus = async (userId, currentStatus) => {
+    await updateUser(userId, { isActive: !currentStatus })
   }
 
-  const startEdit = (user: UserData) => {
-    setEditingUser(user)
-    setFormData({
-      name: user.name,
-      username: user.email,
-      password: "",
-      role: user.role,
-    })
-    setShowAddDialog(true)
+  const filteredUsers = users.filter(
+    (user) =>
+      user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case "administrador":
+        return "bg-red-500"
+      case "vendedor":
+        return "bg-blue-500"
+      default:
+        return "bg-gray-500"
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ml-16">
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
-            <p className="text-gray-600 dark:text-gray-400">Gestiona los usuarios del sistema</p>
-          </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setEditingUser(null)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar Usuario
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-white dark:bg-gray-900">
-              <DialogHeader>
-                <DialogTitle className="text-gray-900 dark:text-white">
-                  {editingUser ? "Editar Usuario" : "Agregar Usuario"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">
-                    Nombre
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Nombre completo"
-                    required
-                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-gray-700 dark:text-gray-300">
-                    Nombre de Usuario
-                  </Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => {
-                      const value = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, "")
-                      setFormData({ ...formData, username: value })
-                    }}
-                    placeholder="nombre_usuario"
-                    required
-                    minLength={3}
-                    maxLength={20}
-                    className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Solo letras, números y guiones bajos. Mínimo 3 caracteres.
-                  </p>
-                </div>
-                {!editingUser && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                      Contraseña
-                    </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="••••••••"
-                      required
-                      className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-gray-700 dark:text-gray-300">
-                    Rol
-                  </Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value: "admin" | "vendedor") => setFormData({ ...formData, role: value })}
-                  >
-                    <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="vendedor">Vendedor</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex space-x-2">
-                  <Button type="submit" disabled={loading} className="flex-1">
-                    {loading ? "Guardando..." : editingUser ? "Actualizar" : "Crear Usuario"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancelar
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Gestión de Usuarios</h1>
+          <p className="text-gray-600">Administra los usuarios del sistema</p>
         </div>
 
-        <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="flex items-center text-gray-900 dark:text-white">
-              <Users className="mr-2 h-5 w-5" />
-              Lista de Usuarios ({users.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-gray-900 dark:text-white">Nombre</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Usuario</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Rol</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Fecha de Creación</TableHead>
-                  <TableHead className="text-right text-gray-900 dark:text-white">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium text-gray-900 dark:text-white">{user.name}</TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">{user.username}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                        {user.role === "admin" ? (
-                          <>
-                            <Shield className="mr-1 h-3 w-3" />
-                            Administrador
-                          </>
-                        ) : (
-                          <>
-                            <User className="mr-1 h-3 w-3" />
-                            Vendedor
-                          </>
-                        )}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Usuario
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+              <DialogDescription>Completa la información para crear un nuevo usuario</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="usuario@ejemplo.com"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="username">Nombre de Usuario</Label>
+                  <Input
+                    id="username"
+                    placeholder="usuario123"
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Nombre Completo</Label>
+                <Input
+                  id="displayName"
+                  placeholder="Juan Pérez"
+                  value={newUser.displayName}
+                  onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Rol</Label>
+                <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vendedor">Vendedor</SelectItem>
+                    <SelectItem value="administrador">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isActive"
+                  checked={newUser.isActive}
+                  onCheckedChange={(checked) => setNewUser({ ...newUser, isActive: checked })}
+                />
+                <Label htmlFor="isActive">Usuario activo</Label>
+              </div>
+
+              <Button onClick={createUser} disabled={loading} className="w-full">
+                {loading ? "Creando..." : "Crear Usuario"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Barra de búsqueda */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Buscar por nombre, email o usuario..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista de usuarios */}
+      <div className="grid gap-4">
+        {filteredUsers.map((user) => (
+          <Card key={user.id}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-semibold">{user.displayName}</h3>
+                      <Badge className={`${getRoleBadgeColor(user.role)} text-white`}>
+                        {user.role === "administrador" ? "Administrador" : "Vendedor"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">
-                      {user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString("es-ES") : "N/A"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => startEdit(user)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      {user.isActive ? (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          <UserCheck className="w-3 h-3 mr-1" />
+                          Activo
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-red-600 border-red-600">
+                          <UserX className="w-3 h-3 mr-1" />
+                          Inactivo
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                      <div className="flex items-center">
+                        <Mail className="w-4 h-4 mr-1" />
+                        {user.email}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {users.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      No hay usuarios registrados
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                      <div className="flex items-center">
+                        <User className="w-4 h-4 mr-1" />@{user.username}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => toggleUserStatus(user.id, user.isActive)}>
+                    {user.isActive ? (
+                      <>
+                        <UserX className="w-4 h-4 mr-1" />
+                        Desactivar
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4 mr-1" />
+                        Activar
+                      </>
+                    )}
+                  </Button>
+
+                  <Button variant="outline" size="sm">
+                    <Edit className="w-4 h-4 mr-1" />
+                    Editar
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredUsers.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron usuarios</h3>
+            <p className="text-gray-600">
+              {searchTerm ? "Intenta con otros términos de búsqueda" : "Crea tu primer usuario"}
+            </p>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   )
 }

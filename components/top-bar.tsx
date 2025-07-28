@@ -1,82 +1,55 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { signOut } from "firebase/auth"
-import { doc, getDoc, setDoc, updateDoc, collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, updateDoc, collection, addDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Moon, Sun, LogOut, User, Clock, Calendar, ShoppingCart, Lock, Unlock } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Menu, LogOut, Calculator, Unlock, Lock, Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { toast } from "sonner"
+import { User } from "firebase/auth"
+import { SyncStatus } from "@/components/sync-status"
 
 interface TopBarProps {
-  darkMode: boolean
-  setDarkMode: (darkMode: boolean) => void
+  onToggleSidebar: () => void
+  sidebarCollapsed: boolean
   cashRegisterStatus?: { isOpen: boolean; data: any }
   onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
+  user: User | null
+  userData: any
 }
 
-export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCashRegisterChange }: TopBarProps) {
-  const [user] = useAuthState(auth)
-  const [userProfile, setUserProfile] = useState({
-    name: "",
-    avatar: "",
-    role: "",
-  })
-  const [currentTime, setCurrentTime] = useState(new Date())
+export default function TopBar({
+  onToggleSidebar,
+  sidebarCollapsed,
+  cashRegisterStatus,
+  onCashRegisterChange,
+  user,
+  userData,
+}: TopBarProps) {
+  const [authUser] = useAuthState(auth)
+  const { theme, setTheme } = useTheme()
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid))
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
-            setUserProfile({
-              name: userData.name || "",
-              avatar: userData.avatar || "",
-              role: userData.role || "",
-            })
-          }
-        } catch (error) {
-          console.error("Error fetching user profile:", error)
-        }
-      }
-    }
-
-    fetchUserProfile()
-  }, [user])
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [])
-
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     try {
       await signOut(auth)
+      toast.success("Sesión cerrada exitosamente")
     } catch (error) {
       console.error("Error signing out:", error)
+      toast.error("Error al cerrar sesión")
     }
   }
 
   const openCashRegister = async () => {
-    if (!user) return
+    if (!authUser) return
 
     setLoading(true)
     try {
@@ -84,9 +57,9 @@ export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCa
       const initialAmount = 0
 
       const cashRegData = {
-        id: `${user.uid}-${today}`,
+        id: `${authUser.uid}-${today}`,
         isOpen: true,
-        openedBy: user.uid,
+        openedBy: authUser.uid,
         openedAt: serverTimestamp(),
         closedAt: null,
         initialAmount: initialAmount,
@@ -104,12 +77,12 @@ export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCa
           cashRegisterId: cashRegData.id,
           type: "opening",
           amount: initialAmount,
-          description: "Apertura de caja desde top bar",
-          userId: user.uid,
+          description: "Apertura de caja",
+          userId: authUser.uid,
           timestamp: serverTimestamp(),
         })
       } catch (movementError) {
-        console.warn("Error registering movement:", movementError)
+        console.warn("Error registering movement, but cash register opened:", movementError)
       }
 
       // Actualizar estado inmediatamente
@@ -127,7 +100,7 @@ export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCa
   }
 
   const closeCashRegister = async () => {
-    if (!user || !cashRegisterStatus?.data) return
+    if (!authUser || !cashRegisterStatus?.data) return
 
     setLoading(true)
     try {
@@ -140,14 +113,17 @@ export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCa
         cashRegisterId: cashRegisterStatus.data.id,
         type: "closing",
         amount: cashRegisterStatus.data.currentAmount,
-        description: "Cierre de caja desde top bar",
-        userId: user.uid,
+        description: "Cierre manual de caja",
+        userId: authUser.uid,
         timestamp: serverTimestamp(),
       })
 
       // Actualizar estado inmediatamente
       if (onCashRegisterChange) {
-        onCashRegisterChange({ isOpen: false, data: { ...cashRegisterStatus.data, isOpen: false } })
+        onCashRegisterChange({
+          isOpen: false,
+          data: { ...cashRegisterStatus.data, isOpen: false },
+        })
       }
 
       setShowCloseDialog(false)
@@ -160,159 +136,171 @@ export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCa
     }
   }
 
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "administrador":
+        return "bg-red-500"
+      case "vendedor":
+        return "bg-blue-500"
+      default:
+        return "bg-gray-500"
+    }
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-50 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-6">
-        {/* Logo y título */}
-        <div className="flex items-center space-x-3 md:space-x-4">
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
-            <ShoppingCart className="h-4 w-4 md:h-6 md:w-6 text-white" />
+      <header className="bg-white shadow-sm border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <h2 className="text-lg font-semibold text-gray-800">Panel de Control</h2>
+            <SyncStatus />
           </div>
-          <div className="hidden sm:block">
-            <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Caja y Ventas</h1>
-            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Sistema de punto de venta</p>
+
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">{userData?.displayName || authUser?.displayName}</p>
+              <div className="flex items-center space-x-2">
+                <Badge className={`text-xs ${getRoleBadgeColor(userData?.role)}`}>
+                  {userData?.role === "administrador" ? "Administrador" : "Vendedor"}
+                </Badge>
+              </div>
+            </div>
+            <Avatar>
+              <AvatarFallback>{userData?.displayName?.charAt(0) || authUser?.email?.charAt(0)}</AvatarFallback>
+            </Avatar>
           </div>
         </div>
+      </header>
 
-        {/* Centro - Tiempo, fecha y caja */}
-        <div className="flex items-center space-x-3 md:space-x-6">
-          <div className="hidden md:flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <Clock className="h-4 w-4" />
-            <span className="font-mono">{currentTime.toLocaleTimeString("es-ES")}</span>
-          </div>
-          <div className="hidden lg:flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <Calendar className="h-4 w-4" />
-            <span>{currentTime.toLocaleDateString("es-ES")}</span>
-          </div>
-
-          {/* Cash Register Controls */}
-          <div className="flex items-center space-x-2">
-            {!cashRegisterStatus?.isOpen ? (
-              <Button
-                onClick={openCashRegister}
-                disabled={loading}
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs"
-                data-shortcut="toggle-cash"
-              >
-                <Unlock className="h-3 w-3 mr-1" />
-                {loading ? "Abriendo..." : "Abrir Caja"}
-              </Button>
-            ) : (
-              <Button
-                onClick={() => setShowCloseDialog(true)}
-                variant="destructive"
-                size="sm"
-                className="h-8 px-3 text-xs"
-                data-shortcut="toggle-cash"
-              >
-                <Lock className="h-3 w-3 mr-1" />
-                Cerrar Caja
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Derecha - Controles de usuario */}
-        <div className="flex items-center space-x-2 md:space-x-4">
-          {/* Controles de tema */}
+      <div className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 flex items-center justify-between shadow-sm">
+        {/* Lado izquierdo */}
+        <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setDarkMode(!darkMode)}
-            className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            onClick={onToggleSidebar}
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
-            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <Menu className="h-5 w-5" />
           </Button>
 
-          {/* Usuario */}
+          <div className="flex items-center space-x-3">
+            <img src="/tiger-logo.png" alt="Sanchez Park" className="h-8 w-8" />
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white">Sanchez Park</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Sistema de Ventas</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Centro - Controles de caja */}
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            <Calculator className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Caja:</span>
+            <Badge variant={cashRegisterStatus?.isOpen ? "default" : "secondary"} className="text-xs">
+              {cashRegisterStatus?.isOpen ? (
+                <>
+                  <Unlock className="mr-1 h-3 w-3" />
+                  Abierta
+                </>
+              ) : (
+                <>
+                  <Lock className="mr-1 h-3 w-3" />
+                  Cerrada
+                </>
+              )}
+            </Badge>
+          </div>
+
+          {!cashRegisterStatus?.isOpen ? (
+            <Button
+              onClick={openCashRegister}
+              disabled={loading}
+              size="sm"
+              className="h-8 bg-green-600 hover:bg-green-700 text-white"
+              data-shortcut="cash-register"
+            >
+              {loading ? "Abriendo..." : "Abrir"}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setShowCloseDialog(true)}
+              variant="destructive"
+              size="sm"
+              className="h-8"
+              data-shortcut="cash-register"
+            >
+              Cerrar
+            </Button>
+          )}
+        </div>
+
+        {/* Lado derecho */}
+        <div className="flex items-center space-x-3">
+          {/* Toggle de tema */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </Button>
+
+          {/* Menú de usuario */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="relative h-8 w-auto px-2 md:px-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <div className="flex items-center space-x-2 md:space-x-3">
-                  <Avatar className="h-6 w-6 md:h-8 md:w-8">
-                    <AvatarImage src={userProfile.avatar || "/placeholder.svg"} alt={userProfile.name} />
-                    <AvatarFallback className="bg-purple-600 text-white text-xs">
-                      {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-left hidden lg:block">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{userProfile.name || "Usuario"}</p>
-                    <Badge variant={userProfile.role === "admin" ? "default" : "secondary"} className="text-xs">
-                      {userProfile.role === "admin" ? "Admin" : "Vendedor"}
-                    </Badge>
-                  </div>
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <div className="flex items-center justify-start gap-2 p-2">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={userProfile.avatar || "/placeholder.svg"} alt={userProfile.name} />
-                  <AvatarFallback className="bg-purple-600 text-white">
-                    {userProfile.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-purple-600 text-white text-sm">
+                    {authUser?.displayName?.charAt(0) || authUser?.email?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{userProfile.name || "Usuario"}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem className="flex items-center space-x-2">
+                <User className="h-4 w-4" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{authUser?.displayName || "Usuario"}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{authUser?.email}</span>
                 </div>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                Mi Perfil
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDarkMode(!darkMode)}>
-                {darkMode ? (
-                  <>
-                    <Sun className="mr-2 h-4 w-4" />
-                    Modo Claro
-                  </>
-                ) : (
-                  <>
-                    <Moon className="mr-2 h-4 w-4" />
-                    Modo Oscuro
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 dark:text-red-400">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
+              <DropdownMenuItem onClick={handleSignOut} className="flex items-center space-x-2 text-red-600">
+                <LogOut className="h-4 w-4" />
+                <span>Cerrar Sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </header>
+      </div>
 
       {/* Dialog para cerrar caja */}
       <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
-        <DialogContent className="max-w-md bg-white dark:bg-gray-900">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center text-xl text-gray-900 dark:text-white">¿Cerrar Caja?</DialogTitle>
+            <DialogTitle className="text-center text-xl">¿Cerrar Caja?</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-center bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <p className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Resumen del Día</p>
+              <p className="text-lg font-semibold mb-2">Resumen del Día</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Total Ventas:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span>Total Ventas:</span>
+                  <span className="font-semibold">
                     S/. {cashRegisterStatus?.data?.totalSales?.toFixed(2) || "0.00"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Efectivo:</span>
+                  <span>Efectivo:</span>
                   <span className="font-semibold text-green-600">
                     S/. {cashRegisterStatus?.data?.cashSales?.toFixed(2) || "0.00"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Transferencias:</span>
+                  <span>Transferencias:</span>
                   <span className="font-semibold text-blue-600">
                     S/. {cashRegisterStatus?.data?.transferSales?.toFixed(2) || "0.00"}
                   </span>
