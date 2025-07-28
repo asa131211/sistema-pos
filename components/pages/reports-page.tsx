@@ -1,7 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, orderBy, getDocs } from "firebase/firestore"
+import {
+  collection,
+  query,
+  onSnapshot,
+  orderBy,
+  getDocs,
+  doc,
+  writeBatch,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +22,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   BarChart3,
   TrendingUp,
@@ -23,6 +35,10 @@ import {
   Users,
   Package,
   Gift,
+  Trash2,
+  AlertTriangle,
+  RefreshCw,
+  Database,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -61,6 +77,11 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const [paymentFilter, setPaymentFilter] = useState("all")
   const [sellerFilter, setSellerFilter] = useState("all")
   const [specificDate, setSpecificDate] = useState("")
+
+  // Estados para el reseteo
+  const [showResetDialog, setShowResetDialog] = useState(false)
+  const [confirmText, setConfirmText] = useState("")
+  const [isResetting, setIsResetting] = useState(false)
 
   useEffect(() => {
     console.log("🔍 Iniciando carga de reportes...")
@@ -154,6 +175,137 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       setLoading(false)
     }
   }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+
+  // Función para resetear todas las ventas
+  const resetAllSalesData = async () => {
+    if (confirmText !== "VACIAR VENTAS") {
+      toast.error("Debes escribir exactamente 'VACIAR VENTAS' para confirmar")
+      return
+    }
+
+    setIsResetting(true)
+
+    try {
+      console.log("🔄 Iniciando vaciado de datos de ventas...")
+
+      // Obtener todas las ventas para contar
+      const allSalesSnapshot = await getDocs(collection(db, "sales"))
+      const totalSales = allSalesSnapshot.size
+      const totalAmount = allSalesSnapshot.docs.reduce((sum, doc) => {
+        const data = doc.data()
+        return sum + (data.total || 0)
+      }, 0)
+
+      // Crear batch para operaciones múltiples
+      const batch = writeBatch(db)
+      let operationsCount = 0
+
+      // Eliminar todas las ventas
+      console.log("🗑️ Eliminando todas las ventas...")
+      allSalesSnapshot.docs.forEach((docSnapshot) => {
+        batch.delete(doc(db, "sales", docSnapshot.id))
+        operationsCount++
+      })
+
+      // Eliminar movimientos de caja relacionados con ventas
+      console.log("🗑️ Eliminando movimientos de caja...")
+      const cashMovementsSnapshot = await getDocs(collection(db, "cash-movements"))
+      cashMovementsSnapshot.docs.forEach((docSnapshot) => {
+        const data = docSnapshot.data()
+        if (data.type === "sale" || data.description?.includes("Venta")) {
+          batch.delete(doc(db, "cash-movements", docSnapshot.id))
+          operationsCount++
+        }
+      })
+
+      // Ejecutar todas las eliminaciones
+      if (operationsCount > 0) {
+        console.log(`📝 Ejecutando ${operationsCount} operaciones de eliminación...`)
+        await batch.commit()
+      }
+
+      // Registrar el vaciado en el historial
+      await addDoc(collection(db, "system-logs"), {
+        action: "SALES_DATA_RESET",
+        performedBy: user?.uid,
+        performedByEmail: user?.email,
+        timestamp: serverTimestamp(),
+        details: {
+          salesDeleted: totalSales,
+          totalAmountReset: totalAmount,
+          resetFrom: "reports_page",
+        },
+        description: `Vaciado de datos de ventas desde reportes - ${totalSales} ventas eliminadas`,
+      })
+
+      // Limpiar localStorage relacionado con ventas
+      try {
+        localStorage.removeItem("offline_sales")
+        console.log("🧹 Cache de ventas limpiado")
+      } catch (error) {
+        console.log("No hay cache de ventas para limpiar")
+      }
+
+      // Cerrar dialog y limpiar estado
+      setShowResetDialog(false)
+      setConfirmText("")
+
+      toast.success("✅ Datos de ventas vaciados exitosamente", {
+        description: `Se eliminaron ${totalSales} ventas por un total de S/. ${totalAmount.toFixed(2)}`,
+        duration: 5000,
+      })
+
+      console.log("✅ Vaciado de ventas completado exitosamente")
+    } catch (error) {
+      console.error("❌ Error durante el vaciado:", error)
+      toast.error("Error al vaciar los datos de ventas: " + error.message)
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  // Función para exportar datos antes del vaciado
+  const exportDataBeforeReset = async () => {
+    try {
+      console.log("📤 Exportando datos de ventas...")
+
+      const allSalesSnapshot = await getDocs(collection(db, "sales"))
+      const salesData = allSalesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate?.()?.toISOString() || doc.data().timestamp,
+      }))
+
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        exportedBy: user?.email,
+        exportType: "sales_backup_before_reset",
+        sales: salesData,
+        summary: {
+          totalSales: salesData.length,
+          totalAmount: salesData.reduce((sum, sale) => sum + (sale.total || 0), 0),
+        },
+      }
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json;charset=utf-8;",
+      })
+
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", `backup-ventas-${new Date().toISOString().split("T")[0]}.json`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success("📤 Backup de ventas exportado exitosamente")
+    } catch (error) {
+      console.error("Error exportando datos:", error)
+      toast.error("Error al exportar backup de ventas")
+    }
+  }
 
   // Calcular estadísticas por vendedor
   const getSellerStats = () => {
@@ -258,10 +410,21 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reportes</h1>
               <p className="text-gray-600 dark:text-gray-400">Análisis avanzado de ventas y rendimiento</p>
             </div>
-            <Button onClick={exportToCSV} className="bg-purple-600 hover:bg-purple-700 text-white">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar CSV
-            </Button>
+            <div className="flex space-x-3">
+              <Button onClick={exportToCSV} className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
+              <Button
+                onClick={() => setShowResetDialog(true)}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={totalTransactions === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Vaciar Ventas
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -675,6 +838,100 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog de Confirmación para Vaciar Ventas */}
+        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+          <DialogContent className="max-w-md bg-white dark:bg-gray-900">
+            <DialogHeader>
+              <DialogTitle className="text-center text-xl font-bold text-red-700 dark:text-red-300 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 mr-2" />
+                ¡VACIAR DATOS DE VENTAS!
+              </DialogTitle>
+              <DialogDescription className="text-center text-gray-600 dark:text-gray-400">
+                Esta acción eliminará permanentemente todas las ventas registradas
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-700 dark:text-red-300">
+                  <strong>Se eliminarán:</strong>
+                  <ul className="list-disc list-inside mt-1 text-sm">
+                    <li>{totalTransactions.toLocaleString()} ventas</li>
+                    <li>S/. {totalSales.toFixed(2)} en registros</li>
+                    <li>Movimientos de caja relacionados</li>
+                    <li>Historial de transacciones</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center">
+                  <Database className="h-4 w-4 mr-2" />
+                  Recomendación:
+                </h4>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Exporta un backup antes de vaciar los datos para mantener un registro histórico.
+                </p>
+                <Button
+                  onClick={exportDataBeforeReset}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 border-blue-200 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 bg-transparent"
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Exportar Backup
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Para confirmar, escribe exactamente: <strong>VACIAR VENTAS</strong>
+                </Label>
+                <Input
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="Escribe: VACIAR VENTAS"
+                  className="border-red-200 dark:border-red-700 focus:border-red-500 focus:ring-red-500/20"
+                />
+              </div>
+
+              <div className="flex space-x-3">
+                <Button
+                  onClick={resetAllSalesData}
+                  disabled={isResetting || confirmText !== "VACIAR VENTAS"}
+                  variant="destructive"
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {isResetting ? (
+                    <div className="flex items-center space-x-2">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Vaciando...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Vaciar Ventas
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setShowResetDialog(false)
+                    setConfirmText("")
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isResetting}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
