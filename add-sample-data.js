@@ -1,42 +1,93 @@
-// Script para agregar datos de prueba
 import { initializeApp } from "firebase/app"
 import { getFirestore, collection, addDoc } from "firebase/firestore"
 
 const firebaseConfig = {
-  // Tu configuración aquí
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-// Productos de ejemplo
 const sampleProducts = [
   {
-    name: "FIFA 24",
+    name: "Coca Cola 500ml",
+    price: 3.5,
+    category: "Bebidas",
+    stock: 50,
+    isActive: true,
+  },
+  {
+    name: "Sandwich Mixto",
+    price: 8.0,
+    category: "Comida",
+    stock: 20,
+    isActive: true,
+  },
+  {
+    name: "Agua Mineral 600ml",
+    price: 2.0,
+    category: "Bebidas",
+    stock: 100,
+    isActive: true,
+  },
+  {
+    name: "Hamburguesa Clásica",
     price: 15.0,
-    image: "https://example.com/fifa24.jpg",
+    category: "Comida",
+    stock: 15,
+    isActive: true,
   },
   {
-    name: "Call of Duty",
-    price: 20.0,
-    image: "https://example.com/cod.jpg",
+    name: "Papas Fritas",
+    price: 5.0,
+    category: "Snacks",
+    stock: 30,
+    isActive: true,
   },
   {
-    name: "Fortnite V-Bucks",
-    price: 10.0,
-    image: "https://example.com/fortnite.jpg",
+    name: "Inca Kola 500ml",
+    price: 3.5,
+    category: "Bebidas",
+    stock: 40,
+    isActive: true,
+  },
+  {
+    name: "Hot Dog Especial",
+    price: 6.0,
+    category: "Comida",
+    stock: 25,
+    isActive: true,
+  },
+  {
+    name: "Galletas Oreo",
+    price: 4.0,
+    category: "Snacks",
+    stock: 60,
+    isActive: true,
   },
 ]
 
-// Agregar productos
 async function addSampleProducts() {
-  for (const product of sampleProducts) {
-    try {
-      await addDoc(collection(db, "products"), product)
-      console.log("Producto agregado:", product.name)
-    } catch (error) {
-      console.error("Error:", error)
+  try {
+    console.log("🚀 Agregando productos de muestra...")
+
+    for (const product of sampleProducts) {
+      await addDoc(collection(db, "products"), {
+        ...product,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      console.log(`✅ Producto agregado: ${product.name}`)
     }
+
+    console.log("🎉 ¡Productos de muestra agregados exitosamente!")
+  } catch (error) {
+    console.error("❌ Error:", error)
   }
 }
 
