@@ -40,17 +40,6 @@ interface OptimizedSalesPageProps {
   onCashRegisterChange?: (status: { isOpen: boolean; data: any }) => void
 }
 
-// Función para obtener la fecha de venta correcta basada en la hora
-const getSaleDate = () => {
-  const now = new Date()
-  const hour = now.getHours()
-  
-  // Si es después de medianoche (00:00), pertenece al día actual
-  // Si es antes de medianoche, pertenece al día actual también
-  // La lógica de "día anterior" se maneja en el cierre automático
-  return now.toISOString().split("T")[0]
-}
-
 export default function OptimizedSalesPage({
   sidebarCollapsed = false,
   cashRegisterStatus,
@@ -274,133 +263,68 @@ export default function OptimizedSalesPage({
       }
     }
 
-    // Generar HTML para impresión con el formato del PDF
+    // Generar HTML para impresión
     const allTicketsHTML = allTickets
       .map(
         (ticket, index) => `
-    <div class="print-ticket">
-      <div class="ticket-header">
-        <div class="ticket-title">SANCHEZ PARK</div>
-        <div class="ticket-subtitle">¡A un paso de la diversión!</div>
-        <div class="ticket-status">${ticket.type}</div>
-        <div class="ticket-number">#${ticket.ticketNumber}</div>
+      <div class="print-ticket">
+        <div class="ticket-header">
+          <div class="ticket-logo">
+            <img src="/tiger-logo-bw.png" alt="Sanchez Park" class="ticket-logo-img" />
+          </div>
+          <div class="ticket-title">SANCHEZ PARK</div>
+          <div class="ticket-subtitle">Ticket de ${ticket.type}</div>
+          <div class="ticket-number">#${ticket.ticketNumber}</div>
+          ${ticket.isFree ? '<div class="ticket-promo">🎁 PROMOCIÓN 10+1</div>' : ""}
+        </div>
+        
+        <div class="ticket-content">
+          <div class="ticket-row">
+            <span class="ticket-label">Producto:</span>
+            <span class="ticket-value">${ticket.productName}</span>
+          </div>
+          <div class="ticket-row">
+            <span class="ticket-label">Cantidad:</span>
+            <span class="ticket-value">1 unidad</span>
+          </div>
+          <div class="ticket-row">
+            <span class="ticket-label">Precio:</span>
+            <span class="ticket-value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
+          </div>
+          <div class="ticket-total-section">
+            <div class="ticket-total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
+          </div>
+        </div>
+        
+        <div class="ticket-footer">
+          <div class="ticket-info">Fecha: ${ticket.saleDate}</div>
+          <div class="ticket-info">Vendedor: ${ticket.seller}</div>
+          <div class="ticket-info">Pago: ${ticket.paymentMethod}</div>
+          <div class="ticket-info">Ticket: ${index + 1} de ${allTickets.length}</div>
+          ${ticket.isFree ? '<div class="ticket-promo-note">¡Felicidades! Ticket de promoción 10+1</div>' : ""}
+          <div class="ticket-thanks">¡Gracias por su compra!</div>
+          <div class="ticket-brand">Sanchez Park</div>
+          <div class="ticket-note">Conserve este ticket</div>
+        </div>
       </div>
-      
-      <div class="ticket-content">
-        <div class="ticket-row">
-          <span class="ticket-label">Producto:</span>
-          <span class="ticket-value">${ticket.productName}</span>
-        </div>
-        <div class="ticket-row">
-          <span class="ticket-label">Cantidad:</span>
-          <span class="ticket-value">1 unidad</span>
-        </div>
-        <div class="ticket-row">
-          <span class="ticket-label">Precio:</span>
-          <span class="ticket-value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
-        </div>
-        <div class="ticket-total-section">
-          <div class="ticket-total">${ticket.isFree ? "🎁 TICKET GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
-        </div>
-      </div>
-      
-      <div class="ticket-footer">
-        <div class="ticket-info">${ticket.saleDate}</div>
-        <div class="ticket-info">${ticket.seller}</div>
-        <div class="ticket-info">${ticket.paymentMethod}</div>
-        <div class="ticket-info">Ticket ${index + 1} de ${allTickets.length}</div>
-        <div class="ticket-thanks">Gracias por su compra!</div>
-      </div>
-    </div>
-  `,
+    `,
       )
       .join("")
 
-    // CSS styles for printing...
+    // Limpiar contenedor previo
+    const existingContainer = document.getElementById("print-container")
+    if (existingContainer) {
+      existingContainer.remove()
+    }
+
+    // Crear nuevo contenedor de impresión
     const printContainer = document.createElement("div")
     printContainer.id = "print-container"
     printContainer.className = "print-only"
-    printContainer.innerHTML = `
-    <style>
-      @media print {
-        .print-ticket {
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 8px !important;
-          background: white !important;
-          page-break-after: always !important;
-          page-break-inside: avoid !important;
-          display: flex !important;
-          flex-direction: column !important;
-          font-size: 11px !important;
-          line-height: 1.3 !important;
-        }
-        
-        .ticket-header {
-          text-align: center !important;
-          margin-bottom: 8px !important;
-          padding-bottom: 6px !important;
-          border-bottom: 1px dashed #000 !important;
-        }
-        
-        .ticket-title {
-          font-size: 16px !important;
-          font-weight: bold !important;
-          margin-bottom: 2px !important;
-        }
-        
-        .ticket-subtitle {
-          font-size: 10px !important;
-          margin-bottom: 4px !important;
-        }
-        
-        .ticket-status {
-          font-size: 12px !important;
-          font-weight: bold !important;
-          margin-bottom: 2px !important;
-        }
-        
-        .ticket-number {
-          font-size: 14px !important;
-          font-weight: bold !important;
-        }
-        
-        .ticket-content {
-          margin: 8px 0 !important;
-          flex-grow: 1 !important;
-        }
-        
-        .ticket-row {
-          display: flex !important;
-          justify-content: space-between !important;
-          margin-bottom: 3px !important;
-          font-size: 10px !important;
-        }
-        
-        .ticket-total-section {
-          margin: 8px 0 !important;
-          padding: 4px !important;
-          border: 1px solid #000 !important;
-          text-align: center !important;
-        }
-        
-        .ticket-footer {
-          text-align: center !important;
-          font-size: 9px !important;
-          margin-top: 8px !important;
-          padding-top: 6px !important;
-          border-top: 1px dashed #000 !important;
-        }
-        
-        .ticket-thanks {
-          font-weight: bold !important;
-          margin: 4px 0 2px 0 !important;
-        }
-      }
-    </style>
-    ${allTicketsHTML}
-  `
+    printContainer.innerHTML = allTicketsHTML
     document.body.appendChild(printContainer)
+
+    console.log(`✅ ${allTickets.length} tickets listos para impresión`)
 
     setTimeout(() => {
       window.print()
@@ -434,8 +358,13 @@ export default function OptimizedSalesPage({
         .filter((item) => item.paymentMethod === "transferencia")
         .reduce((total, item) => total + item.price * item.quantity, 0)
 
-      // Usar la fecha de venta correcta basada en la hora
-      const saleDate = getSaleDate()
+      // Determinar la fecha correcta basada en la hora
+      const now = new Date()
+      const saleDate = new Date(now)
+      
+      // Si es antes de las 12:00 AM del día siguiente, usar la fecha actual
+      // Si es después de las 12:00 AM, usar la fecha actual
+      const dateString = saleDate.toISOString().split("T")[0]
 
       const saleData = {
         items: cart,
@@ -444,8 +373,8 @@ export default function OptimizedSalesPage({
         transferTotal,
         sellerId: user?.uid,
         sellerEmail: user?.email,
-        timestamp: new Date(),
-        date: saleDate,
+        timestamp: now,
+        date: dateString,
         promotion: {
           totalItems: promotion.totalItems,
           freeItems: promotion.freeItems,
@@ -458,9 +387,8 @@ export default function OptimizedSalesPage({
         // Modo online
         await addDoc(collection(db, "sales"), saleData)
 
-        // Actualizar caja registradora
-        const today = new Date().toISOString().split("T")[0]
-        const cashRegId = `${user?.uid}-${today}`
+        // Actualizar caja registradora usando la fecha correcta
+        const cashRegId = `${user?.uid}-${dateString}`
         const cashRegRef = doc(db, "cash-registers", cashRegId)
         const cashRegDoc = await getDoc(cashRegRef)
 
@@ -624,13 +552,16 @@ export default function OptimizedSalesPage({
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
+
+                    {/* Subtotal del item */}
+                    <span className="text-xs font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
 
-                  {/* MÉTODO DE PAGO INDIVIDUAL POR PRODUCTO */}
+                  {/* Método de pago individual */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Método de Pago:</label>
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Método de pago:</label>
                     <Select value={item.paymentMethod} onValueChange={(value) => updatePaymentMethod(item.id, value)}>
-                      <SelectTrigger className="w-full h-8 text-xs bg-white dark:bg-gray-600">
+                      <SelectTrigger className="w-full h-7 text-xs bg-white dark:bg-gray-600">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -638,12 +569,6 @@ export default function OptimizedSalesPage({
                         <SelectItem value="transferencia">💳 Transferencia</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  {/* Subtotal del item */}
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                    <span className="font-bold text-green-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               ))}
