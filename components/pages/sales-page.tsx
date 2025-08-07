@@ -382,375 +382,139 @@ export default function SalesPage({
     }
   }, [])
 
-  const generateAndPrintTickets = useCallback(() => {
-    const allTickets = []
-    let ticketCounter = 1
+const generateAndPrintTickets = useCallback(() => {
+  const allTickets = []
+  let ticketCounter = 1
 
-    // Crear tickets pagados
-    cart.forEach((item) => {
-      for (let i = 0; i < item.quantity; i++) {
-        allTickets.push({
-          ticketNumber: String(ticketCounter).padStart(3, "0"),
-          productName: item.name,
-          productPrice: item.price,
-          saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
-          seller: user?.displayName || user?.email || "Vendedor",
-          isFree: false,
-          type: "PAGADO",
-        })
-        ticketCounter++
-      }
-    })
-
-    // Agregar tickets gratis
-    if (promotion.hasPromotion) {
-      const productsInCart = cart.filter((item) => item.quantity > 0)
-      const freeTicketsToDistribute = promotion.freeItems
-
-      for (let i = 0; i < freeTicketsToDistribute; i++) {
-        const productIndex = i % productsInCart.length
-        const selectedProduct = productsInCart[productIndex]
-
-        allTickets.push({
-          ticketNumber: String(ticketCounter).padStart(3, "0"),
-          productName: selectedProduct.name,
-          productPrice: 0,
-          saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: "PROMOCIÓN 10+1",
-          seller: user?.displayName || user?.email || "Vendedor",
-          isFree: true,
-          type: "GRATIS",
-        })
-        ticketCounter++
-      }
+  cart.forEach((item) => {
+    for (let i = 0; i < item.quantity; i++) {
+      allTickets.push({
+        ticketNumber: String(ticketCounter).padStart(3, "0"),
+        productName: item.name,
+        productPrice: item.price,
+        saleDate: new Date().toLocaleString("es-PE"),
+        paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+        seller: user?.displayName || user?.email || "Vendedor",
+        isFree: false,
+        type: "PAGADO",
+      })
+      ticketCounter++
     }
+  })
 
-    // Limpiar cualquier contenedor de impresión existente
-    const existingContainer = document.getElementById("print-container")
-    if (existingContainer) {
-      existingContainer.remove()
-    }
-
-    // Crear nuevo contenedor
-    const printContainer = document.createElement("div")
-    printContainer.id = "print-container"
-    printContainer.style.display = "none"
-
-    // CSS extremadamente compacto para tickets de 13cm exactos
-    const printStyles = `
-<style>
-  @media screen {
-    #print-container {
-      display: none !important;
+  if (promotion.hasPromotion) {
+    const productsInCart = cart.filter((item) => item.quantity > 0)
+    for (let i = 0; i < promotion.freeItems; i++) {
+      const product = productsInCart[i % productsInCart.length]
+      allTickets.push({
+        ticketNumber: String(ticketCounter).padStart(3, "0"),
+        productName: product.name,
+        productPrice: 0,
+        saleDate: new Date().toLocaleString("es-PE"),
+        paymentMethod: "PROMOCIÓN 10+1",
+        seller: user?.displayName || user?.email || "Vendedor",
+        isFree: true,
+        type: "GRATIS",
+      })
+      ticketCounter++
     }
   }
-  
-  @media print {
-    * {
-      margin: 0 !important;
-      padding: 0 !important;
-      box-sizing: border-box !important;
-    }
-    
-    html, body {
-      width: 100% !important;
-      height: auto !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      font-family: 'Courier New', monospace !important;
-      font-size: 8px !important;
-      line-height: 0.9 !important;
-      color: #000 !important;
-      background: white !important;
-      font-weight: bold !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    
-    @page {
-      size: 100% 13cm !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-    
-    body > *:not(#print-container) {
-      display: none !important;
-    }
-    
-    #print-container {
-      display: block !important;
-      visibility: visible !important;
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-    
-    .ticket {
-      width: 100% !important;
-      height: 13cm !important;
-      margin: 0 !important;
-      padding: 1px !important;
-      background: white !important;
-      page-break-after: always !important;
-      page-break-inside: avoid !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-      font-weight: bold !important;
-      border: 0.5px solid #000 !important;
-    }
-    
-    .ticket:last-child {
-      page-break-after: auto !important;
-    }
-    
-    /* Header súper compacto */
-    .header {
-      text-align: center !important;
-      border-bottom: 0.5px solid #000 !important;
-      padding-bottom: 0px !important;
-      margin-bottom: 1px !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .logo {
-      font-size: 12px !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      font-weight: 900 !important;
-    }
-    
-    .title {
-      font-size: 9px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      letter-spacing: 0.2px !important;
-    }
-    
-    .subtitle {
-      font-size: 6px !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      font-weight: bold !important;
-    }
-    
-    .number {
-      font-size: 8px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      letter-spacing: 0.2px !important;
-    }
-    
-    .promo-badge {
-      background: #000 !important;
-      color: white !important;
-      padding: 0px 1px !important;
-      font-size: 4px !important;
-      font-weight: 900 !important;
-      display: inline-block !important;
-      margin: 0 !important;
-      letter-spacing: 0.1px !important;
-    }
-    
-    /* Contenido súper compacto */
-    .content {
-      margin: 0 !important;
-      flex-grow: 1 !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: center !important;
-      padding: 1px !important;
-    }
-    
-    .row {
-      display: flex !important;
-      justify-content: space-between !important;
-      margin-bottom: 0px !important;
-      font-size: 6px !important;
-      line-height: 0.9 !important;
-      font-weight: bold !important;
-      padding: 0 !important;
-    }
-    
-    .label {
-      font-weight: 900 !important;
-      flex: 1 !important;
-      letter-spacing: 0.1px !important;
-    }
-    
-    .value {
-      text-align: right !important;
-      flex: 1 !important;
-      font-weight: bold !important;
-    }
-    
-    .total-section {
-      border-top: 0.5px solid #000 !important;
-      padding-top: 0px !important;
-      margin-top: 1px !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .total {
-      text-align: center !important;
-      font-size: 7px !important;
-      font-weight: 900 !important;
-      padding: 0px !important;
-      background: #f0f0f0 !important;
-      line-height: 0.9 !important;
-      border: 0.5px solid #000 !important;
-      letter-spacing: 0.2px !important;
-    }
-    
-    /* Footer súper compacto */
-    .footer {
-      border-top: 0.5px solid #000 !important;
-      padding-top: 0px !important;
-      margin-top: 1px !important;
-      text-align: center !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .info {
-      font-size: 4px !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      font-weight: bold !important;
-    }
-    
-    .thanks {
-      font-size: 6px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      letter-spacing: 0.2px !important;
-    }
-    
-    .brand {
-      font-size: 5px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
-      letter-spacing: 0.2px !important;
-    }
-    
-    .note {
-      font-size: 3px !important;
-      font-style: italic !important;
-      line-height: 0.9 !important;
-      margin: 0 !important;
-      font-weight: bold !important;
-    }
-    
-    .promo-note {
-      font-size: 3px !important;
-      font-weight: 900 !important;
-      margin: 0 !important;
-      background: #f0f0f0 !important;
-      padding: 0px !important;
-      line-height: 0.9 !important;
-      border: 0.5px solid #000 !important;
-    }
-  }
-</style>
-`
 
-    // Generar HTML de tickets con formato extremadamente compacto
-    const ticketsHTML = allTickets
-      .map(
-        (ticket, index) => `
-<div class="ticket">
-  <div class="header">
-    <div class="logo">🐅</div>
-    <div class="title">SANCHEZ PARK</div>
-    <div class="subtitle">${ticket.type}</div>
-    <div class="number">#${ticket.ticketNumber}</div>
-    ${ticket.isFree ? '<div class="promo-badge">🎁 10+1</div>' : ""}
-  </div>
-  
-  <div class="content">
-    <div class="row">
-      <span class="label">Producto:</span>
-      <span class="value">${ticket.productName.length > 20 ? ticket.productName.substring(0, 20) + "..." : ticket.productName}</span>
-    </div>
-    <div class="row">
-      <span class="label">Cant:</span>
-      <span class="value">1 ud</span>
-    </div>
-    <div class="row">
-      <span class="label">Precio:</span>
-      <span class="value">${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</span>
-    </div>
-    <div class="total-section">
-      <div class="total">${ticket.isFree ? "🎁 GRATIS" : `TOTAL: S/. ${ticket.productPrice.toFixed(2)}`}</div>
-    </div>
-  </div>
-  
-  <div class="footer">
-    <div class="info">${ticket.saleDate.substring(0, 16)}</div>
-    <div class="info">${ticket.seller.length > 15 ? ticket.seller.substring(0, 15) + "..." : ticket.seller}</div>
-    <div class="info">${ticket.paymentMethod.substring(0, 12)}</div>
-    <div class="info">${index + 1}/${allTickets.length}</div>
-    ${ticket.isFree ? '<div class="promo-note">Promo 10+1</div>' : ""}
-    <div class="thanks">¡Gracias!</div>
-    <div class="brand">Sanchez Park</div>
-    <div class="note">Conserve ticket</div>
-  </div>
-</div>
-`,
-      )
-      .join("")
+  const existing = document.getElementById("print-container")
+  if (existing) existing.remove()
 
-    // Agregar contenido al contenedor
-    printContainer.innerHTML = printStyles + ticketsHTML
+  const printContainer = document.createElement("div")
+  printContainer.id = "print-container"
+  printContainer.style.display = "none"
 
-    // Agregar al DOM
-    document.body.appendChild(printContainer)
-
-    console.log(`✅ ${allTickets.length} tickets ultra compactos (100% ancho x 13cm) preparados para impresión`)
-    console.log("Contenido del contenedor:", printContainer.innerHTML.length, "caracteres")
-
-    // Imprimir después de un breve delay
-    setTimeout(() => {
-      console.log("Iniciando impresión de tickets ultra compactos...")
-
-      // Configurar título temporal
-      const originalTitle = document.title
-      document.title = `Tickets-Compactos-${Date.now()}`
-
-      // Función de limpieza
-      const cleanup = () => {
-        document.title = originalTitle
-        const container = document.getElementById("print-container")
-        if (container) {
-          container.remove()
-          console.log("Contenedor de impresión limpiado")
+  const printStyles = `
+    <style>
+      @media print {
+        @page {
+          size: 8cm auto;
+          margin: 0;
+        }
+        html, body {
+          margin: 0;
+          padding: 0;
+          font-family: Arial, sans-serif;
+          font-size: 10px;
+          color: black;
+        }
+        .ticket {
+          width: 8cm;
+          min-height: 10cm;
+          padding: 10px;
+          page-break-after: always;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          border: 1px dashed black;
+        }
+        .header {
+          text-align: center;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        .header .title {
+          font-size: 14px;
+          margin: 4px 0;
+        }
+        .info {
+          margin: 3px 0;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 10px;
+          font-size: 9px;
+        }
+        .footer .promo {
+          font-size: 8px;
+          font-weight: bold;
+          margin-top: 5px;
         }
       }
+    </style>
+  `
 
-      // Event listener para después de imprimir
-      const handleAfterPrint = () => {
-        cleanup()
-        window.removeEventListener("afterprint", handleAfterPrint)
-      }
+  const ticketsHTML = allTickets.map((ticket, index) => `
+    <div class="ticket">
+      <div class="header">
+        <div class="title">🎟️ SANCHEZ PARK</div>
+        <div>${ticket.type}</div>
+        <div>#${ticket.ticketNumber}</div>
+        ${ticket.isFree ? `<div class="promo">🎁 PROMO 10+1</div>` : ""}
+      </div>
+      <div class="info">Producto: ${ticket.productName}</div>
+      <div class="info">Cantidad: 1</div>
+      <div class="info">Precio: ${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</div>
+      <div class="info">Total: ${ticket.isFree ? "GRATIS" : `S/. ${ticket.productPrice.toFixed(2)}`}</div>
+      <div class="info">Fecha: ${ticket.saleDate}</div>
+      <div class="info">Pago: ${ticket.paymentMethod}</div>
+      <div class="info">Vendedor: ${ticket.seller}</div>
+      <div class="footer">
+        <div>¡Gracias por tu compra!</div>
+        ${ticket.isFree ? '<div class="promo">Ticket gratuito por promoción</div>' : ""}
+      </div>
+    </div>
+  `).join("")
 
-      window.addEventListener("afterprint", handleAfterPrint)
+  printContainer.innerHTML = printStyles + ticketsHTML
+  document.body.appendChild(printContainer)
 
-      // Iniciar impresión
-      try {
-        window.print()
-      } catch (error) {
-        console.error("Error al imprimir:", error)
-        cleanup()
-      }
-
-      // Limpieza de respaldo después de 10 segundos
-      setTimeout(cleanup, 10000)
-    }, 300)
-  }, [cart, promotion, paymentMethod, user])
+  setTimeout(() => {
+    const originalTitle = document.title
+    document.title = `Ticket-${Date.now()}`
+    const cleanup = () => {
+      document.title = originalTitle
+      const el = document.getElementById("print-container")
+      if (el) el.remove()
+    }
+    window.addEventListener("afterprint", cleanup)
+    window.print()
+    setTimeout(cleanup, 10000)
+  }, 300)
+}, [cart, promotion, paymentMethod, user])
 
   const processSale = useCallback(async () => {
     if (cart.length === 0) {
