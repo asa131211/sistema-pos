@@ -1,129 +1,179 @@
-// Script para agregar datos de prueba
-import { initializeApp } from "firebase/app"
-import { getFirestore, collection, addDoc, doc, setDoc } from "firebase/firestore"
+"use client"
 
-const firebaseConfig = {
-  apiKey: "demo-api-key",
-  authDomain: "demo-project.firebaseapp.com",
-  projectId: "demo-project",
-  storageBucket: "demo-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "demo-app-id",
-}
+import { useState, useEffect } from "react"
+import { useAuthState } from "react-firebase-hooks/auth"
+import { auth, db } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
+import Sidebar from "@/components/sidebar"
+import TopBar from "@/components/top-bar"
+import HomePage from "@/components/pages/home-page"
+import SalesPage from "@/components/pages/sales-page"
+import ProductsPage from "@/components/pages/products-page"
+import UsersPage from "@/components/pages/users-page"
+import ReportsPage from "@/components/pages/reports-page"
+import SettingsPage from "@/components/pages/settings-page"
+import { SyncIndicator } from "@/components/sync-status"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
+export default function Dashboard() {
+  const [user] = useAuthState(auth)
+  const [userRole, setUserRole] = useState<"admin" | "vendedor" | null>(null)
+  const [currentPage, setCurrentPage] = useState("ventas")
+  const [loading, setLoading] = useState(true)
+  const [darkMode, setDarkMode] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [cashRegisterStatus, setCashRegisterStatus] = useState<{ isOpen: boolean; data: any }>({
+    isOpen: false,
+    data: null,
+  })
 
-// Productos de ejemplo
-const sampleProducts = [
-  {
-    name: "FIFA 24",
-    price: 15.0,
-    image: "https://example.com/fifa24.jpg",
-  },
-  {
-    name: "Call of Duty",
-    price: 20.0,
-    image: "https://example.com/cod.jpg",
-  },
-  {
-    name: "Fortnite V-Bucks",
-    price: 10.0,
-    image: "https://example.com/fortnite.jpg",
-  },
-]
+  useKeyboardShortcuts()
 
-// Ventas de ejemplo
-const sampleSales = [
-  {
-    items: [
-      { id: "1", name: "Juego de Mesa Monopoly", price: 45.0, quantity: 2, paymentMethod: "efectivo" },
-      { id: "2", name: "Control Xbox", price: 180.0, quantity: 1, paymentMethod: "tarjeta" },
-    ],
-    total: 270.0,
-    timestamp: new Date(Date.now() - 86400000), // Ayer
-    userName: "Administrador",
-    paymentMethods: { efectivo: 90.0, tarjeta: 180.0 },
-  },
-  {
-    items: [{ id: "3", name: "PlayStation 5", price: 2500.0, quantity: 1, paymentMethod: "tarjeta" }],
-    total: 2500.0,
-    timestamp: new Date(Date.now() - 43200000), // Hace 12 horas
-    userName: "Vendedor",
-    paymentMethods: { tarjeta: 2500.0 },
-  },
-  {
-    items: [
-      { id: "4", name: "Juego FIFA 24", price: 120.0, quantity: 3, paymentMethod: "efectivo" },
-      { id: "5", name: "Auriculares Gaming", price: 85.0, quantity: 2, paymentMethod: "yape" },
-    ],
-    total: 530.0,
-    timestamp: new Date(Date.now() - 21600000), // Hace 6 horas
-    userName: "Vendedor",
-    paymentMethods: { efectivo: 360.0, yape: 170.0 },
-  },
-  {
-    items: [
-      { id: "6", name: "Nintendo Switch", price: 1200.0, quantity: 1, paymentMethod: "tarjeta" },
-      { id: "7", name: "Teclado Mecánico", price: 95.0, quantity: 1, paymentMethod: "efectivo" },
-    ],
-    total: 1295.0,
-    timestamp: new Date(Date.now() - 10800000), // Hace 3 horas
-    userName: "Administrador",
-    paymentMethods: { tarjeta: 1200.0, efectivo: 95.0 },
-  },
-  {
-    items: [{ id: "8", name: "Call of Duty", price: 150.0, quantity: 2, paymentMethod: "yape" }],
-    total: 300.0,
-    timestamp: new Date(Date.now() - 3600000), // Hace 1 hora
-    userName: "Vendedor",
-    paymentMethods: { yape: 300.0 },
-  },
-]
-
-// Agregar productos
-async function addSampleProducts() {
-  for (const product of sampleProducts) {
-    try {
-      await addDoc(collection(db, "products"), product)
-      console.log("Producto agregado:", product.name)
-    } catch (error) {
-      console.error("Error:", error)
-    }
-  }
-}
-
-// Agregar datos de muestra
-async function addSampleData() {
-  console.log("🚀 Agregando datos de muestra...")
-
-  try {
-    // Agregar ventas de muestra
-    for (const sale of sampleSales) {
-      await addDoc(collection(db, "sales"), sale)
-      console.log(`✅ Venta agregada: ${sale.total}`)
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user) {
+        try {
+          console.log("🔄 Sincronizando datos de usuario...")
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            setUserRole(userData.role)
+            setCurrentPage(userData.role === "admin" ? "inicio" : "ventas")
+            console.log("✅ Rol de usuario sincronizado:", userData.role)
+          }
+        } catch (error) {
+          console.error("❌ Error fetching user role:", error)
+        } finally {
+          setLoading(false)
+        }
+      }
     }
 
-    // Agregar configuración del sistema
-    await setDoc(doc(db, "settings", "system"), {
-      storeName: "Sanchez Park",
-      storeAddress: "Av. Principal 123, Lima, Perú",
-      storePhone: "+51 999 888 777",
-      currency: "PEN",
-      taxRate: 0.18,
-      promotionEnabled: true,
-      promotionRule: "10+1",
-      ticketFooter: "¡Gracias por su compra! - www.sanchezpark.com",
-      updatedAt: new Date(),
-    })
+    fetchUserRole()
+  }, [user])
 
-    console.log("✅ Configuración del sistema agregada")
-    console.log("🎉 ¡Datos de muestra agregados exitosamente!")
-  } catch (error) {
-    console.error("❌ Error agregando datos:", error)
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [darkMode])
+
+  // Check cash register status
+  useEffect(() => {
+    const checkCashRegisterStatus = async () => {
+      if (!user) return
+
+      try {
+        const today = new Date().toISOString().split("T")[0]
+        const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${today}`))
+
+        if (cashRegDoc.exists()) {
+          const data = cashRegDoc.data()
+          setCashRegisterStatus({ isOpen: data.isOpen, data })
+        } else {
+          setCashRegisterStatus({ isOpen: false, data: null })
+        }
+      } catch (error) {
+        console.error("Error checking cash register:", error)
+        setCashRegisterStatus({ isOpen: false, data: null })
+      }
+    }
+
+    checkCashRegisterStatus()
+    const interval = setInterval(checkCashRegisterStatus, 30000)
+
+    return () => clearInterval(interval)
+  }, [user])
+
+  // Auto-reset de ventas a las 7 AM
+  useEffect(() => {
+    const checkDailyReset = () => {
+      const now = new Date()
+      const resetTime = new Date()
+      resetTime.setHours(7, 0, 0, 0)
+
+      if (now > resetTime) {
+        resetTime.setDate(resetTime.getDate() + 1)
+      }
+
+      const timeUntilReset = resetTime.getTime() - now.getTime()
+
+      const resetTimeout = setTimeout(() => {
+        console.log("🔄 Reinicio automático del sistema a las 7:00 AM")
+        checkDailyReset()
+      }, timeUntilReset)
+
+      return () => clearTimeout(resetTimeout)
+    }
+
+    const cleanup = checkDailyReset()
+    return cleanup
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <img src="/loading-wheel.gif" alt="Cargando..." className="w-16 h-16 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400 text-lg">Sincronizando datos...</p>
+          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Preparando tu espacio de trabajo</p>
+        </div>
+      </div>
+    )
   }
-}
 
-// Ejecutar funciones
-addSampleProducts()
-addSampleData()
+  const renderPage = () => {
+    switch (currentPage) {
+      case "inicio":
+        return <HomePage userRole={userRole} sidebarCollapsed={sidebarCollapsed} />
+      case "ventas":
+        return (
+          <SalesPage
+            sidebarCollapsed={sidebarCollapsed}
+            cashRegisterStatus={cashRegisterStatus}
+            onCashRegisterChange={setCashRegisterStatus}
+          />
+        )
+      case "productos":
+        return <ProductsPage sidebarCollapsed={sidebarCollapsed} />
+      case "usuarios":
+        return <UsersPage sidebarCollapsed={sidebarCollapsed} />
+      case "reportes":
+        return <ReportsPage sidebarCollapsed={sidebarCollapsed} />
+      case "configuracion":
+        return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} sidebarCollapsed={sidebarCollapsed} />
+      default:
+        return (
+          <SalesPage
+            sidebarCollapsed={sidebarCollapsed}
+            cashRegisterStatus={cashRegisterStatus}
+            onCashRegisterChange={setCashRegisterStatus}
+          />
+        )
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <TopBar
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        cashRegisterStatus={cashRegisterStatus}
+        onCashRegisterChange={setCashRegisterStatus}
+      />
+      <div className="flex flex-1">
+        <Sidebar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          userRole={userRole}
+          isCollapsed={sidebarCollapsed}
+          setIsCollapsed={setSidebarCollapsed}
+        />
+        <main className="flex-1 overflow-auto">{renderPage()}</main>
+      </div>
+      <SyncIndicator />
+    </div>
+  )
+}
