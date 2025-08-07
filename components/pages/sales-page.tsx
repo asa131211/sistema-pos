@@ -455,7 +455,6 @@ export default function SalesPage({
     
     html, body {
       width: 8cm !important;
-      height: auto !important;
       margin: 0 !important;
       padding: 0 !important;
       font-family: 'Courier New', monospace !important;
@@ -471,7 +470,6 @@ export default function SalesPage({
     @page {
       size: 8cm auto !important;
       margin: 0 !important;
-      padding: 0 !important;
     }
     
     body > *:not(#print-container) {
@@ -480,7 +478,6 @@ export default function SalesPage({
     
     #print-container {
       display: block !important;
-      visibility: visible !important;
       width: 8cm !important;
       margin: 0 !important;
       padding: 0 !important;
@@ -493,7 +490,6 @@ export default function SalesPage({
       padding: 1px !important;
       background: white !important;
       page-break-after: always !important;
-      page-break-inside: avoid !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: space-between !important;
@@ -509,15 +505,12 @@ export default function SalesPage({
     .header {
       text-align: center !important;
       border-bottom: 0.5px solid #000 !important;
-      padding-bottom: 0px !important;
       margin-bottom: 1px !important;
       flex-shrink: 0 !important;
     }
     
     .logo {
       font-size: 12px !important;
-      margin: 0 !important;
-      line-height: 0.9 !important;
       font-weight: 900 !important;
     }
     
