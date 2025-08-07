@@ -458,7 +458,7 @@ export default function SalesPage({
       margin: 0 !important;
       padding: 0 !important;
       font-family: 'Courier New', monospace !important;
-      font-size: 10px !important;
+      font-size: 14px !important;
       line-height: 1 !important;
       color: #000 !important;
       background: white !important;
@@ -487,7 +487,7 @@ export default function SalesPage({
       width: 8cm !important;
       min-height: 5cm !important;
       margin: 0 auto !important;
-      padding: 5px !important;
+      padding: 6px !important;
       background: white !important;
       page-break-after: always !important;
       display: flex !important;
@@ -502,52 +502,51 @@ export default function SalesPage({
     /* Header súper compacto */
     .header {
       text-align: center !important;
-      margin-bottom: 2px !important;
+      margin-bottom: 4px !important;
     }
     
     .logo {
-      font-size: 14px !important;
+      font-size: 18px !important;
       font-weight: 900 !important;
     }
     
     .title {
-      font-size: 11px !important;
+      font-size: 16px !important;
       font-weight: 900 !important;
       letter-spacing: 0.2px !important;
     }
     
     .subtitle {
-      font-size: 8px !important;
+      font-size: 13px !important;
       font-weight: bold !important;
     }
     
     .number {
-      font-size: 10px !important;
+      font-size: 15px !important;
       font-weight: 900 !important;
     }
     
     .promo-badge {
       background: #000 !important;
       color: white !important;
-      padding: 1px 2px !important;
-      font-size: 6px !important;
+      padding: 2px 3px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
       display: inline-block !important;
     }
     
-    /* Contenido súper compacto */
     .content {
       flex-grow: 1 !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: center !important;
-      padding: 2px !important;
+      padding: 3px !important;
     }
     
     .row {
       display: flex !important;
       justify-content: space-between !important;
-      font-size: 8px !important;
+      font-size: 13px !important;
       font-weight: bold !important;
     }
     
@@ -562,46 +561,45 @@ export default function SalesPage({
     }
     
     .total-section {
-      margin-top: 2px !important;
+      margin-top: 3px !important;
     }
     
     .total {
       text-align: center !important;
-      font-size: 9px !important;
+      font-size: 14px !important;
       font-weight: 900 !important;
       background: #f0f0f0 !important;
       letter-spacing: 0.2px !important;
     }
     
-    /* Footer súper compacto */
     .footer {
       text-align: center !important;
-      margin-top: 2px !important;
+      margin-top: 4px !important;
     }
     
     .info {
-      font-size: 6px !important;
+      font-size: 11px !important;
       font-weight: bold !important;
     }
     
     .thanks {
-      font-size: 8px !important;
+      font-size: 13px !important;
       font-weight: 900 !important;
     }
     
     .brand {
-      font-size: 7px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
     }
     
     .note {
-      font-size: 5px !important;
+      font-size: 10px !important;
       font-style: italic !important;
       font-weight: bold !important;
     }
     
     .promo-note {
-      font-size: 5px !important;
+      font-size: 10px !important;
       font-weight: 900 !important;
       background: #f0f0f0 !important;
     }
