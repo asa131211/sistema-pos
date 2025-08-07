@@ -212,7 +212,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
         </CardHeader>
       </Card>
 
-      {/* Dialog para cerrar caja */}
+      {/* Dialog para cerrar caja - Sin resumen */}
       <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>

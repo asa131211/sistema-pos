@@ -69,7 +69,6 @@ interface ReportsPageProps {
 }
 
 export default function ReportsPage({ sidebarCollapsed = false }: ReportsPageProps) {
-  console.log("🔍 ReportsPage renderizándose correctamente")
   const [user] = useAuthState(auth)
   const [sales, setSales] = useState<Sale[]>([])
   const [users, setUsers] = useState<any[]>([])
@@ -408,10 +407,8 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">📊 Reportes y Análisis</h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Panel de análisis avanzado de ventas y rendimiento del negocio
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reportes</h1>
+              <p className="text-gray-600 dark:text-gray-400">Análisis avanzado de ventas y rendimiento</p>
             </div>
             <div className="flex space-x-3">
               <Button onClick={exportToCSV} className="bg-purple-600 hover:bg-purple-700 text-white">
