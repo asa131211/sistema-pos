@@ -458,8 +458,8 @@ export default function SalesPage({
       margin: 0 !important;
       padding: 0 !important;
       font-family: 'Courier New', monospace !important;
-      font-size: 8px !important;
-      line-height: 0.9 !important;
+      font-size: 10px !important;
+      line-height: 1 !important;
       color: #000 !important;
       background: white !important;
       font-weight: bold !important;
@@ -485,15 +485,14 @@ export default function SalesPage({
     
     .ticket {
       width: 8cm !important;
-      min-height: auto !important;
-      margin: 0 !important;
+      min-height: 5cm !important;
+      margin: 0 auto !important;
       padding: 5px !important;
       background: white !important;
       page-break-after: always !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: space-between !important;
-      border: 0.5px solid #000 !important;
     }
     
     .ticket:last-child {
@@ -503,41 +502,37 @@ export default function SalesPage({
     /* Header súper compacto */
     .header {
       text-align: center !important;
-      border-bottom: 0.5px solid #000 !important;
-      margin-bottom: 1px !important;
-      flex-shrink: 0 !important;
+      margin-bottom: 2px !important;
     }
     
     .logo {
-      font-size: 12px !important;
+      font-size: 14px !important;
       font-weight: 900 !important;
     }
     
     .title {
-      font-size: 9px !important;
+      font-size: 11px !important;
       font-weight: 900 !important;
       letter-spacing: 0.2px !important;
     }
     
     .subtitle {
-      font-size: 6px !important;
+      font-size: 8px !important;
       font-weight: bold !important;
     }
     
     .number {
-      font-size: 8px !important;
+      font-size: 10px !important;
       font-weight: 900 !important;
-      letter-spacing: 0.2px !important;
     }
     
     .promo-badge {
       background: #000 !important;
       color: white !important;
-      padding: 0px 1px !important;
-      font-size: 4px !important;
+      padding: 1px 2px !important;
+      font-size: 6px !important;
       font-weight: 900 !important;
       display: inline-block !important;
-      letter-spacing: 0.1px !important;
     }
     
     /* Contenido súper compacto */
@@ -546,82 +541,69 @@ export default function SalesPage({
       display: flex !important;
       flex-direction: column !important;
       justify-content: center !important;
-      padding: 1px !important;
+      padding: 2px !important;
     }
     
     .row {
       display: flex !important;
       justify-content: space-between !important;
-      font-size: 6px !important;
-      line-height: 0.9 !important;
+      font-size: 8px !important;
       font-weight: bold !important;
     }
     
     .label {
       font-weight: 900 !important;
       flex: 1 !important;
-      letter-spacing: 0.1px !important;
     }
     
     .value {
       text-align: right !important;
       flex: 1 !important;
-      font-weight: bold !important;
     }
     
     .total-section {
-      border-top: 0.5px solid #000 !important;
-      margin-top: 1px !important;
-      flex-shrink: 0 !important;
+      margin-top: 2px !important;
     }
     
     .total {
       text-align: center !important;
-      font-size: 7px !important;
+      font-size: 9px !important;
       font-weight: 900 !important;
       background: #f0f0f0 !important;
-      border: 0.5px solid #000 !important;
       letter-spacing: 0.2px !important;
     }
     
     /* Footer súper compacto */
     .footer {
-      border-top: 0.5px solid #000 !important;
       text-align: center !important;
-      flex-shrink: 0 !important;
+      margin-top: 2px !important;
     }
     
     .info {
-      font-size: 4px !important;
-      line-height: 0.9 !important;
+      font-size: 6px !important;
       font-weight: bold !important;
     }
     
     .thanks {
-      font-size: 6px !important;
+      font-size: 8px !important;
       font-weight: 900 !important;
-      letter-spacing: 0.2px !important;
     }
     
     .brand {
-      font-size: 5px !important;
+      font-size: 7px !important;
       font-weight: 900 !important;
-      letter-spacing: 0.2px !important;
     }
     
     .note {
-      font-size: 3px !important;
+      font-size: 5px !important;
       font-style: italic !important;
-      line-height: 0.9 !important;
       font-weight: bold !important;
     }
     
     .promo-note {
-      font-size: 3px !important;
+      font-size: 5px !important;
       font-weight: 900 !important;
       background: #f0f0f0 !important;
-      line-height: 0.9 !important;
-      border: 0.5px solid #000 !important;
     }
   }
 </style>
