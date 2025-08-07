@@ -485,15 +485,14 @@ export default function SalesPage({
     
     .ticket {
       width: 8cm !important;
-      min-height: 13cm !important;
+      min-height: auto !important;
       margin: 0 !important;
-      padding: 1px !important;
+      padding: 5px !important;
       background: white !important;
       page-break-after: always !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: space-between !important;
-      font-weight: bold !important;
       border: 0.5px solid #000 !important;
     }
     
