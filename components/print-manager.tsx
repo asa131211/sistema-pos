@@ -90,9 +90,11 @@ export const PrintManager = ({ onPrintComplete, onPrintError }: PrintManagerProp
             }
             
             .logo {
-              font-size: 32px !important;
-              margin-bottom: 6px !important;
-              font-weight: 900 !important;
+              width: 60px !important;
+              height: 60px !important;
+              margin: 0 auto 6px !important;
+              display: block !important;
+              object-fit: contain !important;
             }
             
             .title {
@@ -230,7 +232,7 @@ export const PrintManager = ({ onPrintComplete, onPrintError }: PrintManagerProp
             (ticket, index) => `
         <div class="ticket">
           <div class="header">
-            <div class="logo">🐅</div>
+            <img src="/tiger-logo-ticket.png" alt="Logo" class="logo" />
             <div class="title">SANCHEZ PARK</div>
             <div class="subtitle">Ticket de ${ticket.type}</div>
             <div class="number">#${ticket.ticketNumber}</div>
