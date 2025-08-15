@@ -9,16 +9,16 @@ import { Suspense } from "react"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Sanchez Park - Punto de Venta Profesional",
-  description: "Sistema completo de punto de venta Sanchez Park con gestión de inventario y reportes en tiempo real",
+  title: "Sanchez Park",
+  description: "Sistema de venta para Sanchez Park",
   manifest: "/manifest.json",
   themeColor: "#3b82f6",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   openGraph: {
-    title: "Sanchez Park - Punto de Venta Profesional",
+    title: "Sanchez Park",
   },
   twitter: {
-    title: "Sanchez Park - Punto de Venta",
+    title: "Sanchez Park",
   },
   icons: {
     icon: [

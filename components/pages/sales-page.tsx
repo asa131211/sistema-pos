@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -39,6 +38,7 @@ interface Product {
 
 interface CartItem extends Product {
   quantity: number
+  paymentMethod: string // Agregando método de pago individual por producto
 }
 
 interface SalesPageProps {
@@ -132,55 +132,64 @@ const CartItem = memo(
     item,
     onUpdateQuantity,
     onRemove,
+    updatePaymentMethod,
   }: {
     item: CartItem
     onUpdateQuantity: (id: string, change: number) => void
     onRemove: (id: string) => void
+    updatePaymentMethod: (id: string, paymentMethod: string) => void
   }) => {
     const handleIncrease = useCallback(() => onUpdateQuantity(item.id, 1), [item.id, onUpdateQuantity])
     const handleDecrease = useCallback(() => onUpdateQuantity(item.id, -1), [item.id, onUpdateQuantity])
     const handleRemove = useCallback(() => onRemove(item.id), [item.id, onRemove])
 
     return (
-      <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-        <img
-          src={item.image || "/placeholder.svg?height=40&width=40&text=Sin+Imagen"}
-          alt={item.name}
-          className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg"
-          loading="lazy"
-        />
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-xs md:text-sm truncate text-gray-900 dark:text-white">{item.name}</h4>
-          <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)} c/u</p>
+      <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2">
+        <div className="flex items-center space-x-2">
+          <img
+            src={item.image || "/placeholder.svg?height=32&width=32&text=Sin+Imagen"}
+            alt={item.name}
+            className="w-10 h-10 object-cover rounded-md flex-shrink-0"
+            loading="lazy"
+          />
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-xs truncate text-gray-900 dark:text-white">{item.name}</h4>
+            <p className="text-xs text-gray-600 dark:text-gray-400">S/. {item.price.toFixed(2)}</p>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDecrease}
+              className="h-5 w-5 p-0 rounded-full bg-transparent"
+            >
+              <Minus className="h-2.5 w-2.5" />
+            </Button>
+            <span className="text-xs font-medium w-4 text-center text-gray-900 dark:text-white">{item.quantity}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleIncrease}
+              className="h-5 w-5 p-0 rounded-full bg-transparent"
+            >
+              <Plus className="h-2.5 w-2.5" />
+            </Button>
+            <Button size="sm" variant="destructive" onClick={handleRemove} className="h-5 w-5 p-0 ml-1 rounded-full">
+              <Trash2 className="h-2.5 w-2.5" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center space-x-1 md:space-x-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleDecrease}
-            className="h-6 w-6 p-0 rounded-full bg-transparent"
-          >
-            <Minus className="h-3 w-3" />
-          </Button>
-          <span className="text-xs md:text-sm font-medium w-4 md:w-6 text-center text-gray-900 dark:text-white">
-            {item.quantity}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleIncrease}
-            className="h-6 w-6 p-0 rounded-full bg-transparent"
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleRemove}
-            className="h-6 w-6 p-0 ml-1 md:ml-2 rounded-full"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+
+        <div className="pl-8">
+          <Select value={item.paymentMethod} onValueChange={(value) => updatePaymentMethod(item.id, value)}>
+            <SelectTrigger className="w-full h-6 text-xs bg-white dark:bg-gray-700">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="efectivo">💵 Efectivo</SelectItem>
+              <SelectItem value="transferencia">💳 Transferencia</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     )
@@ -199,7 +208,6 @@ export default function SalesPage({
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [paymentMethod, setPaymentMethod] = useState("efectivo")
   const [showCheckout, setShowCheckout] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [shortcuts, setShortcuts] = useState<any[]>([])
@@ -332,25 +340,14 @@ export default function SalesPage({
         if (existingItem) {
           return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
         }
-        return [...prev, { ...product, quantity: 1 }]
+        return [...prev, { ...product, quantity: 1, paymentMethod: "efectivo" }]
       })
     },
     [cashRegisterStatus?.isOpen],
   )
 
-  // Optimized quantity update
-  const updateQuantity = useCallback((id: string, change: number) => {
-    setCart((prev) => {
-      return prev
-        .map((item) => {
-          if (item.id === id) {
-            const newQuantity = item.quantity + change
-            return newQuantity > 0 ? { ...item, quantity: newQuantity } : item
-          }
-          return item
-        })
-        .filter((item) => item.quantity > 0)
-    })
+  const updatePaymentMethod = useCallback((id: string, paymentMethod: string) => {
+    setCart((prev) => prev.map((item) => (item.id === id ? { ...item, paymentMethod } : item)))
   }, [])
 
   const removeFromCart = useCallback((id: string) => {
@@ -359,6 +356,17 @@ export default function SalesPage({
 
   const clearCart = useCallback(() => {
     setCart([])
+  }, [])
+
+  const updateQuantity = useCallback((id: string, change: number) => {
+    setCart((prev) => {
+      return prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, quantity: item.quantity + change }
+        }
+        return item
+      })
+    })
   }, [])
 
   // Memoized total calculation
@@ -394,7 +402,7 @@ export default function SalesPage({
           productName: item.name,
           productPrice: item.price,
           saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+          paymentMethod: item.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
           seller: user?.displayName || user?.email || "Vendedor",
           isFree: false,
           type: "PAGADO",
@@ -508,6 +516,11 @@ export default function SalesPage({
     .logo {
       font-size: 18px !important;
       font-weight: 900 !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      margin-top: 8px !important;
+      margin-bottom: 0px !important;
     }
     
     .title {
@@ -613,7 +626,7 @@ export default function SalesPage({
         (ticket, index) => `
 <div class="ticket">
   <div class="header">
-    <div class="logo">🐅</div>
+    <div class="logo"><img src="/tiger-logo-ticket.png" alt="Logo" style="width: 80px; height: 80px; object-fit: contain; display: block; margin: 0 auto;" /></div>
     <div class="title">SANCHEZ PARK</div>
     <div class="subtitle">${ticket.type}</div>
     <div class="number">#${ticket.ticketNumber}</div>
@@ -699,7 +712,12 @@ export default function SalesPage({
       // Limpieza de respaldo después de 10 segundos
       setTimeout(cleanup, 10000)
     }, 300)
-  }, [cart, promotion, paymentMethod, user])
+  }, [cart, promotion, user])
+
+  const getBusinessDate = () => {
+    const now = new Date()
+    return now.toISOString().split("T")[0]
+  }
 
   const processSale = useCallback(async () => {
     if (cart.length === 0) {
@@ -714,14 +732,26 @@ export default function SalesPage({
 
     setProcessing(true)
     try {
+      const cashItems = cart.filter((item) => item.paymentMethod === "efectivo")
+      const transferItems = cart.filter((item) => item.paymentMethod === "transferencia")
+
+      const cashTotal = cashItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const transferTotal = transferItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+      const businessDate = getBusinessDate()
+
       const saleData = {
         items: cart,
         total: totalAmount,
-        paymentMethod,
+        paymentBreakdown: {
+          cash: cashTotal,
+          transfer: transferTotal,
+        },
+        paymentMethod: cashTotal > 0 && transferTotal > 0 ? "mixto" : cashTotal > 0 ? "efectivo" : "transferencia", // Para compatibilidad
         sellerId: user?.uid,
         sellerEmail: user?.email,
         timestamp: new Date(),
-        date: new Date().toISOString().split("T")[0],
+        date: businessDate, // Usando fecha de negocio
         promotion: {
           totalItems: promotion.totalItems,
           freeItems: promotion.freeItems,
@@ -738,22 +768,18 @@ export default function SalesPage({
         await addDoc(collection(db, "sales"), saleData)
 
         // Actualizar caja registradora
-        const today = new Date().toISOString().split("T")[0]
-        const cashRegId = `${user?.uid}-${today}`
+        const cashRegId = `${user?.uid}-${businessDate}`
         const cashRegRef = doc(db, "cash-registers", cashRegId)
         const cashRegDoc = await getDoc(cashRegRef)
 
         if (cashRegDoc.exists()) {
           const currentData = cashRegDoc.data()
-          const saleAmount = totalAmount
 
           const updatedData = {
-            totalSales: currentData.totalSales + saleAmount,
-            cashSales: paymentMethod === "efectivo" ? currentData.cashSales + saleAmount : currentData.cashSales,
-            transferSales:
-              paymentMethod === "transferencia" ? currentData.transferSales + saleAmount : currentData.transferSales,
-            currentAmount:
-              paymentMethod === "efectivo" ? currentData.currentAmount + saleAmount : currentData.currentAmount,
+            totalSales: currentData.totalSales + totalAmount,
+            cashSales: currentData.cashSales + cashTotal,
+            transferSales: currentData.transferSales + transferTotal,
+            currentAmount: currentData.currentAmount + cashTotal, // Solo efectivo afecta el monto físico
           }
 
           await updateDoc(cashRegRef, updatedData)
@@ -795,7 +821,6 @@ export default function SalesPage({
   }, [
     cart,
     totalAmount,
-    paymentMethod,
     user,
     promotion,
     isOnline,
@@ -889,81 +914,87 @@ export default function SalesPage({
           <div className="w-full lg:w-80">
             <div className="sticky top-20">
               <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <ShoppingCart className="h-5 w-5 text-purple-600" />
-                      <h2 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">
-                        Carrito de Compras
-                      </h2>
+                      <ShoppingCart className="h-4 w-4 text-purple-600" />
+                      <h2 className="font-semibold text-gray-900 dark:text-white text-sm">Carrito</h2>
                     </div>
-                    <Badge variant="secondary" className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                    <Badge
+                      variant="secondary"
+                      className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs"
+                    >
                       {cart.reduce((total, item) => total + item.quantity, 0)}
                     </Badge>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Agrega productos y procesa ventas rápidamente
-                  </p>
                 </div>
 
                 {/* Promoción en el carrito */}
                 {promotion.hasPromotion && (
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
-                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
-                      <Gift className="h-4 w-4" />
-                      <span className="font-bold text-sm">¡Promoción 10+1!</span>
+                  <div className="p-2 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-1">
+                      <Gift className="h-3 w-3" />
+                      <span className="font-bold text-xs">¡Promoción 10+1!</span>
                     </div>
-                    <div className="text-xs text-green-600 dark:text-green-400 text-center space-y-1">
+                    <div className="text-xs text-green-600 dark:text-green-400 text-center">
                       <p>
-                        Tickets gratis: <span className="font-bold">{promotion.freeItems}</span>
+                        Gratis: <span className="font-bold">{promotion.freeItems}</span> | Total:{" "}
+                        {promotion.totalTickets}
                       </p>
-                      <p className="font-bold">Total tickets: {promotion.totalTickets}</p>
                     </div>
                   </div>
                 )}
 
-                <ScrollArea className="h-48 md:h-64 p-4">
+                <ScrollArea className="h-56 p-3">
                   {cart.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                      <p>Carrito vacío</p>
+                    <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                      <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                      <p className="text-xs">Carrito vacío</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {cart.map((item) => (
                         <CartItem
                           key={item.id}
                           item={item}
-                          onUpdateQuantity={updateQuantity}
-                          onRemove={removeFromCart}
+                          onUpdateQuantity={(id, change) => updateQuantity(id, change)}
+                          onRemove={(id) => removeFromCart(id)}
+                          updatePaymentMethod={(id, paymentMethod) => updatePaymentMethod(id, paymentMethod)}
                         />
                       ))}
                     </div>
                   )}
                 </ScrollArea>
 
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                  {/* Método de pago */}
-                  <div className="space-y-2">
-                    <Label className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Método de Pago
-                    </Label>
-                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger className="w-full bg-white dark:bg-gray-700">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="efectivo">💵 Efectivo</SelectItem>
-                        <SelectItem value="transferencia">💳 Transferencia</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
+                <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                   {/* Total */}
-                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
+                  <div className="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">Total:</span>
-                      <span className="text-lg md:text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                      <span className="font-semibold text-gray-900 dark:text-white text-sm">Total:</span>
+                      <span className="text-lg font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                    </div>
+
+                    <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-600 space-y-0.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                        <span className="text-green-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "efectivo")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
+                        <span className="text-blue-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "transferencia")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -972,7 +1003,7 @@ export default function SalesPage({
                     <Button
                       onClick={() => setShowCheckout(true)}
                       disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white h-10 md:h-12 rounded-xl font-medium text-sm md:text-base"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-9 rounded-lg font-medium text-sm"
                       data-shortcut="process-sale"
                     >
                       <Package className="h-4 w-4 mr-2" />
@@ -982,10 +1013,10 @@ export default function SalesPage({
                       onClick={clearCart}
                       variant="outline"
                       disabled={cart.length === 0}
-                      className="w-full h-8 md:h-10 rounded-xl bg-transparent text-sm"
+                      className="w-full h-8 rounded-lg bg-transparent text-xs"
                       data-shortcut="clear-cart"
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
+                      <Trash2 className="h-3 w-3 mr-1" />
                       Limpiar
                     </Button>
                   </div>
@@ -1053,11 +1084,28 @@ export default function SalesPage({
                   <span className="text-green-600">S/. {totalAmount.toFixed(2)}</span>
                 </div>
 
-                <div className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Método de Pago:</span>
-                  <span className="capitalize font-bold text-gray-900 dark:text-white">
-                    {paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
-                  </span>
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl space-y-2">
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 text-sm">Desglose por Método de Pago:</h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                    <span className="font-bold text-green-600">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "efectivo")
+                        .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
+                    <span className="font-bold text-blue-600">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "transferencia")
+                        .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

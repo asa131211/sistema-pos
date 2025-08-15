@@ -296,28 +296,10 @@ export default function TopBar({ darkMode, setDarkMode, cashRegisterStatus, onCa
             <DialogTitle className="text-center text-xl text-gray-900 dark:text-white">¿Cerrar Caja?</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="text-center bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <p className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Resumen del Día</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Total Ventas:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    S/. {cashRegisterStatus?.data?.totalSales?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Efectivo:</span>
-                  <span className="font-semibold text-green-600">
-                    S/. {cashRegisterStatus?.data?.cashSales?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Transferencias:</span>
-                  <span className="font-semibold text-blue-600">
-                    S/. {cashRegisterStatus?.data?.transferSales?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-              </div>
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <p className="text-sm text-yellow-700 text-center">
+                ⏰ <strong>Nota:</strong> La caja se cerrará automáticamente a las 12:00 AM
+              </p>
             </div>
             <div className="flex space-x-2">
               <Button onClick={closeCashRegister} disabled={loading} variant="destructive" className="flex-1">

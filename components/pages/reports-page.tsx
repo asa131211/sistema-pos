@@ -49,9 +49,14 @@ interface Sale {
     name: string
     price: number
     quantity: number
+    paymentMethod?: string // Agregando método de pago por producto
   }>
   total: number
   paymentMethod: string
+  paymentBreakdown?: {
+    cash: number
+    transfer: number
+  }
   sellerId: string
   sellerEmail: string
   timestamp: any
@@ -132,17 +137,13 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           } else if (dateFilter === "week") {
             const weekAgo = new Date()
             weekAgo.setDate(weekAgo.getDate() - 7)
-            filteredSales = filteredSales.filter((sale) => {
-              const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp)
-              return saleDate >= weekAgo
-            })
+            const weekAgoStr = weekAgo.toISOString().split("T")[0]
+            filteredSales = filteredSales.filter((sale) => sale.date >= weekAgoStr)
           } else if (dateFilter === "month") {
             const monthAgo = new Date()
             monthAgo.setMonth(monthAgo.getMonth() - 1)
-            filteredSales = filteredSales.filter((sale) => {
-              const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp)
-              return saleDate >= monthAgo
-            })
+            const monthAgoStr = monthAgo.toISOString().split("T")[0]
+            filteredSales = filteredSales.filter((sale) => sale.date >= monthAgoStr)
           } else if (dateFilter === "specific" && specificDate) {
             filteredSales = filteredSales.filter((sale) => sale.date === specificDate)
           }
@@ -332,10 +333,16 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       sellerStats[sellerId].totalTransactions += 1
       sellerStats[sellerId].sales.push(sale)
 
-      if (sale.paymentMethod === "efectivo") {
-        sellerStats[sellerId].cashSales += sale.total
+      if (sale.paymentBreakdown) {
+        sellerStats[sellerId].cashSales += sale.paymentBreakdown.cash
+        sellerStats[sellerId].transferSales += sale.paymentBreakdown.transfer
       } else {
-        sellerStats[sellerId].transferSales += sale.total
+        // Fallback para ventas antiguas
+        if (sale.paymentMethod === "efectivo") {
+          sellerStats[sellerId].cashSales += sale.total
+        } else {
+          sellerStats[sellerId].transferSales += sale.total
+        }
       }
 
       if (sale.promotion?.hasPromotion) {
@@ -350,10 +357,22 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
   const totalTransactions = sales.length
   const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0
-  const cashSales = sales.filter((sale) => sale.paymentMethod === "efectivo").reduce((sum, sale) => sum + sale.total, 0)
-  const transferSales = sales
-    .filter((sale) => sale.paymentMethod === "transferencia")
-    .reduce((sum, sale) => sum + sale.total, 0)
+
+  const cashSales = sales.reduce((sum, sale) => {
+    if (sale.paymentBreakdown) {
+      return sum + sale.paymentBreakdown.cash
+    }
+    // Fallback para ventas antiguas
+    return sale.paymentMethod === "efectivo" ? sum + sale.total : sum
+  }, 0)
+
+  const transferSales = sales.reduce((sum, sale) => {
+    if (sale.paymentBreakdown) {
+      return sum + sale.paymentBreakdown.transfer
+    }
+    // Fallback para ventas antiguas
+    return sale.paymentMethod === "transferencia" ? sum + sale.total : sum
+  }, 0)
 
   // Productos más vendidos
   const productStats = sales.reduce(
@@ -375,12 +394,13 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     .slice(0, 5)
 
   const exportToCSV = () => {
-    const headers = ["Fecha", "Vendedor", "Total", "Método de Pago", "Productos", "Promoción"]
+    const headers = ["Fecha", "Vendedor", "Total", "Efectivo", "Transferencia", "Productos", "Promoción"]
     const csvData = sales.map((sale) => [
       new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES"),
       sale.sellerEmail,
       `S/. ${sale.total.toFixed(2)}`,
-      sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
+      `S/. ${(sale.paymentBreakdown?.cash || (sale.paymentMethod === "efectivo" ? sale.total : 0)).toFixed(2)}`,
+      `S/. ${(sale.paymentBreakdown?.transfer || (sale.paymentMethod === "transferencia" ? sale.total : 0)).toFixed(2)}`,
       sale.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
       sale.promotion?.hasPromotion ? `Sí - ${sale.promotion.freeItems} gratis` : "No",
     ])
@@ -548,11 +568,11 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           </Card>
 
           <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900 dark:to-red-900">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                Productos Vendidos
-              </CardTitle>
-              <Package className="h-4 w-4 text-orange-600" />
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Productos Vendidos</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                Estadísticas individuales de cada vendedor
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-800 dark:text-orange-200">
@@ -629,7 +649,10 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
 
                     {/* Detalle de ventas del vendedor */}
                     <div className="mt-4">
-                      <h5 className="font-medium text-gray-900 dark:text-white mb-2">Últimas Ventas</h5>
+                      <h5 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center">
+                        <Database className="h-4 w-4 mr-2" />
+                        Últimas Ventas
+                      </h5>
                       <div className="max-h-40 overflow-y-auto">
                         <div className="space-y-2">
                           {seller.sales.slice(0, 5).map((sale: Sale) => (
@@ -807,15 +830,32 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            className={
-                              sale.paymentMethod === "efectivo"
-                                ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700"
-                                : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700"
-                            }
-                          >
-                            {sale.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {sale.paymentBreakdown ? (
+                              <>
+                                {sale.paymentBreakdown.cash > 0 && (
+                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700 text-xs">
+                                    💵 S/. {sale.paymentBreakdown.cash.toFixed(2)}
+                                  </Badge>
+                                )}
+                                {sale.paymentBreakdown.transfer > 0 && (
+                                  <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700 text-xs">
+                                    💳 S/. {sale.paymentBreakdown.transfer.toFixed(2)}
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <Badge
+                                className={
+                                  sale.paymentMethod === "efectivo"
+                                    ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700"
+                                    : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700"
+                                }
+                              >
+                                {sale.paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {sale.promotion?.hasPromotion ? (
