@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from "firebase/firestore"
 import Sidebar from "@/components/sidebar"
 import TopBar from "@/components/top-bar"
 import HomePage from "@/components/pages/home-page"
@@ -14,6 +14,7 @@ import ReportsPage from "@/components/pages/reports-page"
 import SettingsPage from "@/components/pages/settings-page"
 import { SyncIndicator } from "@/components/sync-status"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { toast } from "react-toastify"
 
 export default function Dashboard() {
   const [user] = useAuthState(auth)
@@ -28,6 +29,80 @@ export default function Dashboard() {
   })
 
   useKeyboardShortcuts()
+
+  const getBusinessDate = () => {
+    const now = new Date()
+    const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+    return peruTime.toISOString().split("T")[0]
+  }
+
+  useEffect(() => {
+    const checkMidnightClose = () => {
+      const now = new Date()
+      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+
+      // Calcular la próxima medianoche en Perú
+      const midnightPeru = new Date(peruTime)
+      midnightPeru.setHours(24, 0, 0, 0)
+
+      // Convertir de vuelta a hora local para el timeout
+      const timeUntilMidnight = midnightPeru.getTime() - peruTime.getTime()
+
+      const midnightFormatted = midnightPeru.toLocaleString("es-PE", {
+        timeZone: "America/Lima",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+
+      console.log(`[v0] 🕛 Próximo cierre automático programado para: ${midnightFormatted} (Hora de Perú)`)
+      console.log(`[v0] ⏰ Tiempo restante: ${Math.round(timeUntilMidnight / 1000 / 60)} minutos`)
+
+      if (cashRegisterStatus?.isOpen) {
+        console.log(`[v0] ✅ Caja está ABIERTA - Timer activado`)
+      } else {
+        console.log(`[v0] ❌ Caja está CERRADA - Timer en espera`)
+      }
+
+      const midnightTimeout = setTimeout(async () => {
+        if (cashRegisterStatus?.isOpen && user) {
+          console.log("🕛 Auto-cerrando caja a las 12:00 AM (Hora Perú)")
+
+          try {
+            // Cerrar caja automáticamente
+            await updateDoc(doc(db, "cash-registers", cashRegisterStatus.data.id), {
+              isOpen: false,
+              closedAt: serverTimestamp(),
+            })
+
+            await addDoc(collection(db, "cash-movements"), {
+              cashRegisterId: cashRegisterStatus.data.id,
+              type: "closing",
+              amount: cashRegisterStatus.data.currentAmount || 0,
+              description: "Cierre automático a las 12:00 AM",
+              userId: user.uid,
+              timestamp: serverTimestamp(),
+            })
+
+            setCashRegisterStatus({ isOpen: false, data: { ...cashRegisterStatus.data, isOpen: false } })
+            toast.success("🕛 Caja cerrada automáticamente a las 12:00 AM")
+          } catch (error) {
+            console.error("Error en cierre automático:", error)
+          }
+        }
+        // Set up next midnight check
+        checkMidnightClose()
+      }, timeUntilMidnight)
+
+      return () => clearTimeout(midnightTimeout)
+    }
+
+    const cleanup = checkMidnightClose()
+    return cleanup
+  }, [cashRegisterStatus, user])
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -66,8 +141,8 @@ export default function Dashboard() {
       if (!user) return
 
       try {
-        const today = new Date().toISOString().split("T")[0]
-        const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${today}`))
+        const businessDate = getBusinessDate()
+        const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${businessDate}`))
 
         if (cashRegDoc.exists()) {
           const data = cashRegDoc.data()
@@ -87,21 +162,20 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [user])
 
-  // Auto-reset de ventas a las 7 AM
+  // Auto-reset de ventas a las 12 AM hora de Perú
   useEffect(() => {
     const checkDailyReset = () => {
       const now = new Date()
-      const resetTime = new Date()
-      resetTime.setHours(7, 0, 0, 0)
+      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      if (now > resetTime) {
-        resetTime.setDate(resetTime.getDate() + 1)
-      }
+      // Calcular la próxima medianoche en Perú para el reset
+      const resetTime = new Date(peruTime)
+      resetTime.setHours(24, 0, 0, 0)
 
-      const timeUntilReset = resetTime.getTime() - now.getTime()
+      const timeUntilReset = resetTime.getTime() - peruTime.getTime()
 
       const resetTimeout = setTimeout(() => {
-        console.log("🔄 Reinicio automático del sistema a las 7:00 AM")
+        console.log("🔄 Reinicio automático del sistema a las 12:00 AM (Hora Perú)")
         checkDailyReset()
       }, timeUntilReset)
 

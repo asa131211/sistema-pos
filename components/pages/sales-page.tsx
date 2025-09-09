@@ -215,6 +215,7 @@ export default function SalesPage({
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [showMobileCart, setShowMobileCart] = useState(false)
 
   // Debounced search term para optimizar búsquedas
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
@@ -1140,6 +1141,130 @@ export default function SalesPage({
 
         {/* Contenedor oculto para impresión */}
         <div id="print-container" className="print-only"></div>
+
+        <div className="lg:hidden fixed bottom-4 right-4 z-50">
+          <Button
+            onClick={() => setShowMobileCart(true)}
+            disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
+            className="w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center relative"
+          >
+            <ShoppingCart className="h-6 w-6" />
+            {cart.length > 0 && (
+              <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs min-w-[20px] h-5 rounded-full flex items-center justify-center p-0">
+                {cart.reduce((total, item) => total + item.quantity, 0)}
+              </Badge>
+            )}
+          </Button>
+        </div>
+
+        <Dialog open={showMobileCart} onOpenChange={setShowMobileCart}>
+          <DialogContent className="max-w-sm bg-white dark:bg-gray-900 rounded-3xl h-[80vh] flex flex-col">
+            <DialogHeader className="text-center pb-4">
+              <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-center space-x-2">
+                <ShoppingCart className="h-5 w-5 text-purple-600" />
+                <span>Carrito de Compras</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="flex-1 flex flex-col space-y-4">
+              {/* Promoción en el carrito móvil */}
+              {promotion.hasPromotion && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300 mb-2">
+                    <Gift className="h-4 w-4" />
+                    <span className="font-bold text-sm">¡Promoción 10+1!</span>
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400 text-center">
+                    <p>
+                      Gratis: <span className="font-bold">{promotion.freeItems}</span> | Total: {promotion.totalTickets}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Lista de productos en el carrito */}
+              <ScrollArea className="flex-1">
+                {cart.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                    <p className="text-sm">Carrito vacío</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 p-1">
+                    {cart.map((item) => (
+                      <CartItem
+                        key={item.id}
+                        item={item}
+                        onUpdateQuantity={(id, change) => updateQuantity(id, change)}
+                        onRemove={(id) => removeFromCart(id)}
+                        updatePaymentMethod={(id, paymentMethod) => updatePaymentMethod(id, paymentMethod)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* Total y desglose */}
+              {cart.length > 0 && (
+                <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-gray-900 dark:text-white">Total:</span>
+                      <span className="text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                        <span className="text-green-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "efectivo")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
+                        <span className="text-blue-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "transferencia")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botones de acción */}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => {
+                        setShowMobileCart(false)
+                        setShowCheckout(true)
+                      }}
+                      disabled={cart.length === 0 || !cashRegisterStatus?.isOpen}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-xl font-medium"
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Procesar Venta
+                    </Button>
+                    <Button
+                      onClick={clearCart}
+                      variant="outline"
+                      disabled={cart.length === 0}
+                      className="w-full h-10 rounded-xl bg-transparent"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Limpiar Carrito
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

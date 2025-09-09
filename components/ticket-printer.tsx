@@ -121,6 +121,7 @@ const TicketPrinter = memo(({ tickets, onPrintStart, onPrintComplete, onPrintErr
       margin-bottom: 6px !important;
       line-height: 1 !important;
       font-weight: 900 !important;
+      color: #FF5733 !important; /* Updated line */
     }
     
     .title {

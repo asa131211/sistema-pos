@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Lock, Unlock, Calculator } from 'lucide-react'
+import { Lock, Unlock, Calculator } from "lucide-react"
 import { toast } from "sonner"
 
 interface CashRegister {
@@ -35,6 +35,13 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const getBusinessDate = () => {
+    const now = new Date()
+    const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+
+    return peruTime.toISOString().split("T")[0]
+  }
+
   useEffect(() => {
     if (user) {
       checkCashRegisterStatus()
@@ -45,14 +52,37 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
   useEffect(() => {
     const checkMidnightClose = () => {
       const now = new Date()
-      const midnight = new Date()
-      midnight.setHours(24, 0, 0, 0) // Next midnight
+      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      const timeUntilMidnight = midnight.getTime() - now.getTime()
+      // Calcular la próxima medianoche en Perú
+      const midnightPeru = new Date(peruTime)
+      midnightPeru.setHours(24, 0, 0, 0)
+
+      // Convertir de vuelta a hora local para el timeout
+      const timeUntilMidnight = midnightPeru.getTime() - peruTime.getTime()
+
+      const midnightFormatted = midnightPeru.toLocaleString("es-PE", {
+        timeZone: "America/Lima",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+
+      console.log(`[v0] 🕛 Próximo cierre automático programado para: ${midnightFormatted} (Hora de Perú)`)
+      console.log(`[v0] ⏰ Tiempo restante: ${Math.round(timeUntilMidnight / 1000 / 60)} minutos`)
+
+      if (cashRegister?.isOpen) {
+        console.log(`[v0] ✅ Caja está ABIERTA - Timer activado`)
+      } else {
+        console.log(`[v0] ❌ Caja está CERRADA - Timer en espera`)
+      }
 
       const midnightTimeout = setTimeout(() => {
         if (cashRegister?.isOpen) {
-          console.log("🕛 Auto-cerrando caja a las 12:00 AM")
+          console.log("🕛 Auto-cerrando caja a las 12:00 AM (Hora Perú)")
           closeCashRegister(true) // true = auto close
         }
         // Set up next midnight check
@@ -62,18 +92,16 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
       return () => clearTimeout(midnightTimeout)
     }
 
-    if (cashRegister?.isOpen) {
-      const cleanup = checkMidnightClose()
-      return cleanup
-    }
+    const cleanup = checkMidnightClose()
+    return cleanup
   }, [cashRegister])
 
   const checkCashRegisterStatus = async () => {
     if (!user) return
 
     try {
-      const today = new Date().toISOString().split("T")[0]
-      const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${today}`))
+      const businessDate = getBusinessDate()
+      const cashRegDoc = await getDoc(doc(db, "cash-registers", `${user.uid}-${businessDate}`))
 
       if (cashRegDoc.exists()) {
         const data = cashRegDoc.data() as CashRegister
@@ -95,11 +123,11 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
 
     setLoading(true)
     try {
-      const today = new Date().toISOString().split("T")[0]
+      const businessDate = getBusinessDate()
       const initialAmount = 0
 
       const cashRegData: CashRegister = {
-        id: `${user.uid}-${today}`,
+        id: `${user.uid}-${businessDate}`,
         isOpen: true,
         openedBy: user.uid,
         openedAt: serverTimestamp(),
@@ -109,7 +137,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
         totalSales: 0,
         cashSales: 0,
         transferSales: 0,
-        date: today,
+        date: businessDate, // Usando fecha de negocio
       }
 
       await setDoc(doc(db, "cash-registers", cashRegData.id), cashRegData)

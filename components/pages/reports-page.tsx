@@ -394,9 +394,14 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     .slice(0, 5)
 
   const exportToCSV = () => {
-    const headers = ["Fecha", "Vendedor", "Total", "Efectivo", "Transferencia", "Productos", "Promoción"]
+    const headers = ["Fecha", "Hora", "Vendedor", "Total", "Efectivo", "Transferencia", "Productos", "Promoción"]
     const csvData = sales.map((sale) => [
       new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES"),
+      new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
       sale.sellerEmail,
       `S/. ${sale.total.toFixed(2)}`,
       `S/. ${(sale.paymentBreakdown?.cash || (sale.paymentMethod === "efectivo" ? sale.total : 0)).toFixed(2)}`,
@@ -664,6 +669,13 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                                 <span className="text-gray-600 dark:text-gray-400">
                                   {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
                                 </span>
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleTimeString("es-ES", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit",
+                                  })}
+                                </span>
                                 {sale.promotion?.hasPromotion && (
                                   <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
                                     <Gift className="h-2 w-2 mr-1" />
@@ -801,6 +813,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-gray-900 dark:text-white">Fecha</TableHead>
+                      <TableHead className="text-gray-900 dark:text-white">Hora</TableHead>
                       <TableHead className="text-gray-900 dark:text-white">Vendedor</TableHead>
                       <TableHead className="text-gray-900 dark:text-white">Productos</TableHead>
                       <TableHead className="text-gray-900 dark:text-white">Método</TableHead>
@@ -813,6 +826,13 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                       <TableRow key={sale.id}>
                         <TableCell className="font-medium text-gray-900 dark:text-white">
                           {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES")}
+                        </TableCell>
+                        <TableCell className="text-gray-600 dark:text-gray-400">
+                          {new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">

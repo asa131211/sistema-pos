@@ -20,14 +20,14 @@ async function createTestUsers() {
     console.log("🚀 Creando usuarios de prueba...")
 
     // Crear usuario administrador
-    const adminCredential = await createUserWithEmailAndPassword(auth, "admin@sanchezpark.com", "123456")
+    const adminCredential = await createUserWithEmailAndPassword(auth, "admin@sistema-pos.local", "admin123")
 
     await updateProfile(adminCredential.user, {
       displayName: "Administrador",
     })
 
     await setDoc(doc(db, "users", adminCredential.user.uid), {
-      email: "admin@sanchezpark.com",
+      email: "admin@sistema-pos.local",
       username: "admin",
       displayName: "Administrador",
       role: "administrador",
@@ -37,17 +37,17 @@ async function createTestUsers() {
       shortcuts: [],
     })
 
-    console.log("✅ Usuario administrador creado: admin / 123456")
+    console.log("✅ Usuario administrador creado: admin / admin123")
 
     // Crear usuario vendedor
-    const vendorCredential = await createUserWithEmailAndPassword(auth, "vendedor@sanchezpark.com", "123456")
+    const vendorCredential = await createUserWithEmailAndPassword(auth, "vendedor@sistema-pos.local", "vendedor123")
 
     await updateProfile(vendorCredential.user, {
       displayName: "Vendedor",
     })
 
     await setDoc(doc(db, "users", vendorCredential.user.uid), {
-      email: "vendedor@sanchezpark.com",
+      email: "vendedor@sistema-pos.local",
       username: "vendedor",
       displayName: "Vendedor",
       role: "vendedor",
@@ -57,8 +57,11 @@ async function createTestUsers() {
       shortcuts: [],
     })
 
-    console.log("✅ Usuario vendedor creado: vendedor / 123456")
+    console.log("✅ Usuario vendedor creado: vendedor / vendedor123")
     console.log("🎉 ¡Usuarios de prueba creados exitosamente!")
+    console.log("📝 Puedes hacer login con:")
+    console.log("   👤 Usuario: admin | Contraseña: admin123")
+    console.log("   👤 Usuario: vendedor | Contraseña: vendedor123")
   } catch (error) {
     console.error("❌ Error:", error)
   }
