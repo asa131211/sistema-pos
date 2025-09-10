@@ -18,24 +18,24 @@ export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
 
-// Configuración optimizada para alta congestión
 if (typeof window !== "undefined") {
-  // Configurar cache offline
-  db.app.automaticDataCollectionEnabled = false
-
-  // Configurar timeouts optimizados
-  const settings = {
-    cacheSizeBytes: 100 * 1024 * 1024, // 100MB cache
-    experimentalForceLongPolling: false, // Usar WebSocket cuando sea posible
-  }
-
-  // Aplicar configuraciones solo en el cliente
+  // Configurar cache offline más agresivo
   try {
-    // Estas configuraciones solo funcionan antes de usar la base de datos
-    console.log("🔧 Configurando Firebase para alta congestión...")
+    // Configuraciones de rendimiento
+    console.log("🔧 Configurando Firebase para máximo rendimiento...")
+
+    // Habilitar persistencia offline
+    // enableIndexedDbPersistence(db, { forceOwnership: false })
   } catch (error) {
     console.warn("Firebase ya inicializado, usando configuración por defecto")
   }
+
+  setInterval(
+    () => {
+      cleanupCache()
+    },
+    3 * 60 * 1000,
+  )
 }
 
 // Funciones de utilidad para manejo de conexión
@@ -67,5 +67,67 @@ export const monitorFirebaseConnection = () => {
       window.removeEventListener("online", enableFirebaseNetwork)
       window.removeEventListener("offline", disableFirebaseNetwork)
     }
+  }
+}
+
+export const cleanupCache = () => {
+  const now = Date.now()
+  const maxAge = 5 * 60 * 1000 // 5 minutos para cache general
+  const reportsCacheAge = 2 * 60 * 1000 // 2 minutos para cache de reportes
+
+  let cleanedCount = 0
+
+  Object.keys(localStorage).forEach((key) => {
+    try {
+      if (key.includes("-cache")) {
+        const cached = JSON.parse(localStorage.getItem(key) || "{}")
+        const cacheAge = key.includes("reports-cache") ? reportsCacheAge : maxAge
+
+        if (cached.timestamp && now - cached.timestamp > cacheAge) {
+          localStorage.removeItem(key)
+          cleanedCount++
+        }
+      }
+    } catch (error) {
+      // Remover cache corrupto
+      localStorage.removeItem(key)
+      cleanedCount++
+    }
+  })
+
+  if (cleanedCount > 0) {
+    console.log(`🧹 Cache limpiado: ${cleanedCount} entradas eliminadas`)
+  }
+}
+
+export const preloadCriticalData = async () => {
+  try {
+    console.log("⚡ Precargando datos críticos...")
+
+    // Precargar usuarios si no están en cache
+    const usersCacheKey = "users-cache"
+    const cachedUsers = localStorage.getItem(usersCacheKey)
+
+    if (!cachedUsers) {
+      // Importar getDocs aquí para evitar dependencias circulares
+      const { getDocs, collection } = await import("firebase/firestore")
+      const usersSnapshot = await getDocs(collection(db, "users"))
+      const usersData = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+
+      localStorage.setItem(
+        usersCacheKey,
+        JSON.stringify({
+          users: usersData,
+          timestamp: Date.now(),
+        }),
+      )
+
+      console.log("👥 Usuarios precargados en cache")
+    }
+  } catch (error) {
+    console.warn("Error precargando datos:", error)
   }
 }

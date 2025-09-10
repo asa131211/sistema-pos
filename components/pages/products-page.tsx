@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, limit } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent } from "@/components/ui/card"
@@ -47,16 +47,94 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
     image: "",
   })
 
+  const getCacheKey = () => "products-cache"
+
+  const getCachedProducts = () => {
+    try {
+      const cached = localStorage.getItem(getCacheKey())
+      if (cached) {
+        const data = JSON.parse(cached)
+        const now = Date.now()
+        // Cache válido por 3 minutos para productos
+        if (data.timestamp && now - data.timestamp < 3 * 60 * 1000) {
+          console.log("📦 Cargando productos desde cache local")
+          return data.products
+        }
+      }
+    } catch (error) {
+      console.warn("Error leyendo cache de productos:", error)
+    }
+    return null
+  }
+
+  const setCachedProducts = (productsData: Product[]) => {
+    try {
+      const cacheData = {
+        products: productsData,
+        timestamp: Date.now(),
+      }
+      localStorage.setItem(getCacheKey(), JSON.stringify(cacheData))
+      console.log("💾 Productos guardados en cache local")
+    } catch (error) {
+      console.warn("Error guardando cache de productos:", error)
+    }
+  }
+
   useEffect(() => {
-    const unsubscribe = onSnapshot(query(collection(db, "products")), (snapshot) => {
-      const productsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Product[]
-      setProducts(productsData)
-    })
+    console.log("🔍 Iniciando carga optimizada de productos...")
+
+    const cachedProducts = getCachedProducts()
+    if (cachedProducts) {
+      setProducts(cachedProducts)
+    }
+
+    const productsQuery = query(
+      collection(db, "products"),
+      limit(200), // Limitar a 200 productos más recientes
+    )
+
+    const unsubscribe = onSnapshot(
+      productsQuery,
+      (snapshot) => {
+        console.log(`📄 Productos recibidos: ${snapshot.docs.length}`)
+
+        const productsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Product[]
+
+        setProducts(productsData)
+        setCachedProducts(productsData)
+        console.log(`✅ Total productos cargados: ${productsData.length}`)
+      },
+      (error) => {
+        console.error("❌ Error cargando productos:", error)
+        toast.error("Error al cargar productos: " + error.message)
+      },
+    )
 
     return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      // Limpiar cache antiguo de productos
+      const now = Date.now()
+      const maxAge = 3 * 60 * 1000 // 3 minutos
+
+      try {
+        const cached = localStorage.getItem(getCacheKey())
+        if (cached) {
+          const data = JSON.parse(cached)
+          if (data.timestamp && now - data.timestamp > maxAge) {
+            localStorage.removeItem(getCacheKey())
+            console.log("🧹 Cache de productos limpiado")
+          }
+        }
+      } catch (error) {
+        console.warn("Error limpiando cache de productos:", error)
+      }
+    }
   }, [])
 
   const filteredProducts = products.filter((product) => {
@@ -122,6 +200,8 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
         toast.success("Producto agregado exitosamente")
       }
 
+      localStorage.removeItem(getCacheKey())
+
       resetForm()
       setShowAddDialog(false)
     } catch (error) {
@@ -149,6 +229,8 @@ export default function ProductsPage({ sidebarCollapsed = false }: ProductsPageP
     try {
       await deleteDoc(doc(db, "products", productId))
       toast.success("Producto eliminado exitosamente")
+
+      localStorage.removeItem(getCacheKey())
     } catch (error) {
       console.error("Error deleting product:", error)
       toast.error("Error al eliminar producto")

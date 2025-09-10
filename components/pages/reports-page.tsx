@@ -11,6 +11,7 @@ import {
   writeBatch,
   addDoc,
   serverTimestamp,
+  limit,
 } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
@@ -88,26 +89,99 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const [confirmText, setConfirmText] = useState("")
   const [isResetting, setIsResetting] = useState(false)
 
+  const getCacheKey = () => {
+    return `reports-cache-${dateFilter}-${paymentFilter}-${sellerFilter}-${specificDate}`
+  }
+
+  const getCachedData = () => {
+    try {
+      const cached = localStorage.getItem(getCacheKey())
+      if (cached) {
+        const data = JSON.parse(cached)
+        const now = Date.now()
+        // Cache válido por 2 minutos
+        if (data.timestamp && now - data.timestamp < 2 * 60 * 1000) {
+          console.log("📦 Cargando datos desde cache local")
+          return data.sales
+        }
+      }
+    } catch (error) {
+      console.warn("Error leyendo cache:", error)
+    }
+    return null
+  }
+
+  const setCachedData = (salesData: Sale[]) => {
+    try {
+      const cacheData = {
+        sales: salesData,
+        timestamp: Date.now(),
+      }
+      localStorage.setItem(getCacheKey(), JSON.stringify(cacheData))
+      console.log("💾 Datos guardados en cache local")
+    } catch (error) {
+      console.warn("Error guardando cache:", error)
+    }
+  }
+
   useEffect(() => {
-    console.log("🔍 Iniciando carga de reportes...")
-    setLoading(true)
+    console.log("🔍 Iniciando carga optimizada de reportes...")
+
+    const cachedSales = getCachedData()
+    if (cachedSales) {
+      setSales(cachedSales)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
 
     try {
-      // Cargar usuarios para el filtro
+      // Cargar usuarios para el filtro (con cache)
       const loadUsers = async () => {
+        const usersCacheKey = "users-cache"
+        try {
+          const cachedUsers = localStorage.getItem(usersCacheKey)
+          if (cachedUsers) {
+            const userData = JSON.parse(cachedUsers)
+            if (Date.now() - userData.timestamp < 5 * 60 * 1000) {
+              // 5 minutos
+              setUsers(userData.users)
+              return
+            }
+          }
+        } catch (error) {
+          console.warn("Error leyendo cache de usuarios:", error)
+        }
+
         const usersSnapshot = await getDocs(collection(db, "users"))
         const usersData = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }))
         setUsers(usersData)
+
+        // Guardar en cache
+        try {
+          localStorage.setItem(
+            usersCacheKey,
+            JSON.stringify({
+              users: usersData,
+              timestamp: Date.now(),
+            }),
+          )
+        } catch (error) {
+          console.warn("Error guardando cache de usuarios:", error)
+        }
       }
       loadUsers()
 
-      // Crear consulta base sin filtros complejos primero
-      const salesQuery = query(collection(db, "sales"), orderBy("timestamp", "desc"))
+      const salesQuery = query(
+        collection(db, "sales"),
+        orderBy("timestamp", "desc"),
+        limit(500), // Limitar a 500 ventas más recientes
+      )
 
-      console.log("📊 Configurando listener de ventas...")
+      console.log("📊 Configurando listener optimizado de ventas...")
 
       const unsubscribe = onSnapshot(
         salesQuery,
@@ -161,6 +235,8 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           console.log(`✅ Total ventas filtradas: ${filteredSales.length}`)
           setSales(filteredSales)
           setLoading(false)
+
+          setCachedData(filteredSales)
         },
         (error) => {
           console.error("❌ Error cargando ventas:", error)
@@ -175,6 +251,14 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       toast.error("Error al configurar los reportes")
       setLoading(false)
     }
+  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+
+  useEffect(() => {
+    // Limpiar cache anterior cuando cambian los filtros
+    const oldCacheKeys = Object.keys(localStorage).filter(
+      (key) => key.startsWith("reports-cache-") && key !== getCacheKey(),
+    )
+    oldCacheKeys.forEach((key) => localStorage.removeItem(key))
   }, [dateFilter, paymentFilter, sellerFilter, specificDate])
 
   // Función para resetear todas las ventas

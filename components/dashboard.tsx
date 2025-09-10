@@ -39,16 +39,19 @@ export default function Dashboard() {
   useEffect(() => {
     const checkMidnightClose = () => {
       const now = new Date()
+
+      // Obtener la hora actual en Perú
       const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      // Calcular la próxima medianoche en Perú
-      const midnightPeru = new Date(peruTime)
-      midnightPeru.setHours(24, 0, 0, 0)
+      // Calcular la próxima medianoche en Perú (00:00:00 del día siguiente)
+      const nextMidnight = new Date(peruTime)
+      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
+      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
 
-      // Convertir de vuelta a hora local para el timeout
-      const timeUntilMidnight = midnightPeru.getTime() - peruTime.getTime()
+      // Calcular cuántos milisegundos faltan hasta medianoche en Perú
+      const timeUntilMidnight = nextMidnight.getTime() - peruTime.getTime()
 
-      const midnightFormatted = midnightPeru.toLocaleString("es-PE", {
+      const midnightFormatted = nextMidnight.toLocaleString("es-PE", {
         timeZone: "America/Lima",
         year: "numeric",
         month: "2-digit",
@@ -60,6 +63,7 @@ export default function Dashboard() {
 
       console.log(`[v0] 🕛 Próximo cierre automático programado para: ${midnightFormatted} (Hora de Perú)`)
       console.log(`[v0] ⏰ Tiempo restante: ${Math.round(timeUntilMidnight / 1000 / 60)} minutos`)
+      console.log(`[v0] 🌎 Hora actual en Perú: ${peruTime.toLocaleString("es-PE", { timeZone: "America/Lima" })}`)
 
       if (cashRegisterStatus?.isOpen) {
         console.log(`[v0] ✅ Caja está ABIERTA - Timer activado`)
@@ -109,12 +113,45 @@ export default function Dashboard() {
       if (user) {
         try {
           console.log("🔄 Sincronizando datos de usuario...")
+
+          // Intentar cargar desde cache primero
+          const userCacheKey = `user-role-${user.uid}`
+          try {
+            const cachedRole = localStorage.getItem(userCacheKey)
+            if (cachedRole) {
+              const roleData = JSON.parse(cachedRole)
+              if (Date.now() - roleData.timestamp < 5 * 60 * 1000) {
+                // 5 minutos
+                setUserRole(roleData.role)
+                setCurrentPage(roleData.role === "admin" ? "inicio" : "ventas")
+                setLoading(false)
+                console.log("📦 Rol de usuario cargado desde cache:", roleData.role)
+                return
+              }
+            }
+          } catch (error) {
+            console.warn("Error leyendo cache de usuario:", error)
+          }
+
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
             const userData = userDoc.data()
             setUserRole(userData.role)
             setCurrentPage(userData.role === "admin" ? "inicio" : "ventas")
             console.log("✅ Rol de usuario sincronizado:", userData.role)
+
+            // Guardar en cache
+            try {
+              localStorage.setItem(
+                userCacheKey,
+                JSON.stringify({
+                  role: userData.role,
+                  timestamp: Date.now(),
+                }),
+              )
+            } catch (error) {
+              console.warn("Error guardando cache de usuario:", error)
+            }
           }
         } catch (error) {
           console.error("❌ Error fetching user role:", error)
@@ -162,20 +199,36 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [user])
 
-  // Auto-reset de ventas a las 12 AM hora de Perú
+  // Auto-reset de ventas a las 12:00 AM hora de Perú
   useEffect(() => {
     const checkDailyReset = () => {
       const now = new Date()
       const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
       // Calcular la próxima medianoche en Perú para el reset
-      const resetTime = new Date(peruTime)
-      resetTime.setHours(24, 0, 0, 0)
+      const nextMidnight = new Date(peruTime)
+      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
+      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
 
-      const timeUntilReset = resetTime.getTime() - peruTime.getTime()
+      const timeUntilReset = nextMidnight.getTime() - peruTime.getTime()
+
+      console.log(
+        `[v0] 🔄 Próximo reset automático programado para: ${nextMidnight.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
+      )
 
       const resetTimeout = setTimeout(() => {
         console.log("🔄 Reinicio automático del sistema a las 12:00 AM (Hora Perú)")
+
+        try {
+          const keysToRemove = Object.keys(localStorage).filter(
+            (key) => key.includes("-cache") || key.includes("user-role-"),
+          )
+          keysToRemove.forEach((key) => localStorage.removeItem(key))
+          console.log(`🧹 ${keysToRemove.length} caches limpiados en reset automático`)
+        } catch (error) {
+          console.warn("Error limpiando caches en reset:", error)
+        }
+
         checkDailyReset()
       }, timeUntilReset)
 
