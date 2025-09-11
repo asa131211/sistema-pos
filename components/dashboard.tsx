@@ -39,19 +39,16 @@ export default function Dashboard() {
   useEffect(() => {
     const checkMidnightClose = () => {
       const now = new Date()
-
-      // Obtener la hora actual en Perú
       const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      // Calcular la próxima medianoche en Perú (00:00:00 del día siguiente)
-      const nextMidnight = new Date(peruTime)
-      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
-      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
+      // Calcular la próxima medianoche en Perú
+      const midnightPeru = new Date(peruTime)
+      midnightPeru.setHours(24, 0, 0, 0)
 
-      // Calcular cuántos milisegundos faltan hasta medianoche en Perú
-      const timeUntilMidnight = nextMidnight.getTime() - peruTime.getTime()
+      // Convertir de vuelta a hora local para el timeout
+      const timeUntilMidnight = midnightPeru.getTime() - peruTime.getTime()
 
-      const midnightFormatted = nextMidnight.toLocaleString("es-PE", {
+      const midnightFormatted = midnightPeru.toLocaleString("es-PE", {
         timeZone: "America/Lima",
         year: "numeric",
         month: "2-digit",
@@ -63,7 +60,6 @@ export default function Dashboard() {
 
       console.log(`[v0] 🕛 Próximo cierre automático programado para: ${midnightFormatted} (Hora de Perú)`)
       console.log(`[v0] ⏰ Tiempo restante: ${Math.round(timeUntilMidnight / 1000 / 60)} minutos`)
-      console.log(`[v0] 🌎 Hora actual en Perú: ${peruTime.toLocaleString("es-PE", { timeZone: "America/Lima" })}`)
 
       if (cashRegisterStatus?.isOpen) {
         console.log(`[v0] ✅ Caja está ABIERTA - Timer activado`)
@@ -206,14 +202,13 @@ export default function Dashboard() {
       const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
       // Calcular la próxima medianoche en Perú para el reset
-      const nextMidnight = new Date(peruTime)
-      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
-      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
+      const resetTime = new Date(peruTime)
+      resetTime.setHours(24, 0, 0, 0)
 
-      const timeUntilReset = nextMidnight.getTime() - peruTime.getTime()
+      const timeUntilReset = resetTime.getTime() - peruTime.getTime()
 
       console.log(
-        `[v0] 🔄 Próximo reset automático programado para: ${nextMidnight.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
+        `[v0] 🔄 Próximo reset automático programado para: ${resetTime.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
       )
 
       const resetTimeout = setTimeout(() => {
