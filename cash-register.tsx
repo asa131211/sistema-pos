@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Lock, Unlock, Calculator } from 'lucide-react'
+import { Lock, Unlock, Calculator } from "lucide-react"
 import { toast } from "sonner"
 
 interface CashRegister {
@@ -44,18 +44,28 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
   // Auto-close at midnight
   useEffect(() => {
     const checkMidnightClose = () => {
+      // Usar zona horaria de Perú (America/Lima)
       const now = new Date()
-      const midnight = new Date()
-      midnight.setHours(24, 0, 0, 0) // Next midnight
+      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      const timeUntilMidnight = midnight.getTime() - now.getTime()
+      const midnight = new Date(peruTime)
+      midnight.setHours(24, 0, 0, 0) // Próxima medianoche
+
+      const timeUntilMidnight = midnight.getTime() - peruTime.getTime()
+
+      console.log(
+        `🕛 Auto-cierre de caja programado para: ${midnight.toLocaleString("es-PE", { timeZone: "America/Lima" })}`,
+      )
+      console.log(
+        `⏱️ Tiempo restante: ${Math.floor(timeUntilMidnight / (1000 * 60 * 60))}h ${Math.floor((timeUntilMidnight % (1000 * 60 * 60)) / (1000 * 60))}m`,
+      )
 
       const midnightTimeout = setTimeout(() => {
         if (cashRegister?.isOpen) {
-          console.log("🕛 Auto-cerrando caja a las 12:00 AM")
+          console.log("🕛 Auto-cerrando caja a las 12:00 AM (hora de Perú)")
           closeCashRegister(true) // true = auto close
         }
-        // Set up next midnight check
+        // Programar próximo cierre automático
         checkMidnightClose()
       }, timeUntilMidnight)
 
@@ -221,7 +231,7 @@ export default function CashRegister({ onStatusChange }: CashRegisterProps) {
           <div className="space-y-4">
             <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
               <p className="text-sm text-yellow-700 text-center">
-                ⏰ <strong>Nota:</strong> La caja se cerrará automáticamente a las 12:00 AM
+                ⏰ <strong>Nota:</strong> La caja se cerrará automáticamente a las 12:00 AM (hora de Perú)
               </p>
             </div>
             <div className="flex space-x-2">

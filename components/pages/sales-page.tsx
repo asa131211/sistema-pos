@@ -522,19 +522,6 @@ export default function SalesPage({
       align-items: center !important;
       margin-top: 8px !important;
       margin-bottom: 0px !important;
-      width: 100% !important;
-      height: auto !important;
-    }
-    
-    .logo img {
-      width: 90px !important;
-      height: 90px !important;
-      object-fit: contain !important;
-      display: block !important;
-      margin: 8px auto 4px auto !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      max-width: none !important;
     }
     
     .title {
@@ -640,9 +627,7 @@ export default function SalesPage({
         (ticket, index) => `
 <div class="ticket">
   <div class="header">
-    <div class="logo">
-      <img src="${window.location.origin}/tiger-logo-new.png" alt="Sanchez Park Logo" style="width: 90px !important; height: 90px !important; object-fit: contain !important; display: block !important; margin: 8px auto 4px auto !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
-    </div>
+    <div class="logo"><img src="/tiger-logo-new.png" alt="Logo" style="width: 90px; height: 90px; object-fit: contain; display: block; margin: 8px auto 4px auto;" /></div>
     <div class="title">SANCHEZ PARK</div>
     <div class="subtitle">${ticket.type}</div>
     <div class="number">#${ticket.ticketNumber}</div>
@@ -731,8 +716,13 @@ export default function SalesPage({
   }, [cart, promotion, user])
 
   const getBusinessDate = () => {
+    // Obtener la hora actual en zona horaria de Perú
     const now = new Date()
-    return now.toISOString().split("T")[0]
+    const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+
+    // La fecha de negocio es siempre el día actual en Perú
+    // Las ventas del mismo día calendario (00:00 - 23:59) pertenecen al mismo día de negocio
+    return peruTime.toISOString().split("T")[0]
   }
 
   const processSale = useCallback(async () => {

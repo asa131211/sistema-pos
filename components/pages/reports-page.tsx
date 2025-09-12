@@ -201,22 +201,27 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
 
           // Filtro de fecha
           if (dateFilter === "today") {
-            const today = new Date().toISOString().split("T")[0]
+            const now = new Date()
+            const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+            const today = peruTime.toISOString().split("T")[0]
             filteredSales = filteredSales.filter((sale) => sale.date === today)
           } else if (dateFilter === "yesterday") {
-            const yesterday = new Date()
-            yesterday.setDate(yesterday.getDate() - 1)
-            const yesterdayStr = yesterday.toISOString().split("T")[0]
+            const now = new Date()
+            const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+            peruTime.setDate(peruTime.getDate() - 1)
+            const yesterdayStr = peruTime.toISOString().split("T")[0]
             filteredSales = filteredSales.filter((sale) => sale.date === yesterdayStr)
           } else if (dateFilter === "week") {
-            const weekAgo = new Date()
-            weekAgo.setDate(weekAgo.getDate() - 7)
-            const weekAgoStr = weekAgo.toISOString().split("T")[0]
+            const now = new Date()
+            const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+            peruTime.setDate(peruTime.getDate() - 7)
+            const weekAgoStr = peruTime.toISOString().split("T")[0]
             filteredSales = filteredSales.filter((sale) => sale.date >= weekAgoStr)
           } else if (dateFilter === "month") {
-            const monthAgo = new Date()
-            monthAgo.setMonth(monthAgo.getMonth() - 1)
-            const monthAgoStr = monthAgo.toISOString().split("T")[0]
+            const now = new Date()
+            const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+            peruTime.setMonth(peruTime.getMonth() - 1)
+            const monthAgoStr = peruTime.toISOString().split("T")[0]
             filteredSales = filteredSales.filter((sale) => sale.date >= monthAgoStr)
           } else if (dateFilter === "specific" && specificDate) {
             filteredSales = filteredSales.filter((sale) => sale.date === specificDate)

@@ -1,5 +1,6 @@
 -- Sistema de reinicio automático diario
--- Este script configura el reinicio automático de ventas a las 7:00 AM
+-- Cambiado de 7:00 AM a 12:00 AM (medianoche) hora de Perú
+-- Este script configura el reinicio automático de ventas a las 12:00 AM
 
 -- Crear tabla para tracking de reinicios diarios
 CREATE TABLE IF NOT EXISTS daily_resets (
@@ -25,14 +26,17 @@ VALUES
     ('reset-2024-01-02', '2024-01-02', 980.75, 2)
 ON CONFLICT (id) DO NOTHING;
 
--- Configuración de horarios de reinicio
--- 7:00 AM = Reinicio automático del sistema
--- 6:55 AM = Notificación de advertencia (5 minutos antes)
--- 7:05 AM = Verificación de reinicio completado
+-- Configuración de horarios actualizada a medianoche hora de Perú
+-- 12:00 AM = Reinicio automático del día de ventas (NO del sistema completo)
+-- 11:55 PM = Notificación de advertencia (5 minutos antes)
+-- 12:05 AM = Verificación de reinicio completado
 
 -- Notas para implementación:
--- 1. El reinicio se maneja en el frontend con setTimeout
--- 2. Las cajas registradoras se cierran automáticamente
--- 3. Los reportes del día anterior se archivan
--- 4. Se limpia el caché local del navegador
--- 5. Se envían notificaciones a los usuarios activos
+-- 1. El reinicio se maneja en el frontend con setTimeout usando zona horaria de Perú
+-- 2. Las cajas registradoras se cierran automáticamente a las 12:00 AM
+-- 3. Solo se reinicia el día de ventas, NO todo el sistema
+-- 4. Los reportes del día anterior se archivan
+-- 5. Se limpia solo el caché de ventas del día, no todo el caché
+-- 6. Se envían notificaciones a los usuarios activos
+-- 7. Zona horaria: America/Lima (UTC-5)
+</sql>

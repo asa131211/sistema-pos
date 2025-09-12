@@ -35,10 +35,12 @@ export default function HomePage({ userRole, sidebarCollapsed = false }: HomePag
       const sales = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
 
       const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
-      const today = new Date().toDateString()
-      const todaySales = sales
-        .filter((sale) => new Date(sale.timestamp.toDate()).toDateString() === today)
-        .reduce((sum, sale) => sum + sale.total, 0)
+
+      const now = new Date()
+      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+      const today = peruTime.toISOString().split("T")[0]
+
+      const todaySales = sales.filter((sale) => sale.date === today).reduce((sum, sale) => sum + sale.total, 0)
 
       const cashSales = sales
         .filter((sale) => sale.paymentMethod === "efectivo")
@@ -48,18 +50,17 @@ export default function HomePage({ userRole, sidebarCollapsed = false }: HomePag
         .filter((sale) => sale.paymentMethod === "transferencia")
         .reduce((sum, sale) => sum + sale.total, 0)
 
-      // Datos para gráficos
       const last7Days = []
       for (let i = 6; i >= 0; i--) {
         const date = new Date()
-        date.setDate(date.getDate() - i)
-        const dateStr = date.toDateString()
-        const daySales = sales
-          .filter((sale) => new Date(sale.timestamp.toDate()).toDateString() === dateStr)
-          .reduce((sum, sale) => sum + sale.total, 0)
+        const peruDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Lima" }))
+        peruDate.setDate(peruDate.getDate() - i)
+        const dateStr = peruDate.toISOString().split("T")[0]
+
+        const daySales = sales.filter((sale) => sale.date === dateStr).reduce((sum, sale) => sum + sale.total, 0)
 
         last7Days.push({
-          date: date.toLocaleDateString("es-ES", { weekday: "short" }),
+          date: peruDate.toLocaleDateString("es-ES", { weekday: "short" }),
           ventas: daySales,
         })
       }

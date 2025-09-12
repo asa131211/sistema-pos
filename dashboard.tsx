@@ -87,21 +87,43 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [user])
 
-  // Auto-reset de ventas a las 7 AM
+  // Auto-reset de ventas a las 12 AM (medianoche) en la zona horaria de Perú
   useEffect(() => {
     const checkDailyReset = () => {
+      // Usar zona horaria de Perú (America/Lima)
       const now = new Date()
-      const resetTime = new Date()
-      resetTime.setHours(7, 0, 0, 0)
+      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      if (now > resetTime) {
+      const resetTime = new Date(peruTime)
+      resetTime.setHours(0, 0, 0, 0) // Medianoche (12:00 AM)
+
+      // Si ya pasó la medianoche de hoy, programar para mañana
+      if (peruTime >= resetTime) {
         resetTime.setDate(resetTime.getDate() + 1)
       }
 
-      const timeUntilReset = resetTime.getTime() - now.getTime()
+      const timeUntilReset = resetTime.getTime() - peruTime.getTime()
+
+      console.log(
+        `⏰ Próximo reinicio de día programado para: ${resetTime.toLocaleString("es-PE", { timeZone: "America/Lima" })}`,
+      )
+      console.log(
+        `⏱️ Tiempo restante: ${Math.floor(timeUntilReset / (1000 * 60 * 60))}h ${Math.floor((timeUntilReset % (1000 * 60 * 60)) / (1000 * 60))}m`,
+      )
 
       const resetTimeout = setTimeout(() => {
-        console.log("🔄 Reinicio automático del sistema a las 7:00 AM")
+        console.log("🌅 Iniciando nuevo día de ventas a las 12:00 AM (Perú)")
+
+        // Limpiar solo caché de ventas del día anterior
+        const salesCacheKeys = Object.keys(localStorage).filter(
+          (key) => key.includes("sales-") || key.includes("daily-"),
+        )
+        salesCacheKeys.forEach((key) => localStorage.removeItem(key))
+
+        // Mostrar notificación de nuevo día
+        console.log("✅ Nuevo día de ventas iniciado - Sistema continúa funcionando")
+
+        // Programar próximo reinicio
         checkDailyReset()
       }, timeUntilReset)
 

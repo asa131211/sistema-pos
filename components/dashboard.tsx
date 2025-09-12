@@ -213,34 +213,20 @@ export default function Dashboard() {
       const timeUntilReset = nextMidnight.getTime() - peruTime.getTime()
 
       console.log(
-        `[v0] 🧹 Próxima limpieza de cache programada para: ${nextMidnight.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
+        `[v0] 🔄 Próximo reset automático programado para: ${nextMidnight.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
       )
 
       const resetTimeout = setTimeout(() => {
-        console.log("🧹 Limpieza automática de cache a las 12:00 AM (Hora Perú)")
+        console.log("🔄 Reinicio automático del sistema a las 12:00 AM (Hora Perú)")
 
         try {
-          // SOLO limpiar caches temporales, NO datos de ventas
           const keysToRemove = Object.keys(localStorage).filter(
-            (key) =>
-              key.includes("products-cache") ||
-              key.includes("users-cache") ||
-              key.includes("user-role-") ||
-              key.includes("temp-cache"),
+            (key) => key.includes("-cache") || key.includes("user-role-"),
           )
-
-          // NO tocar caches de ventas o reportes
-          const protectedKeys = Object.keys(localStorage).filter(
-            (key) => key.includes("sales-cache") || key.includes("reports-cache") || key.includes("sales-data"),
-          )
-
           keysToRemove.forEach((key) => localStorage.removeItem(key))
-          console.log(`🧹 ${keysToRemove.length} caches temporales limpiados`)
-          console.log(`🔒 ${protectedKeys.length} caches de ventas protegidos`)
-
-          toast.info("🧹 Cache temporal limpiado - Datos de ventas preservados")
+          console.log(`🧹 ${keysToRemove.length} caches limpiados en reset automático`)
         } catch (error) {
-          console.warn("Error limpiando caches temporales:", error)
+          console.warn("Error limpiando caches en reset:", error)
         }
 
         checkDailyReset()
