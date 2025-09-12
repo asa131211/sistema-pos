@@ -39,16 +39,19 @@ export default function Dashboard() {
   useEffect(() => {
     const checkMidnightClose = () => {
       const now = new Date()
+
+      // Obtener la hora actual en Perú
       const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
-      // Calcular la próxima medianoche en Perú
-      const midnightPeru = new Date(peruTime)
-      midnightPeru.setHours(24, 0, 0, 0)
+      // Calcular la próxima medianoche en Perú (00:00:00 del día siguiente)
+      const nextMidnight = new Date(peruTime)
+      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
+      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
 
-      // Convertir de vuelta a hora local para el timeout
-      const timeUntilMidnight = midnightPeru.getTime() - peruTime.getTime()
+      // Calcular cuántos milisegundos faltan hasta medianoche en Perú
+      const timeUntilMidnight = nextMidnight.getTime() - peruTime.getTime()
 
-      const midnightFormatted = midnightPeru.toLocaleString("es-PE", {
+      const midnightFormatted = nextMidnight.toLocaleString("es-PE", {
         timeZone: "America/Lima",
         year: "numeric",
         month: "2-digit",
@@ -60,6 +63,7 @@ export default function Dashboard() {
 
       console.log(`[v0] 🕛 Próximo cierre automático programado para: ${midnightFormatted} (Hora de Perú)`)
       console.log(`[v0] ⏰ Tiempo restante: ${Math.round(timeUntilMidnight / 1000 / 60)} minutos`)
+      console.log(`[v0] 🌎 Hora actual en Perú: ${peruTime.toLocaleString("es-PE", { timeZone: "America/Lima" })}`)
 
       if (cashRegisterStatus?.isOpen) {
         console.log(`[v0] ✅ Caja está ABIERTA - Timer activado`)
@@ -202,26 +206,41 @@ export default function Dashboard() {
       const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
 
       // Calcular la próxima medianoche en Perú para el reset
-      const resetTime = new Date(peruTime)
-      resetTime.setHours(24, 0, 0, 0)
+      const nextMidnight = new Date(peruTime)
+      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
+      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
 
-      const timeUntilReset = resetTime.getTime() - peruTime.getTime()
+      const timeUntilReset = nextMidnight.getTime() - peruTime.getTime()
 
       console.log(
-        `[v0] 🔄 Próximo reset automático programado para: ${resetTime.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
+        `[v0] 🧹 Próxima limpieza de cache programada para: ${nextMidnight.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
       )
 
       const resetTimeout = setTimeout(() => {
-        console.log("🔄 Reinicio automático del sistema a las 12:00 AM (Hora Perú)")
+        console.log("🧹 Limpieza automática de cache a las 12:00 AM (Hora Perú)")
 
         try {
+          // SOLO limpiar caches temporales, NO datos de ventas
           const keysToRemove = Object.keys(localStorage).filter(
-            (key) => key.includes("-cache") || key.includes("user-role-"),
+            (key) =>
+              key.includes("products-cache") ||
+              key.includes("users-cache") ||
+              key.includes("user-role-") ||
+              key.includes("temp-cache"),
           )
+
+          // NO tocar caches de ventas o reportes
+          const protectedKeys = Object.keys(localStorage).filter(
+            (key) => key.includes("sales-cache") || key.includes("reports-cache") || key.includes("sales-data"),
+          )
+
           keysToRemove.forEach((key) => localStorage.removeItem(key))
-          console.log(`🧹 ${keysToRemove.length} caches limpiados en reset automático`)
+          console.log(`🧹 ${keysToRemove.length} caches temporales limpiados`)
+          console.log(`🔒 ${protectedKeys.length} caches de ventas protegidos`)
+
+          toast.info("🧹 Cache temporal limpiado - Datos de ventas preservados")
         } catch (error) {
-          console.warn("Error limpiando caches en reset:", error)
+          console.warn("Error limpiando caches temporales:", error)
         }
 
         checkDailyReset()
