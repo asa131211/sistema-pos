@@ -4,8 +4,8 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore"
-import { createUserWithEmailAndPassword } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth"
+import { db, adminAuth } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,7 +81,9 @@ export default function UsersPage({ sidebarCollapsed = false }: UsersPageProps) 
         const emailFormat = `${formData.username}@sistema-pos.local`
 
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, emailFormat, formData.password)
+          const userCredential = await createUserWithEmailAndPassword(adminAuth, emailFormat, formData.password)
+
+          await signOut(adminAuth)
 
           // CORREGIDO: Usar setDoc en lugar de addDoc para usar el UID como ID del documento
           await setDoc(doc(db, "users", userCredential.user.uid), {

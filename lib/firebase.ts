@@ -14,6 +14,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 
+const adminApp = initializeApp(firebaseConfig, "admin")
+
 export const auth = getAuth(app)
+export const adminAuth = getAuth(adminApp) // Nueva instancia para crear usuarios
 export const db = getFirestore(app)
 export const storage = getStorage(app)
