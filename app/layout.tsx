@@ -14,6 +14,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   themeColor: "#3b82f6",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+  applicationName: "Sanchez Park POS",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sanchez Park",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   openGraph: {
     title: "Sanchez Park",
   },
@@ -22,11 +31,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/tiger-logo.png", sizes: "32x32", type: "image/png" },
-      { url: "/tiger-logo.png", sizes: "16x16", type: "image/png" },
+      { url: "/icono.ico", sizes: "32x32", type: "image/x-icon" },
+      { url: "/icono.ico", sizes: "16x16", type: "image/x-icon" },
     ],
-    apple: [{ url: "/tiger-logo.png", sizes: "180x180", type: "image/png" }],
-    shortcut: "/tiger-logo.png",
+    apple: [{ url: "/icono.ico", sizes: "180x180", type: "image/x-icon" }],
+    shortcut: "/icono.ico",
   },
   generator: "v0.dev",
 }
@@ -41,9 +50,13 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#3b82f6" />
-        <link rel="apple-touch-icon" href="/tiger-logo.png" />
-        <link rel="icon" href="/tiger-logo.png" />
-        <link rel="shortcut icon" href="/tiger-logo.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Sanchez Park" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/icono.ico" />
+        <link rel="icon" href="/icono.ico" />
+        <link rel="shortcut icon" href="/icono.ico" />
       </head>
       <body className={inter.className}>
         <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
