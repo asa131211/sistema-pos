@@ -201,42 +201,11 @@ export default function Dashboard() {
 
   // Auto-reset de ventas a las 12:00 AM hora de Perú
   useEffect(() => {
-    const checkDailyReset = () => {
-      const now = new Date()
-      const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+    console.log("[v0] ⚠️ Reset automático DESHABILITADO por seguridad de datos")
+    console.log("[v0] 📝 Motivo: Prevenir pérdida accidental de datos de ventas")
 
-      // Calcular la próxima medianoche en Perú para el reset
-      const nextMidnight = new Date(peruTime)
-      nextMidnight.setDate(nextMidnight.getDate() + 1) // Día siguiente
-      nextMidnight.setHours(0, 0, 0, 0) // Medianoche exacta
-
-      const timeUntilReset = nextMidnight.getTime() - peruTime.getTime()
-
-      console.log(
-        `[v0] 🔄 Próximo reset automático programado para: ${nextMidnight.toLocaleString("es-PE", { timeZone: "America/Lima" })} (Hora de Perú)`,
-      )
-
-      const resetTimeout = setTimeout(() => {
-        console.log("🔄 Reinicio automático del sistema a las 12:00 AM (Hora Perú)")
-
-        try {
-          const keysToRemove = Object.keys(localStorage).filter(
-            (key) => key.includes("-cache") || key.includes("user-role-"),
-          )
-          keysToRemove.forEach((key) => localStorage.removeItem(key))
-          console.log(`🧹 ${keysToRemove.length} caches limpiados en reset automático`)
-        } catch (error) {
-          console.warn("Error limpiando caches en reset:", error)
-        }
-
-        checkDailyReset()
-      }, timeUntilReset)
-
-      return () => clearTimeout(resetTimeout)
-    }
-
-    const cleanup = checkDailyReset()
-    return cleanup
+    // Retornar función de limpieza vacía
+    return () => {}
   }, [])
 
   if (loading) {
