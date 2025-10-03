@@ -186,6 +186,7 @@ const CartItem = memo(
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="efectivo">💵 Efectivo</SelectItem>
               <SelectItem value="transferencia">💳 Transferencia</SelectItem>
             </SelectContent>
           </Select>
@@ -402,7 +403,7 @@ export default function SalesPage({
           productName: item.name,
           productPrice: item.price,
           saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: item.paymentMethod === "Transferencia",
+          paymentMethod: item.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
           seller: user?.displayName || user?.email || "Vendedor",
           isFree: false,
           type: "PAGADO",
@@ -752,7 +753,7 @@ export default function SalesPage({
           cash: cashTotal,
           transfer: transferTotal,
         },
-        paymentMethod: cashTotal > 0 && transferTotal > 0 ? "transferencia" : cashTotal > 0 ? "transferencia", // Para compatibilidad
+        paymentMethod: cashTotal > 0 && transferTotal > 0 ? "mixto" : cashTotal > 0 ? "efectivo" : "transferencia", // Para compatibilidad
         sellerId: user?.uid,
         sellerEmail: user?.email,
         timestamp: new Date(),
@@ -981,6 +982,16 @@ export default function SalesPage({
 
                     <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-600 space-y-0.5">
                       <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                        <span className="text-green-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "efectivo")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
                         <span className="text-blue-600 font-medium">
                           S/.{" "}
@@ -1081,6 +1092,16 @@ export default function SalesPage({
 
                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl space-y-2">
                   <h4 className="font-medium text-gray-700 dark:text-gray-300 text-sm">Desglose por Método de Pago:</h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                    <span className="font-bold text-green-600">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "efectivo")
+                        .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
                     <span className="font-bold text-blue-600">
@@ -1198,6 +1219,16 @@ export default function SalesPage({
                     </div>
 
                     <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                        <span className="text-green-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "efectivo")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
                         <span className="text-blue-600 font-medium">
