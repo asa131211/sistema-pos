@@ -38,6 +38,7 @@ interface Product {
 
 interface CartItem extends Product {
   quantity: number
+  paymentMethod: string // Agregando método de pago individual por producto
 }
 
 interface SalesPageProps {
@@ -131,10 +132,12 @@ const CartItem = memo(
     item,
     onUpdateQuantity,
     onRemove,
+    updatePaymentMethod,
   }: {
     item: CartItem
     onUpdateQuantity: (id: string, change: number) => void
     onRemove: (id: string) => void
+    updatePaymentMethod: (id: string, paymentMethod: string) => void
   }) => {
     const handleIncrease = useCallback(() => onUpdateQuantity(item.id, 1), [item.id, onUpdateQuantity])
     const handleDecrease = useCallback(() => onUpdateQuantity(item.id, -1), [item.id, onUpdateQuantity])
@@ -175,6 +178,18 @@ const CartItem = memo(
               <Trash2 className="h-2.5 w-2.5" />
             </Button>
           </div>
+        </div>
+
+        <div className="pl-8">
+          <Select value={item.paymentMethod} onValueChange={(value) => updatePaymentMethod(item.id, value)}>
+            <SelectTrigger className="w-full h-6 text-xs bg-white dark:bg-gray-700">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="efectivo">💵 Efectivo</SelectItem>
+              <SelectItem value="transferencia">💳 Transferencia</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     )
@@ -326,11 +341,15 @@ export default function SalesPage({
         if (existingItem) {
           return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
         }
-        return [...prev, { ...product, quantity: 1 }]
+        return [...prev, { ...product, quantity: 1, paymentMethod: "efectivo" }]
       })
     },
     [cashRegisterStatus?.isOpen],
   )
+
+  const updatePaymentMethod = useCallback((id: string, paymentMethod: string) => {
+    setCart((prev) => prev.map((item) => (item.id === id ? { ...item, paymentMethod } : item)))
+  }, [])
 
   const removeFromCart = useCallback((id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id))
@@ -342,18 +361,12 @@ export default function SalesPage({
 
   const updateQuantity = useCallback((id: string, change: number) => {
     setCart((prev) => {
-      return prev
-        .map((item) => {
-          if (item.id === id) {
-            const newQuantity = item.quantity + change
-            if (newQuantity <= 0) {
-              return null // Eliminar si la cantidad es 0 o menos
-            }
-            return { ...item, quantity: newQuantity }
-          }
-          return item
-        })
-        .filter(Boolean) as CartItem[] // Filtrar nulos y asegurar tipo
+      return prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, quantity: item.quantity + change }
+        }
+        return item
+      })
     })
   }, [])
 
@@ -390,7 +403,7 @@ export default function SalesPage({
           productName: item.name,
           productPrice: item.price,
           saleDate: new Date().toLocaleString("es-ES"),
-          paymentMethod: "transferencia" === "efectivo" ? "Efectivo" : "Transferencia",
+          paymentMethod: item.paymentMethod === "efectivo" ? "Efectivo" : "Transferencia",
           seller: user?.displayName || user?.email || "Vendedor",
           isFree: false,
           type: "PAGADO",
@@ -725,7 +738,11 @@ export default function SalesPage({
 
     setProcessing(true)
     try {
-      const transferTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const cashItems = cart.filter((item) => item.paymentMethod === "efectivo")
+      const transferItems = cart.filter((item) => item.paymentMethod === "transferencia")
+
+      const cashTotal = cashItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const transferTotal = transferItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
       const businessDate = getBusinessDate()
 
@@ -733,10 +750,10 @@ export default function SalesPage({
         items: cart,
         total: totalAmount,
         paymentBreakdown: {
-          cash: 0,
+          cash: cashTotal,
           transfer: transferTotal,
         },
-        paymentMethod: "transferencia", // Método de pago global
+        paymentMethod: cashTotal > 0 && transferTotal > 0 ? "mixto" : cashTotal > 0 ? "efectivo" : "transferencia", // Para compatibilidad
         sellerId: user?.uid,
         sellerEmail: user?.email,
         timestamp: new Date(),
@@ -756,6 +773,7 @@ export default function SalesPage({
         // Modo online
         await addDoc(collection(db, "sales"), saleData)
 
+        // Actualizar caja registradora
         const cashRegId = `${user?.uid}-${businessDate}`
         const cashRegRef = doc(db, "cash-registers", cashRegId)
         const cashRegDoc = await getDoc(cashRegRef)
@@ -765,9 +783,9 @@ export default function SalesPage({
 
           const updatedData = {
             totalSales: currentData.totalSales + totalAmount,
-            cashSales: currentData.cashSales,
+            cashSales: currentData.cashSales + cashTotal,
             transferSales: currentData.transferSales + transferTotal,
-            currentAmount: currentData.currentAmount, // Solo efectivo afecta el monto físico
+            currentAmount: currentData.currentAmount + cashTotal, // Solo efectivo afecta el monto físico
           }
 
           await updateDoc(cashRegRef, updatedData)
@@ -947,6 +965,7 @@ export default function SalesPage({
                           item={item}
                           onUpdateQuantity={(id, change) => updateQuantity(id, change)}
                           onRemove={(id) => removeFromCart(id)}
+                          updatePaymentMethod={(id, paymentMethod) => updatePaymentMethod(id, paymentMethod)}
                         />
                       ))}
                     </div>
@@ -961,10 +980,26 @@ export default function SalesPage({
                       <span className="text-lg font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
                     </div>
 
-                    <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
+                    <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-600 space-y-0.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                        <span className="text-green-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "efectivo")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
-                        <span className="text-blue-600 font-medium">S/. {totalAmount.toFixed(2)}</span>
+                        <span className="text-blue-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "transferencia")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1056,10 +1091,26 @@ export default function SalesPage({
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl space-y-2">
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 text-sm">Método de Pago:</h4>
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 text-sm">Desglose por Método de Pago:</h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                    <span className="font-bold text-green-600">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "efectivo")
+                        .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
-                    <span className="font-bold text-blue-600">S/. {totalAmount.toFixed(2)}</span>
+                    <span className="font-bold text-blue-600">
+                      S/.{" "}
+                      {cart
+                        .filter((item) => item.paymentMethod === "transferencia")
+                        .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                        .toFixed(2)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1151,6 +1202,7 @@ export default function SalesPage({
                         item={item}
                         onUpdateQuantity={(id, change) => updateQuantity(id, change)}
                         onRemove={(id) => removeFromCart(id)}
+                        updatePaymentMethod={(id, paymentMethod) => updatePaymentMethod(id, paymentMethod)}
                       />
                     ))}
                   </div>
@@ -1166,10 +1218,26 @@ export default function SalesPage({
                       <span className="text-xl font-bold text-green-600">S/. {totalAmount.toFixed(2)}</span>
                     </div>
 
-                    <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">💵 Efectivo:</span>
+                        <span className="text-green-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "efectivo")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400">💳 Transferencia:</span>
-                        <span className="text-blue-600 font-medium">S/. {totalAmount.toFixed(2)}</span>
+                        <span className="text-blue-600 font-medium">
+                          S/.{" "}
+                          {cart
+                            .filter((item) => item.paymentMethod === "transferencia")
+                            .reduce((sum, item) => sum + item.price * item.quantity, 0)
+                            .toFixed(2)}
+                        </span>
                       </div>
                     </div>
                   </div>
