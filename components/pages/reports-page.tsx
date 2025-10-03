@@ -495,7 +495,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     if (sale.paymentBreakdown) {
       return sum + sale.paymentBreakdown.transfer
     }
-    // Fallback para ventas antiguas
     return sale.paymentMethod === "transferencia" ? sum + sale.total : sum
   }, 0)
 
@@ -674,7 +673,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
                   <SelectItem value="transferencia">Transferencia</SelectItem>
                 </SelectContent>
               </Select>
@@ -818,12 +816,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                           S/. {seller.totalSales.toFixed(2)}
                         </p>
                       </div>
-                      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                        <p className="text-sm text-green-600 dark:text-green-400">Efectivo</p>
-                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                          S/. {seller.cashSales.toFixed(2)}
-                        </p>
-                      </div>
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                         <p className="text-sm text-blue-600 dark:text-blue-400">Transferencia</p>
                         <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
@@ -905,18 +897,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900 dark:text-white">Efectivo</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-green-600">S/. {cashSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((cashSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
-                  </div>
-                </div>
                 <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -924,9 +904,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-blue-600">S/. {transferSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((transferSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">100%</div>
                   </div>
                 </div>
               </div>
