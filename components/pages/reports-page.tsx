@@ -1,18 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  collection,
-  query,
-  onSnapshot,
-  orderBy,
-  getDocs,
-  doc,
-  writeBatch,
-  addDoc,
-  serverTimestamp,
-  limit,
-} from "firebase/firestore"
+import { collection, query, onSnapshot, orderBy, getDocs, limit } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/lib/firebase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,9 +26,9 @@ import {
   Package,
   Gift,
   Trash2,
-  AlertTriangle,
-  RefreshCw,
   Database,
+  Clock,
+  Shield,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -84,13 +73,17 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const [sellerFilter, setSellerFilter] = useState("all")
   const [specificDate, setSpecificDate] = useState("")
 
+  const [hourFilter, setHourFilter] = useState("all")
+  const [customStartHour, setCustomStartHour] = useState("")
+  const [customEndHour, setCustomEndHour] = useState("")
+
   // Estados para el reseteo
   const [showResetDialog, setShowResetDialog] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [isResetting, setIsResetting] = useState(false)
 
   const getCacheKey = () => {
-    return `reports-cache-${dateFilter}-${paymentFilter}-${sellerFilter}-${specificDate}`
+    return `reports-cache-${dateFilter}-${paymentFilter}-${sellerFilter}-${specificDate}-${hourFilter}`
   }
 
   const getCachedData = () => {
@@ -227,6 +220,41 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             filteredSales = filteredSales.filter((sale) => sale.date === specificDate)
           }
 
+          if (hourFilter !== "all") {
+            const now = new Date()
+            const peruTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Lima" }))
+            const today = peruTime.toISOString().split("T")[0]
+
+            // Get yesterday's date
+            const yesterdayTime = new Date(peruTime)
+            yesterdayTime.setDate(yesterdayTime.getDate() - 1)
+            const yesterday = yesterdayTime.toISOString().split("T")[0]
+
+            if (hourFilter === "custom") {
+              const startHour = Number.parseInt(customStartHour) || 0
+              const endHour = Number.parseInt(customEndHour) || 23
+
+              filteredSales = filteredSales.filter((sale) => {
+                const saleDate = new Date(sale.timestamp?.toDate?.() || sale.timestamp)
+                const saleDateStr = saleDate.toISOString().split("T")[0]
+                const saleHour = saleDate.getHours()
+
+                return (
+                  (saleDateStr === today || saleDateStr === yesterday) && saleHour >= startHour && saleHour <= endHour
+                )
+              })
+            } else {
+              const targetHour = Number.parseInt(hourFilter)
+              filteredSales = filteredSales.filter((sale) => {
+                const saleDate = new Date(sale.timestamp?.toDate?.() || sale.timestamp)
+                const saleDateStr = sale.date
+                const saleHour = saleDate.getHours()
+
+                return (saleDateStr === today || saleDateStr === yesterday) && saleHour === targetHour
+              })
+            }
+          }
+
           // Filtro de método de pago
           if (paymentFilter !== "all") {
             filteredSales = filteredSales.filter((sale) => sale.paymentMethod === paymentFilter)
@@ -256,7 +284,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       toast.error("Error al configurar los reportes")
       setLoading(false)
     }
-  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+  }, [dateFilter, paymentFilter, sellerFilter, specificDate, hourFilter, customStartHour, customEndHour])
 
   useEffect(() => {
     // Limpiar cache anterior cuando cambian los filtros
@@ -264,9 +292,9 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       (key) => key.startsWith("reports-cache-") && key !== getCacheKey(),
     )
     oldCacheKeys.forEach((key) => localStorage.removeItem(key))
-  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+  }, [dateFilter, paymentFilter, sellerFilter, specificDate, hourFilter])
 
-  // Función para resetear todas las ventas
+  /*
   const resetAllSalesData = async () => {
     if (confirmText !== "VACIAR VENTAS") {
       toast.error("Debes escribir exactamente 'VACIAR VENTAS' para confirmar")
@@ -348,10 +376,18 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       console.log("✅ Vaciado de ventas completado exitosamente")
     } catch (error) {
       console.error("❌ Error durante el vaciado:", error)
-      toast.error("Error al vaciar los datos de ventas: " + error.message)
+      toast.error("Error al vaciar datos de ventas")
     } finally {
       setIsResetting(false)
     }
+  }
+  */
+
+  const showResetWarning = () => {
+    toast.error("⚠️ Función de vaciado deshabilitada por seguridad", {
+      description: "Esta función ha sido deshabilitada para prevenir pérdida accidental de datos",
+      duration: 5000,
+    })
   }
 
   // Función para exportar datos antes del vaciado
@@ -459,7 +495,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     if (sale.paymentBreakdown) {
       return sum + sale.paymentBreakdown.transfer
     }
-    // Fallback para ventas antiguas
     return sale.paymentMethod === "transferencia" ? sum + sale.total : sum
   }, 0)
 
@@ -548,7 +583,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             <Filter className="h-5 w-5 text-purple-600" />
             <h3 className="font-semibold text-gray-900 dark:text-white">Filtros</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Período</Label>
               <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -581,6 +616,56 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             )}
 
             <div>
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                <Clock className="h-4 w-4 inline mr-1" />
+                Hora (Hoy y Ayer)
+              </Label>
+              <Select value={hourFilter} onValueChange={setHourFilter}>
+                <SelectTrigger className="border-gray-200 dark:border-gray-600">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las horas</SelectItem>
+                  <SelectItem value="custom">Rango personalizado</SelectItem>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <SelectItem key={i} value={i.toString()}>
+                      {i.toString().padStart(2, "0")}:00 - {(i + 1).toString().padStart(2, "0")}:00
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {hourFilter === "custom" && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-600 dark:text-gray-400">Hora inicio</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="23"
+                      placeholder="0"
+                      value={customStartHour}
+                      onChange={(e) => setCustomStartHour(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-600 dark:text-gray-400">Hora fin</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="23"
+                      placeholder="23"
+                      value={customEndHour}
+                      onChange={(e) => setCustomEndHour(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div>
               <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Método de Pago</Label>
               <Select value={paymentFilter} onValueChange={setPaymentFilter}>
                 <SelectTrigger className="border-gray-200 dark:border-gray-600">
@@ -588,7 +673,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
                   <SelectItem value="transferencia">Transferencia</SelectItem>
                 </SelectContent>
               </Select>
@@ -612,6 +696,17 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             </div>
           </div>
         </div>
+
+        {hourFilter !== "all" && (
+          <div className="mb-4">
+            <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700">
+              <Clock className="h-3 w-3 mr-1" />
+              {hourFilter === "custom"
+                ? `Mostrando ventas de ${(customStartHour || "0").padStart(2, "0")}:00 - ${(customEndHour || "23").padStart(2, "0")}:00 (Hoy y Ayer)`
+                : `Mostrando ventas de las ${hourFilter.padStart(2, "0")}:00 - ${(Number.parseInt(hourFilter) + 1).toString().padStart(2, "0")}:00 (Hoy y Ayer)`}
+            </Badge>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -721,12 +816,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                           S/. {seller.totalSales.toFixed(2)}
                         </p>
                       </div>
-                      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                        <p className="text-sm text-green-600 dark:text-green-400">Efectivo</p>
-                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                          S/. {seller.cashSales.toFixed(2)}
-                        </p>
-                      </div>
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                         <p className="text-sm text-blue-600 dark:text-blue-400">Transferencia</p>
                         <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
@@ -808,18 +897,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900 dark:text-white">Efectivo</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-green-600">S/. {cashSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((cashSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
-                  </div>
-                </div>
                 <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -827,9 +904,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-blue-600">S/. {transferSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((transferSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">100%</div>
                   </div>
                 </div>
               </div>
@@ -988,7 +1063,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           </CardContent>
         </Card>
 
-        {/* Dialog de Confirmación para Vaciar Ventas */}
+        {/*
         <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
           <DialogContent className="max-w-md bg-white dark:bg-gray-900">
             <DialogHeader>
@@ -1078,6 +1153,50 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                   Cancelar
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        */}
+
+        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+          <DialogContent className="max-w-md bg-white dark:bg-gray-900">
+            <DialogHeader>
+              <DialogTitle className="text-center text-xl font-bold text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                <Shield className="h-6 w-6 mr-2" />
+                Función Deshabilitada
+              </DialogTitle>
+              <DialogDescription className="text-center text-gray-600 dark:text-gray-400">
+                Esta función ha sido deshabilitada por seguridad
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+                <Shield className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-700 dark:text-amber-300">
+                  <strong>Protección de Datos Activada</strong>
+                  <p className="mt-1 text-sm">
+                    La función de vaciado de ventas ha sido deshabilitada para prevenir pérdida accidental de datos
+                    importantes.
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center">
+                  <Database className="h-4 w-4 mr-2" />
+                  Alternativas Seguras:
+                </h4>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <li>• Exportar reportes para archivo</li>
+                  <li>• Filtrar por fechas específicas</li>
+                  <li>• Contactar al administrador del sistema</li>
+                </ul>
+              </div>
+
+              <Button onClick={() => setShowResetDialog(false)} className="w-full">
+                Entendido
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
