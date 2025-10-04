@@ -18,7 +18,6 @@ export default function HomePage({ userRole, sidebarCollapsed = false }: HomePag
     totalProducts: 0,
     totalUsers: 0,
     todaySales: 0,
-    cashSales: 0,
     transferSales: 0,
   })
   const [salesData, setSalesData] = useState([])
@@ -42,13 +41,7 @@ export default function HomePage({ userRole, sidebarCollapsed = false }: HomePag
 
       const todaySales = sales.filter((sale) => sale.date === today).reduce((sum, sale) => sum + sale.total, 0)
 
-      const cashSales = sales
-        .filter((sale) => sale.paymentMethod === "efectivo")
-        .reduce((sum, sale) => sum + sale.total, 0)
-
-      const transferSales = sales
-        .filter((sale) => sale.paymentMethod === "transferencia")
-        .reduce((sum, sale) => sum + sale.total, 0)
+      const transferSales = sales.reduce((sum, sale) => sum + sale.total, 0)
 
       const last7Days = []
       for (let i = 6; i >= 0; i--) {
@@ -70,7 +63,6 @@ export default function HomePage({ userRole, sidebarCollapsed = false }: HomePag
         ...prev,
         totalSales,
         todaySales,
-        cashSales,
         transferSales,
       }))
     })
@@ -186,18 +178,13 @@ export default function HomePage({ userRole, sidebarCollapsed = false }: HomePag
 
           <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardHeader>
-              <CardTitle className="text-gray-900 dark:text-white">Métodos de Pago</CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">Distribución de ventas</CardDescription>
+              <CardTitle className="text-gray-900 dark:text-white">Método de Pago</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                Todas las ventas por transferencia
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-gray-900 dark:text-white">Efectivo</span>
-                  </div>
-                  <span className="font-medium text-gray-900 dark:text-white">S/. {stats.cashSales.toFixed(2)}</span>
-                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>

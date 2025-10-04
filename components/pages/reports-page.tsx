@@ -80,7 +80,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState("today")
-  const [paymentFilter, setPaymentFilter] = useState("all")
   const [sellerFilter, setSellerFilter] = useState("all")
   const [specificDate, setSpecificDate] = useState("")
 
@@ -90,7 +89,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const [isResetting, setIsResetting] = useState(false)
 
   const getCacheKey = () => {
-    return `reports-cache-${dateFilter}-${paymentFilter}-${sellerFilter}-${specificDate}`
+    return `reports-cache-${dateFilter}-${sellerFilter}-${specificDate}`
   }
 
   const getCachedData = () => {
@@ -227,11 +226,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             filteredSales = filteredSales.filter((sale) => sale.date === specificDate)
           }
 
-          // Filtro de método de pago
-          if (paymentFilter !== "all") {
-            filteredSales = filteredSales.filter((sale) => sale.paymentMethod === paymentFilter)
-          }
-
           // Filtro de vendedor
           if (sellerFilter !== "all") {
             filteredSales = filteredSales.filter((sale) => sale.sellerId === sellerFilter)
@@ -256,7 +250,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       toast.error("Error al configurar los reportes")
       setLoading(false)
     }
-  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+  }, [dateFilter, sellerFilter, specificDate]) // Removed paymentFilter dependency
 
   useEffect(() => {
     // Limpiar cache anterior cuando cambian los filtros
@@ -264,7 +258,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       (key) => key.startsWith("reports-cache-") && key !== getCacheKey(),
     )
     oldCacheKeys.forEach((key) => localStorage.removeItem(key))
-  }, [dateFilter, paymentFilter, sellerFilter, specificDate])
+  }, [dateFilter, sellerFilter, specificDate])
 
   // Función para resetear todas las ventas
   const resetAllSalesData = async () => {
@@ -410,7 +404,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           name: sellerName,
           email: sale.sellerEmail,
           totalSales: 0,
-          cashSales: 0,
           transferSales: 0,
           totalTransactions: 0,
           promotions: 0,
@@ -422,17 +415,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       sellerStats[sellerId].totalTransactions += 1
       sellerStats[sellerId].sales.push(sale)
 
-      if (sale.paymentBreakdown) {
-        sellerStats[sellerId].cashSales += sale.paymentBreakdown.cash
-        sellerStats[sellerId].transferSales += sale.paymentBreakdown.transfer
-      } else {
-        // Fallback para ventas antiguas
-        if (sale.paymentMethod === "efectivo") {
-          sellerStats[sellerId].cashSales += sale.total
-        } else {
-          sellerStats[sellerId].transferSales += sale.total
-        }
-      }
+      sellerStats[sellerId].transferSales += sale.total
 
       if (sale.promotion?.hasPromotion) {
         sellerStats[sellerId].promotions += 1
@@ -447,21 +430,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
   const totalTransactions = sales.length
   const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0
 
-  const cashSales = sales.reduce((sum, sale) => {
-    if (sale.paymentBreakdown) {
-      return sum + sale.paymentBreakdown.cash
-    }
-    // Fallback para ventas antiguas
-    return sale.paymentMethod === "efectivo" ? sum + sale.total : sum
-  }, 0)
-
-  const transferSales = sales.reduce((sum, sale) => {
-    if (sale.paymentBreakdown) {
-      return sum + sale.paymentBreakdown.transfer
-    }
-    // Fallback para ventas antiguas
-    return sale.paymentMethod === "transferencia" ? sum + sale.total : sum
-  }, 0)
+  const transferSales = sales.reduce((sum, sale) => sum + sale.total, 0)
 
   // Productos más vendidos
   const productStats = sales.reduce(
@@ -483,7 +452,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
     .slice(0, 5)
 
   const exportToCSV = () => {
-    const headers = ["Fecha", "Hora", "Vendedor", "Total", "Efectivo", "Transferencia", "Productos", "Promoción"]
+    const headers = ["Fecha", "Hora", "Vendedor", "Total", "Transferencia", "Productos", "Promoción"]
     const csvData = sales.map((sale) => [
       new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleDateString("es-ES"),
       new Date(sale.timestamp?.toDate?.() || sale.timestamp).toLocaleTimeString("es-ES", {
@@ -493,8 +462,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
       }),
       sale.sellerEmail,
       `S/. ${sale.total.toFixed(2)}`,
-      `S/. ${(sale.paymentBreakdown?.cash || (sale.paymentMethod === "efectivo" ? sale.total : 0)).toFixed(2)}`,
-      `S/. ${(sale.paymentBreakdown?.transfer || (sale.paymentMethod === "transferencia" ? sale.total : 0)).toFixed(2)}`,
+      `S/. ${sale.total.toFixed(2)}`,
       sale.items.map((item) => `${item.name} (${item.quantity})`).join("; "),
       sale.promotion?.hasPromotion ? `Sí - ${sale.promotion.freeItems} gratis` : "No",
     ])
@@ -548,7 +516,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
             <Filter className="h-5 w-5 text-purple-600" />
             <h3 className="font-semibold text-gray-900 dark:text-white">Filtros</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Período</Label>
               <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -579,20 +547,6 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                 />
               </div>
             )}
-
-            <div>
-              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Método de Pago</Label>
-              <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                <SelectTrigger className="border-gray-200 dark:border-gray-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
-                  <SelectItem value="transferencia">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             <div>
               <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Vendedor</Label>
@@ -714,17 +668,11 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Total Vendido</p>
                         <p className="text-lg font-bold text-gray-900 dark:text-white">
                           S/. {seller.totalSales.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                        <p className="text-sm text-green-600 dark:text-green-400">Efectivo</p>
-                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                          S/. {seller.cashSales.toFixed(2)}
                         </p>
                       </div>
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
@@ -801,25 +749,13 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
           {/* Payment Methods */}
           <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Métodos de Pago</CardTitle>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Método de Pago</CardTitle>
               <CardDescription className="text-gray-600 dark:text-gray-400">
-                Distribución de ventas por método de pago
+                Todas las ventas por transferencia
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="font-medium text-gray-900 dark:text-white">Efectivo</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-green-600">S/. {cashSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((cashSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
-                  </div>
-                </div>
                 <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -827,9 +763,7 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-blue-600">S/. {transferSales.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {totalSales > 0 ? ((transferSales / totalSales) * 100).toFixed(1) : 0}%
-                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">100%</div>
                   </div>
                 </div>
               </div>
@@ -939,32 +873,9 @@ export default function ReportsPage({ sidebarCollapsed = false }: ReportsPagePro
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {sale.paymentBreakdown ? (
-                              <>
-                                {sale.paymentBreakdown.cash > 0 && (
-                                  <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700 text-xs">
-                                    💵 S/. {sale.paymentBreakdown.cash.toFixed(2)}
-                                  </Badge>
-                                )}
-                                {sale.paymentBreakdown.transfer > 0 && (
-                                  <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700 text-xs">
-                                    💳 S/. {sale.paymentBreakdown.transfer.toFixed(2)}
-                                  </Badge>
-                                )}
-                              </>
-                            ) : (
-                              <Badge
-                                className={
-                                  sale.paymentMethod === "efectivo"
-                                    ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700"
-                                    : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700"
-                                }
-                              >
-                                {sale.paymentMethod === "efectivo" ? "💵 Efectivo" : "💳 Transferencia"}
-                              </Badge>
-                            )}
-                          </div>
+                          <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700">
+                            💳 Transferencia
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {sale.promotion?.hasPromotion ? (
